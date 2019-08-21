@@ -1,13 +1,13 @@
 <!-- 
 Author: Yi Herng Ong
 Purpose: XML model of j2s7s300 kinova jaco arm
-
+Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
  -->
 
 <mujoco model="j2s7s300">
     <compiler angle="radian" meshdir="meshes/" />
-    <option timestep ="0.0001">
+    <option timestep ="0.002"> 
     	
     </option>
     <!-- <size njmax="500" nconmax="100" /> -->
@@ -178,9 +178,9 @@ Purpose: XML model of j2s7s300 kinova jaco arm
 	<!-- ======================= Position actuators ================================ -->
 	<actuator>
 		<!-- <position joint="j2s7s300_joint_7" kp="1000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></position> -->
-		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="1"/>
-		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="1"/>
-		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="1"/>
+		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="10"/>
+		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="10"/>
+		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="10"/>
 		<!-- <velocity joint="j2s7s300_joint_7" kv="100"/> -->
 	</actuator>
 

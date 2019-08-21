@@ -68,7 +68,7 @@ class Kinova_MJ(object):
 		# define pid controllers for all joints
 		# self.pid = [PID_(1.0,0.0,0.0), PID_(1.5,0.0,0.0), PID_(1.0,0.0,0.0),PID_(3,0.0,0.0), PID_(1.0,0.0,0.0), 
 		# 	PID_(3.0,0.0,0.0),PID_(1.0,0.0,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0)]
-		self.pid = [PID_(1,0.0,0.0), PID_(1,0.0,0.0), PID_(1,0.0,0.0)]
+		self.pid = [PID_(185,0.025,0.0), PID_(135,0.02,0.0), PID_(135,0.02,0.0)]
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
@@ -329,18 +329,23 @@ class Kinova_MJ(object):
 		# 		self._sim.data.qpos[i] += 0.0001
 		# 	self._sim.forward()
 		# 	self._viewer.render()
-		initial_handpose = np.array([0.0, 0.0, 0.0])
-		gripper = np.array([1.8, 1.8, 1.8])
-		self.set_target_thetas(initial_handpose)
+		initial_handpose = np.zeros(6)
+		self._sim.data.qpos[0:6] = initial_handpose 
+		initial_fingerpose = np.array([0.0, 0.0, 0.0])
+		# gripper = np.array([1.8, 1.8, 1.8])
+		self.set_target_thetas(initial_fingerpose)
 		step = 0
 		while True:
+			print(self._sim.data.sensordata[:])
+
 			for i in range(3):
 				self._jointAngle[i] = self._sim.data.sensordata[i]
 				self._torque[i] = self.pid[i].get_Torque(self._jointAngle[i])
+				# print("torque:", self._torque[i])
 				self._sim.data.ctrl[i] = self._torque[i]
 
-			if step > 20000:
-				self.set_target_thetas(gripper)
+			# if step > 200000:
+			# 	self.set_target_thetas(gripper)
 
 			step += 1
 			self._sim.step()
