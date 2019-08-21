@@ -6,6 +6,24 @@
 #
 #("/home/graspinglab/NearContactStudy/MDP/jaco/jaco.xml")
 #
+'''
+Body ID 
+2 = base
+3 = link 1
+4 = link 2
+5 = link 3
+6 = link 4
+7 = link 5
+8 = link 6
+9 = link 7 
+10 = finger 1 prox 
+11 = finger 1 distal
+12 = finger 2 prox
+13 = finger 2 distal
+14 = finger 3 prox
+15 = finger 3 distal
+16 = cube (object)
+'''
 ###############
 
 
@@ -19,12 +37,20 @@ import time
 
 
 class Kinova_MJ(object):
-	def __init__(self):
-		self._model = load_model_from_path("/home/graspinglab/NearContactStudy/MDP/kinova_description/j2s7s300.xml")
+	def __init__(self, arm_or_end_effector):
+		if arm_or_end_effector == "arm":
+			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300.xml")
+		elif arm_or_end_effector == "hand":
+			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
+		else:
+			print("CHOOSE EITHER HAND OR ARM")
+			raise ValueError
 		# self._model = load_model_from_path("/home/graspinglab/NearContactStudy/MDP/jaco/jaco.xml")
 		
 		self._sim = MjSim(self._model)
+		
 		self._viewer = MjViewer(self._sim)
+
 		self._timestep = self._sim.model.opt.timestep
 		# print(self._timestep)
 		# self._sim.model.opt.timestep = self._timestep
@@ -119,7 +145,51 @@ class Kinova_MJ(object):
 
 		return palm_poses
 
-	# def get_metric(self):
+	def get_metric(self, contact, f1_prox):
+		if (contact.geom1 == "cube" and contact.geom2 == "f1_prox"):
+			f1_prox_metric = contact.dist
+		if (contact.geom1 == "cube" and contact.geom2 == "f2_prox"):
+			f2_prox_metric = contact.dist
+		if (contact.geom1 == "cube" and contact.geom2 == "f3_prox"):
+			f3_prox_metric = contact.dist
+
+		if (contact.geom1 == "cube" and contact.geom2 == "f1_dist"):
+			f1_dist_metric = contact.dist
+		if (contact.geom1 == "cube" and contact.geom2 == "f2_dist"):
+			f2_dist_metric = contact.dist
+		if (contact.geom1 == "cube" and contact.geom2 == "f3_dist"):
+			f3_dist_metric = contact.dist
+
+	def fwdkinematics(self):
+		#### Forward kinematics ####
+		for step in range(int(self._numSteps)):
+			for i in range(7):
+				self._sim.data.qpos[i] = theta_home[i]
+
+			if max(np.absolute(self._sim.data.qpos[0:7]- theta_target[0:7])) < 0.001:
+				if current == len(waypoints):
+					# print("here")
+					pass
+					# break
+				else:
+					# print(waypoints[current])
+					print ("current",self._sim.data.qpos[0:7])
+					print ("target",theta_target[0:7])
+					theta_target = waypoints[current]
+					current += 1 
+
+			else:
+				# print ("current",self._sim.data.qpos[0:7])
+				# print ("target",theta_target[0:7])
+				for i in range(7):
+					if theta_home[i] < theta_target[i]:
+						theta_home[i] += 0.001
+					elif theta_home[i] > theta_target[i]:
+						theta_home[i] -= 0.001
+
+
+			self._sim.forward()
+			self._viewer.render()		
 
 	def physim_mj(self):
 		self.set_step(50)
@@ -164,55 +234,10 @@ class Kinova_MJ(object):
 		self._sim.data.qvel[0:7] = velocities[0]
 		vel_target = velocities[0]
 		
-		#### Forward kinematics ####
-		# for step in range(int(self._numSteps)):
-			# for i in range(7):
-			# 	self._sim.data.qpos[i] = theta_home[i]
 
-			# if max(np.absolute(self._sim.data.qpos[0:7]- theta_target[0:7])) < 0.001:
-			# 	if current == len(waypoints):
-			# 		# print("here")
-			# 		pass
-			# 		# break
-			# 	else:
-			# 		# print(waypoints[current])
-			# 		print ("current",self._sim.data.qpos[0:7])
-			# 		print ("target",theta_target[0:7])
-			# 		theta_target = waypoints[current]
-			# 		current += 1 
-
-			# else:
-			# 	# print ("current",self._sim.data.qpos[0:7])
-			# 	# print ("target",theta_target[0:7])
-			# 	for i in range(7):
-			# 		if theta_home[i] < theta_target[i]:
-			# 			theta_home[i] += 0.001
-			# 		elif theta_home[i] > theta_target[i]:
-			# 			theta_home[i] -= 0.001
-
-
-			# self._sim.forward()
-			# self._viewer.render()
 
 		##########################
-		'''
-		Body ID 
-		2 = base
-		3 = link 1
-		4 = link 2
-		5 = link 3
-		6 = link 4
-		7 = link 5
-		8 = link 6
-		9 = link 7 
-		10 = finger 1 prox 
-		11 = finger 1 distal
-		12 = finger 2 prox
-		13 = finger 2 distal
-		14 = finger 3 prox
-		15 = finger 3 distal
-		16 = cube (object)
-		'''
+
 
 		gripper = np.array([1.8, 1.8, 1.8])
 		lift_count = 0
@@ -224,10 +249,8 @@ class Kinova_MJ(object):
 			# print("current:",current)
 			# print("x_pos", self._sim.data.body_xpos)
 
-			self._viewer.add_marker(pos=np.array([self._sim.data.body_xpos[10][0], self._sim.data.body_xpos[10][1], self._sim.data.body_xpos[10][2]]), size=np.array([0.02, 0.02, 0.02]))
-			# simulate contact
-			contact = self._sim.data.contact
-			print(len(contact))
+			#self._viewer.add_marker(pos=np.array([self._sim.data.body_xpos[10][0], self._sim.data.body_xpos[10][1], self._sim.data.body_xpos[10][2]]), size=np.array([0.02, 0.02, 0.02]))
+
 
 			for i in range(3):
 				self._jointAngle[i] = self._sim.data.sensordata[i+7]
@@ -242,6 +265,10 @@ class Kinova_MJ(object):
 			# 	theta_target = waypoints[k]
 			# 	# count =0 
 			# print("pose:", pose)
+
+			# print(self._sim.data.sensordata[10])
+
+			# Motion control - moving to specific joint angles
 			for j in range(7):
 				self._sim.data.ctrl[j] = theta_target[j]
 				self._sim.data.ctrl[10+j] = vel_target[j]
@@ -295,13 +322,36 @@ class Kinova_MJ(object):
 			self._viewer.render()
 
 
+	def sim_end_effector(self):
+		# for i in range(100000):
+		# 	print(self._sim.data.qpos[:])
+		# 	for i in range(6):
+		# 		self._sim.data.qpos[i] += 0.0001
+		# 	self._sim.forward()
+		# 	self._viewer.render()
+		initial_handpose = np.array([0.0, 0.0, 0.0])
+		gripper = np.array([1.8, 1.8, 1.8])
+		self.set_target_thetas(initial_handpose)
+		step = 0
+		while True:
+			for i in range(3):
+				self._jointAngle[i] = self._sim.data.sensordata[i]
+				self._torque[i] = self.pid[i].get_Torque(self._jointAngle[i])
+				self._sim.data.ctrl[i] = self._torque[i]
+
+			if step > 20000:
+				self.set_target_thetas(gripper)
+
+			step += 1
+			self._sim.step()
+			self._viewer.render()
 
 
 	
 
 if __name__ == '__main__':
-	sim = Kinova_MJ()
-	data = sim.physim_mj()
-
+	sim = Kinova_MJ("hand")
+	# data = sim.physim_mj()
+	sim.sim_end_effector()
 	# plt.plot(data[0], 'r',data[1], 'g')
 	# plt.show()
