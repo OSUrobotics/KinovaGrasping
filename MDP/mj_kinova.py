@@ -332,7 +332,7 @@ class Kinova_MJ(object):
 		initial_handpose = np.zeros(6)
 		self._sim.data.qpos[0:6] = initial_handpose 
 		initial_fingerpose = np.array([0.0, 0.0, 0.0])
-		# gripper = np.array([1.8, 1.8, 1.8])
+		gripper = np.array([1.0, 1.0, 1.0])
 		self.set_target_thetas(initial_fingerpose)
 		step = 0
 		while True:
@@ -344,13 +344,12 @@ class Kinova_MJ(object):
 				# print("torque:", self._torque[i])
 				self._sim.data.ctrl[i] = self._torque[i]
 
-			# if step > 200000:
-			# 	self.set_target_thetas(gripper)
+			if step > 3000:
+				self.set_target_thetas(gripper)
 
 			step += 1
 			self._sim.step()
 			self._viewer.render()
-
 
 	
 
