@@ -39,9 +39,9 @@ import time
 class Kinova_MJ(object):
 	def __init__(self, arm_or_end_effector):
 		if arm_or_end_effector == "arm":
-			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300.xml")
+			self._model = load_model_from_path("/home/yhong/NCSGen/MDP/kinova_description/j2s7s300.xml")
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
+			self._model = load_model_from_path("/home/yhong/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
 			raise ValueError
@@ -332,9 +332,10 @@ class Kinova_MJ(object):
 		initial_handpose = np.zeros(6)
 		self._sim.data.qpos[0:6] = initial_handpose 
 		initial_fingerpose = np.array([0.0, 0.0, 0.0])
-		gripper = np.array([1.0, 1.0, 1.0])
+		gripper = np.array([0.0, 0.0, 0.0])
 		self.set_target_thetas(initial_fingerpose)
 		step = 0
+
 		while True:
 			print(self._sim.data.sensordata[:])
 
@@ -344,7 +345,8 @@ class Kinova_MJ(object):
 				# print("torque:", self._torque[i])
 				self._sim.data.ctrl[i] = self._torque[i]
 
-			if step > 3000:
+			if step > 1000 and gripper[0] < 0.8:
+				gripper += 0.00036 
 				self.set_target_thetas(gripper)
 
 			step += 1
