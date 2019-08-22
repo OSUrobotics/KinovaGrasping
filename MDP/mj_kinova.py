@@ -337,7 +337,8 @@ class Kinova_MJ(object):
 		step = 0
 
 		while True:
-			print(self._sim.data.sensordata[:])
+			# print(self._sim.data.sensordata[:])
+			print(self._sim.data.body_xpos[:])
 
 			for i in range(3):
 				self._jointAngle[i] = self._sim.data.sensordata[i]
