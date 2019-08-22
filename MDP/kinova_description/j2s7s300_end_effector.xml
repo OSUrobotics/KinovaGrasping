@@ -163,26 +163,17 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     </equality>
 	<!-- ======================= Velocity actuators ================================ -->
-<!-- 	<actuator>
-		<velocity joint="j2s7s300_joint_1" kv="10" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
-		<velocity joint="j2s7s300_joint_2" kv="40" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-2.35 2.35"></velocity>
-		<velocity joint="j2s7s300_joint_3" kv="40" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
-		<velocity joint="j2s7s300_joint_4" kv="10" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="0.52333 5.75666"></velocity>
-		<velocity joint="j2s7s300_joint_5" kv="4" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
-		<velocity joint="j2s7s300_joint_6" kv="10" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="1.13388 5.1461"></velocity>
-		<velocity joint="j2s7s300_joint_7" kv="2" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
-		<position joint="j2s7s300_joint_finger_1" kp="5"  ctrllimited="true" ctrlrange="0 2"></position>
-		<position joint="j2s7s300_joint_finger_2" kp="5"  ctrllimited="true" ctrlrange="0 2"></position>
-		<position joint="j2s7s300_joint_finger_3" kp="5"  ctrllimited="true" ctrlrange="0 2"></position>
-	</actuator> -->
-	<!-- ======================= Position actuators ================================ -->
 	<actuator>
-		<!-- <position joint="j2s7s300_joint_7" kp="1000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></position> -->
+		<velocity joint="j2s7s300_joint_finger_1" kv="20" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="0 2"></velocity>
+		<velocity joint="j2s7s300_joint_finger_2" kv="20" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="0 2"></velocity>
+		<velocity joint="j2s7s300_joint_finger_3" kv="20" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="0 2"></velocity>
+	</actuator> 
+	<!-- ======================= Position actuators ================================ -->
+<!-- 	<actuator>
 		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="5"/>
-		<!-- <velocity joint="j2s7s300_joint_7" kv="100"/> -->
-	</actuator>
+	</actuator> -->
 
 	<!-- ======================= Torque actuators ================================ -->
 <!-- 	<actuator>
@@ -198,24 +189,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="1" ctrlrange="-1 1" ctrllimited="true"/>
 	</actuator> -->
     <sensor>
-<!--         <jointpos joint='j2s7s300_joint_1'/>
-        <jointpos joint='j2s7s300_joint_2'/>
-        <jointpos joint='j2s7s300_joint_3'/>
-        <jointpos joint='j2s7s300_joint_4'/>
-        <jointpos joint='j2s7s300_joint_5'/>
-        <jointpos joint='j2s7s300_joint_6'/> -->
-        <!-- <jointpos joint='j2s7s300_joint_7'/>    -->
         <jointpos joint='j2s7s300_joint_finger_1'/>
         <jointpos joint='j2s7s300_joint_finger_2'/>
         <jointpos joint='j2s7s300_joint_finger_3'/>
-
-        <!-- <rangefinder site='f1_prox'/> -->
-<!--         <rangefinder site='f1_dist'/>
-        <rangefinder site='f2_prox'/>
-        <rangefinder site='f2_dist'/>
-        <rangefinder site='f3_prox'/>
-        <rangefinder site='f3_dist'/> -->
-
-
     </sensor>
 </mujoco>
