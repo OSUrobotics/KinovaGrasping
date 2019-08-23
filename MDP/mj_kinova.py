@@ -34,14 +34,14 @@ from PID_Kinova_MJ import *
 import math
 import matplotlib.pyplot as plt
 import time
-
+import os
 
 class Kinova_MJ(object):
 	def __init__(self, arm_or_end_effector):
 		if arm_or_end_effector == "arm":
-			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300.xml")
+			self._model = load_model_from_path("/home/yhong/NCSGen/MDP/kinova_description/j2s7s300.xml")
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
+			self._model = load_model_from_path("/home/yhong/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
 			raise ValueError
@@ -322,16 +322,11 @@ class Kinova_MJ(object):
 			self._viewer.render()
 
 
-	def pid_control(self, current_timestep, timestep, joint_target, fingerjoints):
+	def pid_control(self):
 		for i in range(3):
 			self._jointAngle[i] = self._sim.data.sensordata[i]
 			self._torque[i] = self.pid[i].get_Torque(self._jointAngle[i])
-			# print("torque:", self._torque[i])
 			self._sim.data.ctrl[i] = self._torque[i]
-
-		if current_timestep > timestep and np.max(np.abs(fingerjoints - joint_target)) > 0.1:
-			fingerjoints += 0.0036
-			self.set_target_thetas(fingerjoints)
 
 
 
@@ -343,12 +338,21 @@ class Kinova_MJ(object):
 		self.set_target_thetas(initial_fingerpose)
 		step = 0
 		desired_velocities = [0.0, 0.0, 0.0]
+		start = time.time()
 		while True:
-			print(self._sim.data.sensordata[:])
+
+			# print(self._sim.data.sensordata[:])
 			# print(self._sim.data.body_xpos[:])
-			self.pid_control(step, 1000, np.array([0.5, 1.0, 1.0]), gripper)
-			
+			self.pid_control()
+			if step > 1000:				
+				target = 0.5 # rad 
+				target_vel = np.zeros(3) + target
+				target_delta = target / 500
+				if np.max(np.abs(gripper - target_vel)) > 0.01:
+					gripper += target_delta
+					self.set_target_thetas(gripper)
 			# self.velocity_control(desired_velocities)
+
 
 			step += 1
 			self._sim.step()
