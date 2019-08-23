@@ -322,30 +322,20 @@ class Kinova_MJ(object):
 			self._viewer.render()
 
 
-	def torque_control(self, current_timestep, timestep, joint_target, fingerjoints):
+	def pid_control(self, current_timestep, timestep, joint_target, fingerjoints):
 		for i in range(3):
 			self._jointAngle[i] = self._sim.data.sensordata[i]
 			self._torque[i] = self.pid[i].get_Torque(self._jointAngle[i])
 			# print("torque:", self._torque[i])
 			self._sim.data.ctrl[i] = self._torque[i]
 
-		if current_timestep > timestep and fingerjoints[0] < joint_target:
+		if current_timestep > timestep and np.max(np.abs(fingerjoints - joint_target)) > 0.1:
 			fingerjoints += 0.0036
 			self.set_target_thetas(fingerjoints)
-
-	def velocity_control(self, desired_velocities):
-		for i in range(3):
-			self._sim.data.ctrl[i] = desired_velocities[i]
 
 
 
 	def sim_end_effector(self):
-		# for i in range(100000):
-		# 	print(self._sim.data.qpos[:])
-		# 	for i in range(6):
-		# 		self._sim.data.qpos[i] += 0.0001
-		# 	self._sim.forward()
-		# 	self._viewer.render()
 		initial_handpose = np.zeros(6)
 		self._sim.data.qpos[0:6] = initial_handpose 
 		initial_fingerpose = np.array([0.0, 0.0, 0.0])
@@ -354,11 +344,11 @@ class Kinova_MJ(object):
 		step = 0
 		desired_velocities = [0.0, 0.0, 0.0]
 		while True:
-			# print(self._sim.data.sensordata[:])
+			print(self._sim.data.sensordata[:])
 			# print(self._sim.data.body_xpos[:])
-			# self.torque_control(step, 1000, 0.8, gripper)
+			self.pid_control(step, 1000, np.array([0.5, 1.0, 1.0]), gripper)
 			
-			self.velocity_control(desired_velocities)
+			# self.velocity_control(desired_velocities)
 
 			step += 1
 			self._sim.step()
