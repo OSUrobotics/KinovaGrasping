@@ -53,6 +53,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 				<body name="j2s7s300_link_7" pos="0 0.18 0.0654" euler="1.57 3.14 1.57">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
+					<joint name="j2s7s300_joint_7" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="0.0 0.1" />
 					<geom name="palm" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_7"/>
 
 					<!-- palm center -->
@@ -163,17 +164,19 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     </equality>
 	<!-- ======================= Velocity actuators ================================ -->
-	<actuator>
+<!-- 	<actuator>
+		<motor joint="j2s7s300_joint_7" gear="10"></motor>
 		<velocity joint="j2s7s300_joint_finger_1" kv="10"></velocity>
 		<velocity joint="j2s7s300_joint_finger_2" kv="10"></velocity>
 		<velocity joint="j2s7s300_joint_finger_3" kv="10"></velocity>
-	</actuator> 
+	</actuator>  -->
 	<!-- ======================= Position actuators ================================ -->
-<!-- 	<actuator>
+	<actuator>
+		<motor joint="j2s7s300_joint_7" gear="20"/>
 		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="5"/>
-	</actuator> -->
+	</actuator>
 
 	<!-- ======================= Torque actuators ================================ -->
 <!-- 	<actuator>
@@ -189,6 +192,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="1" ctrlrange="-1 1" ctrllimited="true"/>
 	</actuator> -->
     <sensor>
+        <jointpos joint='j2s7s300_joint_7'/>
         <jointpos joint='j2s7s300_joint_finger_1'/>
         <jointpos joint='j2s7s300_joint_finger_2'/>
         <jointpos joint='j2s7s300_joint_finger_3'/>

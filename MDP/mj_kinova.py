@@ -39,9 +39,9 @@ import os
 class Kinova_MJ(object):
 	def __init__(self, arm_or_end_effector):
 		if arm_or_end_effector == "arm":
-			self._model = load_model_from_path("/home/yhong/NCSGen/MDP/kinova_description/j2s7s300.xml")
+			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300.xml")
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path("/home/yhong/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
+			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
 			raise ValueError
@@ -62,13 +62,12 @@ class Kinova_MJ(object):
 		self._positions = [] # ??
 		self._numSteps = 0
 		self._simulator = "Mujoco"
-		self._experiment = "" # ??
-		self._currentIteration = 0
 
 		# define pid controllers for all joints
 		# self.pid = [PID_(1.0,0.0,0.0), PID_(1.5,0.0,0.0), PID_(1.0,0.0,0.0),PID_(3,0.0,0.0), PID_(1.0,0.0,0.0), 
 		# 	PID_(3.0,0.0,0.0),PID_(1.0,0.0,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0)]
-		self.pid = [PID_(185,0.025,0.0), PID_(135,0.02,0.0), PID_(135,0.02,0.0)]
+		# self.pid = [PID_(185,0.025,0.0), PID_(135,0.02,0.0), PID_(135,0.02,0.0)]
+		self.pid = [PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0)]
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
@@ -79,6 +78,8 @@ class Kinova_MJ(object):
 		self.pid[0].set_target_jointAngle(thetas[0])
 		self.pid[1].set_target_jointAngle(thetas[1])
 		self.pid[2].set_target_jointAngle(thetas[2])
+		self.pid[3].set_target_jointAngle(thetas[3])
+
 		# self.pid[3].set_target_jointAngle(thetas[3])
 		# self.pid[4].set_target_jointAngle(thetas[4])
 		# self.pid[5].set_target_jointAngle(thetas[5])
@@ -322,36 +323,42 @@ class Kinova_MJ(object):
 			self._viewer.render()
 
 
-	def pid_control(self):
+	def finger_control(self):
 		for i in range(3):
-			self._jointAngle[i] = self._sim.data.sensordata[i]
-			self._torque[i] = self.pid[i].get_Torque(self._jointAngle[i])
-			self._sim.data.ctrl[i] = self._torque[i]
+			self._jointAngle[i+1] = self._sim.data.sensordata[i+1]
+			self._torque[i+1] = self.pid[i+1].get_Torque(self._jointAngle[i+1])
+			self._sim.data.ctrl[i+1] = self._torque[i+1]
 
+	def wrist_control(self):
+		self._jointAngle[0] = self._sim.data.sensordata[0]
+		self._torque[0] = self.pid[0].get_Torque(self._jointAngle[0])
+		self._sim.data.ctrl[0] = self._torque[0]
 
 
 	def sim_end_effector(self):
-		initial_handpose = np.zeros(6)
-		self._sim.data.qpos[0:6] = initial_handpose 
-		initial_fingerpose = np.array([0.0, 0.0, 0.0])
-		gripper = np.array([0.0, 0.0, 0.0])
+		initial_handpose = np.zeros(7)
+		self._sim.data.qpos[0:7] = initial_handpose 
+		initial_fingerpose = np.array([0.0, 0.0, 0.0, 0.0])
+		# print(len(initial_fingerpose))
+		gripper = np.array([0.0, 0.0, 0.0, 0.0])
 		self.set_target_thetas(initial_fingerpose)
 		step = 0
-		desired_velocities = [0.0, 0.0, 0.0]
 		start = time.time()
+		
 		while True:
-
 			# print(self._sim.data.sensordata[:])
 			# print(self._sim.data.body_xpos[:])
-			self.pid_control()
+			self.wrist_control()
+			self.finger_control()
 			if step > 1000:				
-				target = 0.5 # rad 
+				target = 0.8 # rad 
 				target_vel = np.zeros(3) + target
 				target_delta = target / 500
-				if np.max(np.abs(gripper - target_vel)) > 0.01:
-					gripper += target_delta
+				if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
+					gripper[1:] += target_delta
 					self.set_target_thetas(gripper)
-			# self.velocity_control(desired_velocities)
+					
+
 
 
 			step += 1
