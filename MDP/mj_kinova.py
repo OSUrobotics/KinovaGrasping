@@ -67,7 +67,7 @@ class Kinova_MJ(object):
 		# self.pid = [PID_(1.0,0.0,0.0), PID_(1.5,0.0,0.0), PID_(1.0,0.0,0.0),PID_(3,0.0,0.0), PID_(1.0,0.0,0.0), 
 		# 	PID_(3.0,0.0,0.0),PID_(1.0,0.0,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0)]
 		# self.pid = [PID_(185,0.025,0.0), PID_(135,0.02,0.0), PID_(135,0.02,0.0)]
-		self.pid = [PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0)]
+		self.pid = [PID_(10,0.02,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0)]
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
@@ -344,28 +344,31 @@ class Kinova_MJ(object):
 		self.set_target_thetas(initial_fingerpose)
 		step = 0
 		start = time.time()
-		
+
 		while True:
 			# print(self._sim.data.sensordata[:])
 			# print(self._sim.data.body_xpos[:])
 			self.wrist_control()
 			self.finger_control()
 			if step > 1000:				
-				target = 0.8 # rad 
+				target = 1.0 # rad 
 				target_vel = np.zeros(3) + target
 				target_delta = target / 500
 				if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
 					gripper[1:] += target_delta
 					self.set_target_thetas(gripper)
-					
-
-
+				else:
+					wrist_target = 0.2
+					wrist_delta = wrist_target / 500
+					if abs(gripper[0] - wrist_target) > 0.001:
+						gripper[0] += wrist_delta
+						self.set_target_thetas(gripper)
 
 			step += 1
 			self._sim.step()
 			self._viewer.render()
 
-	
+
 
 if __name__ == '__main__':
 	sim = Kinova_MJ("hand")
