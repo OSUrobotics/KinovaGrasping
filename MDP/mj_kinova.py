@@ -335,6 +335,8 @@ class Kinova_MJ(object):
 		self._sim.data.ctrl[0] = self._torque[0]
 
 
+
+
 	def sim_end_effector(self):
 		initial_handpose = np.zeros(7)
 		self._sim.data.qpos[0:7] = initial_handpose 
@@ -345,16 +347,21 @@ class Kinova_MJ(object):
 		step = 0
 		start = time.time()
 
+
 		while True:
 			# print(self._sim.data.sensordata[:])
-			# print(self._sim.data.body_xpos[:])
+			print("f1p:",self._sim.data.get_geom_xpos("f2_prox"))
+			
+			print("f1d:",self._sim.data.get_geom_xpos("f2_dist"))
+
 			self.wrist_control()
 			self.finger_control()
 			if step > 1000:				
-				target = 1.0 # rad 
+				target = np.array([0.5, 1.2, 1.2]) # rad 
 				target_vel = np.zeros(3) + target
 				target_delta = target / 500
 				if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
+					print("curling in")
 					gripper[1:] += target_delta
 					self.set_target_thetas(gripper)
 				else:
