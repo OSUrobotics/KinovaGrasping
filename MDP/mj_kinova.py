@@ -38,10 +38,11 @@ import os
 
 class Kinova_MJ(object):
 	def __init__(self, arm_or_end_effector):
+		file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
-			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300.xml")
+			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path("/home/graspinglab/NCSGen/MDP/kinova_description/j2s7s300_end_effector.xml")
+			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300_end_effector.xml")
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
 			raise ValueError
@@ -335,9 +336,48 @@ class Kinova_MJ(object):
 		self._sim.data.ctrl[0] = self._torque[0]
 
 
+	# get 3D transformation matrix of each joint
+	def get_joint_pose(self, joint_geom_name):
+		finger_joints = joint_geom_name	
+		finger_pose = []
+		empty = np.array([0,0,0,1])
+		for each_joint in finger_joints:
+			arr = []
+			for axis in range(3):
+				temp = np.append(self._sim.data.get_geom_xmat(each_joint)[axis], self._sim.data.get_geom_xpos(each_joint)[axis])
+				arr.append(temp)
+			arr.append(empty)
+			arr = np.array(arr)
+			finger_pose.append(arr)	
+			# print(each_joint, finger_pose)
 
 
-	def sim_end_effector(self):
+		return np.array(finger_pose)
+
+	# return global or local transformation matrix
+	def get_finger_pose(self, local_or_global):
+		palm = self.get_joint_pose(["palm"])[0]
+		# print(palm)
+		finger_joints = self.get_joint_pose(["f1_prox", "f1_dist", "f2_prox", "f2_dist", "f3_prox", "f3_dist"])
+
+		if local_or_global == "global":
+			return finger_joints
+		elif local_or_global == "local":
+			finger_joints_local = []
+			palm_inverse = np.linalg.inv(palm)
+			for joint in range(len(finger_joints)):
+				joint_in_local_frame = np.matmul(finger_joints[joint], palm_inverse)
+				finger_joints_local.append(joint_in_local_frame)
+
+			return finger_joints_local
+
+		else:
+			print("Wrong entry, neither global or local frame")
+			raise ValueError
+
+
+
+	def sim_end_effector(self, action):
 		initial_handpose = np.zeros(7)
 		self._sim.data.qpos[0:7] = initial_handpose 
 		initial_fingerpose = np.array([0.0, 0.0, 0.0, 0.0])
@@ -350,21 +390,24 @@ class Kinova_MJ(object):
 
 		while True:
 			# print(self._sim.data.sensordata[:])
-			print("f1p:",self._sim.data.get_geom_xpos("f2_prox"))
-			
-			print("f1d:",self._sim.data.get_geom_xpos("f2_dist"))
+			# print("f1p:",self._sim.data.get_geom_xpos("f2_prox"))
+			# print("f1d:",self._sim.data.get_geom_xpos("f2_dist"))
+			# print(np.append(self._sim.data.get_geom_xmat("f1_prox")[0], self._sim.data.get_geom_xpos("f1_prox")[0]))
+			pose = self.get_finger_pose("global")
+			print("here:",pose)
+			# self._viewer.add_marker(pos=np.array([self._sim.data.get_geom_xpos("f2_prox")[0], self._sim.data.get_geom_xpos("f2_prox")[1], self._sim.data.get_geom_xpos("f2_prox")[2]]), size=np.array([0.02, 0.02, 0.02]))
 
 			self.wrist_control()
 			self.finger_control()
 			if step > 1000:				
-				target = np.array([0.5, 1.2, 1.2]) # rad 
+				target = np.array(action) # rad 
 				target_vel = np.zeros(3) + target
 				target_delta = target / 500
 				if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
-					print("curling in")
+					# print("curling in")
 					gripper[1:] += target_delta
 					self.set_target_thetas(gripper)
-				else:
+				else: # grasp validation
 					wrist_target = 0.2
 					wrist_delta = wrist_target / 500
 					if abs(gripper[0] - wrist_target) > 0.001:
@@ -378,8 +421,9 @@ class Kinova_MJ(object):
 
 
 if __name__ == '__main__':
+	print(os.path.dirname(os.path.realpath(__file__)))
 	sim = Kinova_MJ("hand")
 	# data = sim.physim_mj()
-	sim.sim_end_effector()
+	sim.sim_end_effector([1.0, 1.0, 1.0])
 	# plt.plot(data[0], 'r',data[1], 'g')
 	# plt.show()
