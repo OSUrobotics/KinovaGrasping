@@ -66,15 +66,17 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 						<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 						<joint name="j2s7s300_joint_finger_1" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
 						<geom name="f1_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
-						<site name="f1_prox" type="capsule" size= "0.005 0.005 0.005"/>
+						<site name="f1_prox" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+
 
 
 						<body name="j2s7s300_link_finger_tip_1" pos="0.044 -0.003 0">
 							<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 							<joint name="j2s7s300_joint_fingertip_1" pos="0 0 0" axis="0 0 1" range="0 2" />
 							<geom name="f1_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
-							<!-- <site name="f1_dist" size= "0.005 0.005 0.005"/> -->
-
+							<site name="f1_dist" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0.0 0.0" euler="1.57 3.14 1.57"/>
+						
+							
 						</body>
 
 
@@ -86,14 +88,14 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 						<joint name="j2s7s300_joint_finger_2" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
 						<geom name="f2_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
 						<!-- <site name="f2_prox" size= "0.00005 0.00005 0.00005"/> -->
-
+						<site name="f2_prox" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
 
 
 						<body name="j2s7s300_link_finger_tip_2" pos="0.044 -0.003 0">
 							<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 							<joint name="j2s7s300_joint_fingertip_2" pos="0 0 0" axis="0 0 1" range="0 2"/>
 							<geom name="f2_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
-							<!-- <site name="f2_dist" size= "0.00005 0.00005 0.00005"/> -->
+							<site name="f2_dist" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
 
 						</body>
 
@@ -105,12 +107,14 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 						<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 						<joint name="j2s7s300_joint_finger_3" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
 						<geom name="f3_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
+						<site name="f3_prox" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
 						<!-- <site name="f3_prox" size= "0.00005 0.00005 0.00005"/> -->
 
 						<body name="j2s7s300_link_finger_tip_3" pos="0.044 -0.003 0">
 							<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 							<joint name="j2s7s300_joint_fingertip_3" pos="0 0 0" axis="0 0 1" range="0 2"/>
 							<geom name="f3_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
+							<site name="f3_dist" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
 							<!-- <site name="f3_dist" size= "0.00005 0.00005 0.00005"/> -->
 
 						</body>
@@ -125,7 +129,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
 		<body name="cube" pos="0.04 0.0 0.06">
 			<joint type="free"/>
-			<geom name="cube" mass="0.1" size="0.03 0.03 0.06" rgba="1 0 0 1" type="box"/> 
+			<geom name="cube" mass="0.1" size="0.03 0.03 0.06" rgba="1 0 0 1" type="box"/>
+			
 		</body>
     </worldbody>
 
@@ -172,7 +177,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 	</actuator>  -->
 	<!-- ======================= Position actuators ================================ -->
 	<actuator>
-		<motor joint="j2s7s300_joint_7" gear="20"/>
+		<motor joint="j2s7s300_joint_7" gear="25"/>
 		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="5"/>
@@ -196,5 +201,12 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <jointpos joint='j2s7s300_joint_finger_1'/>
         <jointpos joint='j2s7s300_joint_finger_2'/>
         <jointpos joint='j2s7s300_joint_finger_3'/>
+        <rangefinder name="finger_1_proximal" site='f1_prox'/>
+        <rangefinder name="finger_1_distal1" site='f1_dist'/>
+        <rangefinder name="finger_2_proximal" site='f2_prox'/>
+        <rangefinder name="finger_2_distal" site='f2_dist'/>
+        <rangefinder name="finger_3_proximal" site='f3_prox'/>
+        <rangefinder name="finger_3_distal" site='f3_dist'/>
+
     </sensor>
 </mujoco>

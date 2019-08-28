@@ -68,7 +68,7 @@ class Kinova_MJ(object):
 		# self.pid = [PID_(1.0,0.0,0.0), PID_(1.5,0.0,0.0), PID_(1.0,0.0,0.0),PID_(3,0.0,0.0), PID_(1.0,0.0,0.0), 
 		# 	PID_(3.0,0.0,0.0),PID_(1.0,0.0,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0), PID_(2.0,0.05,0.0)]
 		# self.pid = [PID_(185,0.025,0.0), PID_(135,0.02,0.0), PID_(135,0.02,0.0)]
-		self.pid = [PID_(10,0.02,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0)]
+		self.pid = [PID_(65,0.04,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0)]
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
@@ -375,7 +375,7 @@ class Kinova_MJ(object):
 			print("Wrong entry, neither global or local frame")
 			raise ValueError
 
-
+	# def get_
 
 	def sim_end_effector(self, action):
 		initial_handpose = np.zeros(7)
@@ -394,8 +394,11 @@ class Kinova_MJ(object):
 			# print("f1d:",self._sim.data.get_geom_xpos("f2_dist"))
 			# print(np.append(self._sim.data.get_geom_xmat("f1_prox")[0], self._sim.data.get_geom_xpos("f1_prox")[0]))
 			pose = self.get_finger_pose("global")
-			print("here:",pose)
-			# self._viewer.add_marker(pos=np.array([self._sim.data.get_geom_xpos("f2_prox")[0], self._sim.data.get_geom_xpos("f2_prox")[1], self._sim.data.get_geom_xpos("f2_prox")[2]]), size=np.array([0.02, 0.02, 0.02]))
+			# print("here:",self._sim.data.get_site_xpos("f1_prox")[:])
+			print("here:",self._sim.data.sensordata[5])
+
+			# self._viewer.add_marker(pos=np.array([self._sim.data.get_site_xpos("f1_dist1")[0], self._sim.data.get_site_xpos("f1_dist1")[1], self._sim.data.get_site_xpos("f1_dist1")[2]]), size=np.array([0.002, 0.002, 0.002]))
+			# self._viewer.add_marker(pos=np.array([self._sim.data.get_site_xpos("f1_dist2")[0], self._sim.data.get_site_xpos("f1_dist2")[1], self._sim.data.get_site_xpos("f1_dist2")[2]]), size=np.array([0.006, 0.006, 0.006]))
 
 			self.wrist_control()
 			self.finger_control()
@@ -403,6 +406,7 @@ class Kinova_MJ(object):
 				target = np.array(action) # rad 
 				target_vel = np.zeros(3) + target
 				target_delta = target / 500
+				# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
 				if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
 					# print("curling in")
 					gripper[1:] += target_delta
@@ -424,6 +428,6 @@ if __name__ == '__main__':
 	print(os.path.dirname(os.path.realpath(__file__)))
 	sim = Kinova_MJ("hand")
 	# data = sim.physim_mj()
-	sim.sim_end_effector([1.0, 1.0, 1.0])
+	sim.sim_end_effector([0.8, 0.8, 0.8])
 	# plt.plot(data[0], 'r',data[1], 'g')
 	# plt.show()
