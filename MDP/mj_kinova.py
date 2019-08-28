@@ -375,7 +375,14 @@ class Kinova_MJ(object):
 			print("Wrong entry, neither global or local frame")
 			raise ValueError
 
-	# def get_
+	# get range data from 1 step of time 
+	# Uncertainty: rangefinder could only detect distance to the nearest geom, therefore it could detect geom that is not object
+	def get_rangefinder_data(self):
+		range_data = []
+		for i in range(9):
+			range_data.append(self._sim.data.sensordata[i+4])
+
+		return np.array(range_data)
 
 	def sim_end_effector(self, action):
 		initial_handpose = np.zeros(7)
@@ -395,7 +402,7 @@ class Kinova_MJ(object):
 			# print(np.append(self._sim.data.get_geom_xmat("f1_prox")[0], self._sim.data.get_geom_xpos("f1_prox")[0]))
 			pose = self.get_finger_pose("global")
 			# print("here:",self._sim.data.get_site_xpos("f1_prox")[:])
-			print("here:",self._sim.data.sensordata[5])
+			print("here:",self._sim.data.sensordata[5],self._sim.data.sensordata[7], self._sim.data.sensordata[9])
 
 			# self._viewer.add_marker(pos=np.array([self._sim.data.get_site_xpos("f1_dist1")[0], self._sim.data.get_site_xpos("f1_dist1")[1], self._sim.data.get_site_xpos("f1_dist1")[2]]), size=np.array([0.002, 0.002, 0.002]))
 			# self._viewer.add_marker(pos=np.array([self._sim.data.get_site_xpos("f1_dist2")[0], self._sim.data.get_site_xpos("f1_dist2")[1], self._sim.data.get_site_xpos("f1_dist2")[2]]), size=np.array([0.006, 0.006, 0.006]))

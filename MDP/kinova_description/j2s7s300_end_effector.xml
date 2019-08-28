@@ -66,7 +66,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 						<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 						<joint name="j2s7s300_joint_finger_1" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
 						<geom name="f1_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
-						<site name="f1_prox" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+						<site name="f1_prox" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+						<site name="f1_prox_1" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.02 0 0" euler="1.57 3.14 1.57"/>
 
 
 
@@ -74,7 +75,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 							<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 							<joint name="j2s7s300_joint_fingertip_1" pos="0 0 0" axis="0 0 1" range="0 2" />
 							<geom name="f1_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
-							<site name="f1_dist" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0.0 0.0" euler="1.57 3.14 1.57"/>
+							<site name="f1_dist" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.03 0.0 0.0" euler="1.57 3.14 1.57"/>
+							<site name="f1_dist_1" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.02 0.0 0.0" euler="1.57 3.14 1.57"/>
 						
 							
 						</body>
@@ -87,15 +89,16 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 						<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 						<joint name="j2s7s300_joint_finger_2" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
 						<geom name="f2_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
-						<!-- <site name="f2_prox" size= "0.00005 0.00005 0.00005"/> -->
-						<site name="f2_prox" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+						<site name="f2_prox" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+						<site name="f2_prox_1" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.02 0 0" euler="1.57 3.14 1.57"/>
 
 
 						<body name="j2s7s300_link_finger_tip_2" pos="0.044 -0.003 0">
 							<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 							<joint name="j2s7s300_joint_fingertip_2" pos="0 0 0" axis="0 0 1" range="0 2"/>
 							<geom name="f2_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
-							<site name="f2_dist" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+							<site name="f2_dist" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+							<site name="f2_dist_1" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.02 0 0" euler="1.57 3.14 1.57"/>
 
 						</body>
 
@@ -107,16 +110,17 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 						<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 						<joint name="j2s7s300_joint_finger_3" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
 						<geom name="f3_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
-						<site name="f3_prox" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
-						<!-- <site name="f3_prox" size= "0.00005 0.00005 0.00005"/> -->
+						<site name="f3_prox" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+						<site name="f3_prox_1" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.02 0 0" euler="1.57 3.14 1.57"/>
+						
 
 						<body name="j2s7s300_link_finger_tip_3" pos="0.044 -0.003 0">
 							<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 							<joint name="j2s7s300_joint_fingertip_3" pos="0 0 0" axis="0 0 1" range="0 2"/>
 							<geom name="f3_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
-							<site name="f3_dist" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
-							<!-- <site name="f3_dist" size= "0.00005 0.00005 0.00005"/> -->
-
+							<site name="f3_dist" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.03 0 0" euler="1.57 3.14 1.57"/>
+							<site name="f3_dist_1" type="cylinder" size= "0.002 0.002 0.002" rgba="25 0.5 0.7 1" pos="0.02 0 0" euler="1.57 3.14 1.57"/>
+						
 						</body>
 
 
@@ -202,11 +206,16 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <jointpos joint='j2s7s300_joint_finger_2'/>
         <jointpos joint='j2s7s300_joint_finger_3'/>
         <rangefinder name="finger_1_proximal" site='f1_prox'/>
-        <rangefinder name="finger_1_distal1" site='f1_dist'/>
+        <rangefinder name="finger_1_distal" site='f1_dist'/>
+        <rangefinder name="finger_1_distal_1" site='f1_dist_1'/>
+
         <rangefinder name="finger_2_proximal" site='f2_prox'/>
         <rangefinder name="finger_2_distal" site='f2_dist'/>
+        <rangefinder name="finger_2_distal_1" site='f2_dist_1'/>
+        
         <rangefinder name="finger_3_proximal" site='f3_prox'/>
         <rangefinder name="finger_3_distal" site='f3_dist'/>
+        <rangefinder name="finger_3_distal_1" site='f3_dist_1'/>
 
     </sensor>
 </mujoco>
