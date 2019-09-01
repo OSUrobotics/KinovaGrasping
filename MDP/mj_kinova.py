@@ -2,7 +2,7 @@
 
 ###############
 #Author: Yi Herng Ong
-#Purpose: import kinova jaco j2s7s300 into Mujoco environment
+#Purpose: test to import kinova arm and gripper into mujoco env
 #
 #("/home/graspinglab/NearContactStudy/MDP/jaco/jaco.xml")
 #
@@ -401,6 +401,7 @@ class Kinova_MJ(object):
 			# print("f1d:",self._sim.data.get_geom_xpos("f2_dist"))
 			# print(np.append(self._sim.data.get_geom_xmat("f1_prox")[0], self._sim.data.get_geom_xpos("f1_prox")[0]))
 			pose = self.get_finger_pose("global")
+			print(pose)
 			# print("here:",self._sim.data.get_site_xpos("f1_prox")[:])
 			# print("here:",self._sim.data.sensordata[4],self._sim.data.sensordata[5], self._sim.data.sensordata[6], self._sim.data.sensordata[7], self._sim.data.sensordata[8] )
 			range_data = self.get_rangefinder_data()
@@ -425,7 +426,7 @@ class Kinova_MJ(object):
 
 			step += 1
 			self._sim.step()
-			self._viewer.render()
+			# self._viewer.render()
 
 
 
