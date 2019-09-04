@@ -59,7 +59,7 @@ class KinovaGripper_Env(gym.Env):
 		# Parameters for cost function
 		self.state_des = 0.20 
 
-		mujoco_env.MujocoEnv.__init__(self, full_path, frame_skip)
+		# mujoco_env.MujocoEnv.__init__(self, full_path, frame_skip)
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
