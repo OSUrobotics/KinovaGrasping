@@ -158,11 +158,28 @@ class KinovaGripper_Env(gym.Env):
 
 		return reward_norm
 
+	# def _get_intermediate_reward(self):
+	# 	state = self._get
+	# region = x : +/- 0.02, y > 0.0, 
+
+	def _get_joint_states(self):
+		arr = []
+		for i in range(6):
+			arr.append(self._sim.data.sensordata[i+1])
+
+		return np.array(arr) 
 
 	def step(self, action, render=False):
-		print("control range", self._model.actuator_ctrlrange.copy())
-		initial_handpose = np.zeros(7)
-		self._sim.data.qpos[0:7] = initial_handpose 
+		# print("control range", self._model.actuator_ctrlrange.copy())
+		initial_handpose = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+		# qpos=np.array([ 0.0,  4.00036542e-01,  2.00020631e-01,  4.00031748e-01, 2.00017924e-01,  3.99967842e-01,  1.99981847e-01, -1.65843598e-21, -2.00000000e-02,  5.99801364e-02,  1.00000000e+00,  1.09305207e-18, 0.00000000e+00,  0.00000000e+00])
+		# sim_state = self._sim.get_state()
+		# sim_state.qpos[0:7] = initial_handpose
+		# sim_state.qvel[0:7] = initial_handpose
+		# self._sim.set_state(sim_state)
+		self._sim.data.qpos[0:7] = initial_handpose
+		# self._sim.forward()
+		# self._sim.data.qpos[0:7] = initial_handpose 
 		initial_fingerpose = np.array([0.0, 0.0, 0.0, 0.0])
 		# print(len(initial_fingerpose))
 		gripper = np.array([0.0, 0.0, 0.0, 0.0])
@@ -171,37 +188,47 @@ class KinovaGripper_Env(gym.Env):
 		start = time.time()
 
 
-		pose = self._get_finger_pose("global")
-		
-		range_data = self._get_rangefinder_data()
-		self._wrist_control() # wrist action
-		self._finger_control() # finger action
-		# if step > 1000:				
-		target = np.array(action) # rad 
-		target_vel = np.zeros(3) + target
-		target_delta = target / 500
-		# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
-		if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
-			# print("curling in")
-			gripper[1:] += target_delta
-			self.set_target_thetas(gripper)
-		else: # grasp validation
-			wrist_target = 0.2
-			wrist_delta = wrist_target / 500
-			if abs(gripper[0] - wrist_target) > 0.001:
-				gripper[0] += wrist_delta
+		while True:
+			pose = self._get_finger_pose("global")
+			
+
+			range_data = self._get_rangefinder_data()
+
+			# if step > 1000:				
+			target = np.array(action) # rad 
+			target_vel = np.zeros(3) + target
+			target_delta = target / 500
+			# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
+			# if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
+				# print("curling in")
+			if self._sim.data.time < 1.0:
+				gripper[1:] += target_delta
 				self.set_target_thetas(gripper)
 
-		# step += 1
-		self._sim.step() # update every 0.002 seconds (500 Hz)
-		if render:
-			self._viewer.render()
+			else: # grasp validation
+				wrist_target = 0.2
+				wrist_delta = wrist_target / 500
+				if abs(gripper[0] - wrist_target) > 0.001:
+					gripper[0] += wrist_delta
+					self.set_target_thetas(gripper)
 
-		print("reward", self._get_norm_reward())
-		reward = self._get_norm_reward()
-		print("obj pose", self._get_obj_pose())
+			self._wrist_control() # wrist action
+			self._finger_control() # finger action
+			# step += 1
+			self._sim.step() # update every 0.002 seconds (500 Hz)
+			if render:
+				self._viewer.render()
 
-		return 
+		# print("time spent", self._sim.data.time)
+		
+		print("states", self._sim.get_state().qpos[0:7])
+
+		print("jA", self._get_joint_states())
+		# print("reward", self._get_norm_reward())
+		# reward = self._get_norm_reward()
+		# print("obj pose", self._get_obj_pose())
+
+		# return obs, total_reward, done, info
 
 if __name__ == '__main__':
 	# print(os.path.dirname(os.path.realpath(__file__)))
