@@ -20,10 +20,10 @@ import time
 import os, sys
 
 # resolve cv2 issue 
-sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+# sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 
 class KinovaGripper_Env(gym.Env):
-	def __init__(self, arm_or_end_effector, frame_skip=20):
+	def __init__(self, arm_or_end_effector, frame_skip, state_rep):
 		file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
 			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
@@ -58,8 +58,11 @@ class KinovaGripper_Env(gym.Env):
 
 		# Parameters for cost function
 		self.state_des = 0.20 
-
+		self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
 		# mujoco_env.MujocoEnv.__init__(self, full_path, frame_skip)
+		self.frame_skip = frame_skip
+		self.state_rep = state_rep
+
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
@@ -86,7 +89,7 @@ class KinovaGripper_Env(gym.Env):
 
 
 	# get 3D transformation matrix of each joint
-	def _get_joint_pose(self, joint_geom_name):
+	def _get_trans_mat(self, joint_geom_name):
 		finger_joints = joint_geom_name	
 		finger_pose = []
 		empty = np.array([0,0,0,1])
@@ -105,12 +108,13 @@ class KinovaGripper_Env(gym.Env):
 
 	# return global or local transformation matrix
 	def _get_finger_pose(self, local_or_global):
-		palm = self._get_joint_pose(["palm"])[0]
+		palm = self._get_trans_mat(["palm"])[0]
 		# print(palm)
-		finger_joints = self._get_joint_pose(["f1_prox", "f1_dist", "f2_prox", "f2_dist", "f3_prox", "f3_dist"])
+		finger_joints = self._get_trans_mat(["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"])
 
 		if local_or_global == "global":
 			return finger_joints
+
 		elif local_or_global == "local":
 			finger_joints_local = []
 			palm_inverse = np.linalg.inv(palm)
@@ -129,12 +133,14 @@ class KinovaGripper_Env(gym.Env):
 	def _get_rangefinder_data(self):
 		range_data = []
 		for i in range(14):
-			range_data.append(self._sim.data.sensordata[i+4])
+			range_data.append(self._sim.data.sensordata[i+7])
 
 		return np.array(range_data)
 
 	def _get_obj_pose(self):
-		return self._sim.data.get_geom_xpos("cube")
+		arr = self._sim.data.get_geom_xpos("cube")
+		arr = np.append(arr, 0)
+		return arr
 
 
 	def _get_done(self):
@@ -158,9 +164,33 @@ class KinovaGripper_Env(gym.Env):
 
 		return reward_norm
 
-	# def _get_intermediate_reward(self):
-	# 	state = self._get
-	# region = x : +/- 0.02, y > 0.0, 
+
+	def _get_reward_based_on_palm(self, options):
+		pc = self._get_palm_center(options)
+		obj_state = self._get_obj_pose()
+		if options == "world" or options == "metric":
+			reward = - abs(pc[0] - obj_state[0]) - abs(pc[1] - obj_state[1])
+
+		elif options == "palm":
+			obj_trans_mat = self._get_trans_mat(["cube"])[0]
+			palm_trans_mat = self._get_trans_mat(["palm"])[0]
+			palm_inverse = np.linalg.inv(palm_trans_mat)
+			obj_local_mat = np.matmul(palm_inverse, obj_trans_mat)
+			obj_x_local = obj_local_mat[0][3]
+			obj_y_local = obj_local_mat[1][3]
+			reward = - abs(pc[0] - obj_x_local) - abs(pc[1] - obj_y_local)
+
+		return reward
+
+
+	def _get_palm_center(self, options):
+		if options == "world" or options == "metric":
+			return [0.0, 0.0]
+		elif options == "palm":
+			return [0.0, 0.119]
+		else:
+			raise ValueError
+
 
 	def _get_joint_states(self):
 		arr = []
@@ -169,48 +199,71 @@ class KinovaGripper_Env(gym.Env):
 
 		return np.array(arr) 
 
+	def _get_state(self):
+		return np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]]) 
+
+	# only set proximal joints, cuz this is an underactuated hand
+	def _set_state(self, states):
+		self._sim.data.qpos[0] = states[0]
+		self._sim.data.qpos[1] = states[1]
+		self._sim.data.qpos[3] = states[2]
+		self._sim.data.qpos[5] = states[3]
+		self._sim.data.set_joint_qpos("cube", [states[4], states[5], states[6], 1.0, 0.0, 0.0, 0.0])
+		self._sim.forward()
+
+	def _reset_state(self):
+		self._set_state(self.initial_state)
+
+
+	def _get_obs(self):
+		jA = self._get_joint_states()
+		obj_pose = self._get_obj_pose()
+		if self.state_rep == "world":
+			print("here")
+			fpose = list(self._get_finger_pose("global"))
+			fpose.append(obj_pose)
+			print (fpose)
+			# print("obj_pose", obj_pose )
+			return fpose
+		elif self.state_rep == "palm":
+			return np.concatenate((self._get_finger_pose("local"), jA, obj_pose))
+		elif self.state_rep == "rangedata":
+			return np.concatenate((self._get_rangefinder_data(), jA, obj_pose))
+
+
+	# each step will last for 0.5 second
 	def step(self, action, render=False):
 		# print("control range", self._model.actuator_ctrlrange.copy())
-		initial_handpose = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-		# qpos=np.array([ 0.0,  4.00036542e-01,  2.00020631e-01,  4.00031748e-01, 2.00017924e-01,  3.99967842e-01,  1.99981847e-01, -1.65843598e-21, -2.00000000e-02,  5.99801364e-02,  1.00000000e+00,  1.09305207e-18, 0.00000000e+00,  0.00000000e+00])
-		# sim_state = self._sim.get_state()
-		# sim_state.qpos[0:7] = initial_handpose
-		# sim_state.qvel[0:7] = initial_handpose
-		# self._sim.set_state(sim_state)
-		self._sim.data.qpos[0:7] = initial_handpose
-		# self._sim.forward()
-		# self._sim.data.qpos[0:7] = initial_handpose 
-		initial_fingerpose = np.array([0.0, 0.0, 0.0, 0.0])
-		# print(len(initial_fingerpose))
-		gripper = np.array([0.0, 0.0, 0.0, 0.0])
-		self.set_target_thetas(initial_fingerpose)
+		curr_handpose = np.array([0.0, 0.0, 0.0, 0.0, 0.04, 0.0, 0.08])
+
+		self._set_state(curr_handpose)
+
+		self.set_target_thetas(curr_handpose)
 		step = 0
 		start = time.time()
 
+		total_reward = 0
 
-		while True:
-			pose = self._get_finger_pose("global")
-			
+		initial_state = self._get_obs()
 
-			range_data = self._get_rangefinder_data()
+		for i in range(self.frame_skip):
 
-			# if step > 1000:				
 			target = np.array(action) # rad 
 			target_vel = np.zeros(3) + target
 			target_delta = target / 500
 			# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
 			# if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
 				# print("curling in")
-			if self._sim.data.time < 1.0:
-				gripper[1:] += target_delta
-				self.set_target_thetas(gripper)
+			if self._sim.data.time < 0.5:
+				curr_handpose[1:4] += target_delta
+				self.set_target_thetas(curr_handpose[0:4])
 
 			else: # grasp validation
 				wrist_target = 0.2
 				wrist_delta = wrist_target / 500
-				if abs(gripper[0] - wrist_target) > 0.001:
-					gripper[0] += wrist_delta
-					self.set_target_thetas(gripper)
+				if abs(curr_handpose[0] - wrist_target) > 0.001:
+					curr_handpose[0] += wrist_delta
+					self.set_target_thetas(curr_handpose[0:4])
 
 			self._wrist_control() # wrist action
 			self._finger_control() # finger action
@@ -218,20 +271,24 @@ class KinovaGripper_Env(gym.Env):
 			self._sim.step() # update every 0.002 seconds (500 Hz)
 			if render:
 				self._viewer.render()
+			# print(self._sim.data.qpos[:])
+			total_reward += self._get_reward_based_on_palm("world")
+				
 
-		# print("time spent", self._sim.data.time)
+		curr_state = self._get_obs()
+		# print(curr_state)
+		obs = np.concatenate((curr_state, initial_state))
+
+			# pose = 
+		if total_reward < -2:
+			done = True
+		else:
+			done = self._get_done()
 		
-		print("states", self._sim.get_state().qpos[0:7])
-
-		print("jA", self._get_joint_states())
-		# print("reward", self._get_norm_reward())
-		# reward = self._get_norm_reward()
-		# print("obj pose", self._get_obj_pose())
-
-		# return obs, total_reward, done, info
+		return obs, total_reward, done, {}
 
 if __name__ == '__main__':
 	# print(os.path.dirname(os.path.realpath(__file__)))
-	sim = KinovaGripper_Env("hand")
+	sim = KinovaGripper_Env("hand", frame_skip=250, state_rep="world")
 	# data = sim.physim_mj()
-	sim.step([0.8, 0.8, 0.8], True)
+	sim.step([0.7, 0.3, 0.5], True)

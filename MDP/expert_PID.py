@@ -6,8 +6,14 @@
 # Summer 2019
 ###############
 
+'''
+state representation : joint angles, world coordinates of each finger, object, object size, object shape etc...
+
+'''
+
 import os, sys
 import numpy as np
 
-class PID_expert():
-	s
+def expertPID(_obs):
+	obj_size = _obs[0]
+	obj_shape = 
