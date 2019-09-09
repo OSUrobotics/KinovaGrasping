@@ -1,0 +1,291 @@
+<!-- 
+Author: Yi Herng Ong
+Purpose: XML model of j2s7s300 kinova jaco arm
+
+
+ -->
+
+<mujoco model="j2s7s300">
+    <compiler angle="radian" meshdir="meshes/" />
+    <option timestep ="0.0001">
+    	
+    </option>
+    <!-- <size njmax="500" nconmax="100" /> -->
+    <asset>
+    	<!-- Arm -->
+        <mesh name="base" file="base.STL" />
+        <mesh name="link_1" file="shoulder.STL" />
+        <mesh name="link_2" file="arm_half_1.STL" />
+        <mesh name="link_3" file="arm_half_2.STL" />
+        <mesh name="link_4" file="forearm.STL" />
+        <mesh name="link_5" file="wrist_spherical_1.STL" />
+        <mesh name="link_6" file="wrist_spherical_2.STL" />
+        <mesh name="link_7" file="hand_3finger.STL" />
+        <!-- Fingers -->
+        <mesh name="finger_distal" file="finger_distal.STL"/>
+        <mesh name="finger_proximal" file="finger_proximal.STL"/>
+		<texture type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="100" height="100"/>
+		<texture name="groundplane" type="2d" builtin="checker" rgb1=".25 .26 .25" 
+			rgb2=".22 .22 .22" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
+
+		<material name="MatViz" specular="1" shininess=".1" reflectance="0.5" rgba=".07 .07 .1 1"/>
+		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".3" reflectance="0.00001"/>
+    </asset>
+
+	<default>
+		<geom margin="0.001"/>
+		<joint limited="false" damping="0.2" armature=".01"/>
+
+	<!--geom class for visual and collision geometry-->
+<!-- 		<default class ="vizNcoll"> 
+			<geom material="MatViz" type="mesh" group="0"  contype="1" conaffinity="0"/>
+			<joint pos="0 0 0" type="hinge"/>
+		</default>	 -->
+		<default class ="ground"> 
+			<geom material="MatGnd" type="plane" contype="0" conaffinity="1"/>
+		</default>		
+	</default>
+
+    <worldbody>
+    	<body name="root" pos="0 0 0">
+    		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
+
+            <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
+<!--             <camera name="camera" mode = "fixed" pos = "0 0 0.1" quat = "0 -90 0 0"/>
+            <camera name="camera" mode = "fixed" pos = "0 0.1 0.1" quat = "0 -90 0 0"/> -->
+
+<!--             <inertial pos="0 0 0" mass="0.001" diaginertia="1.66667e-08 1.66667e-08 1.66667e-08" />
+            <geom size="0.005 0.005 0.005" type="box" />
+ -->
+
+            <body name="j2s7s300_link_base" pos="0 0 -0.02">
+            	<inertial pos="0 0 0.1255" mass="0.46784" diaginertia="0.000951271 0.000951271 0.000374272" />
+				<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="base" />
+
+
+				<body name="j2s7s300_link_1" pos="0 0 0.15675" quat="0 0 1 0">
+					<inertial pos="0 -0.002 -0.0605" mass="0.7477" diaginertia="0.00152032 0.00152032 0.00059816" />
+					<joint name="j2s7s300_joint_1" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" />
+					<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_1"/>
+
+					<body name="j2s7s300_link_2" pos="0 0.0016 -0.11875" quat="0.707107 0.707107 0 0">
+						<inertial pos="0 -0.103563213 0" mass="0.8447" diaginertia="0.0025 0.0003801 0.0025" />
+						<joint name="j2s7s300_joint_2" pos="0 0 0" axis="0 0 1" limited="true" range="-2.32 2.32"/>
+						<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_2"/>
+
+
+						<body name="j2s7s300_link_3" pos="0 -0.205 0" quat="0 0 0.7071 0.7071">
+							<inertial pos="0 0 -0.1022447445" mass="0.8447" diaginertia="0.0025 0.0025 0.0003801" />
+							<joint name="j2s7s300_joint_3" pos="0 0 0" axis="0 0 1" limited="true" range="-6.28 6.28" />
+							<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_3"/>
+
+
+							<body name= "j2s7s300_link_4" pos="0 0 -0.205" quat="0 0 0.7071 0.7071">
+								<inertial pos="0 0.081 -0.0086" mass="0.6763" diaginertia="0.0014 0.00030433 0.0014" />
+								<joint name="j2s7s300_joint_4" pos="0 0 0" axis="0 0 1" limited="true" range="0.5233 5.7567" />
+								<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_4"/>
+
+
+								<body name="j2s7s300_link_5" pos="0 0.2073 -0.0114" quat="0 0 -0.7071 0.7071">
+									<inertial pos="0 0.0028848942 -0.0541932613" mass="0.463" diaginertia="0.00043213 0.00043213 0.000092600"/>
+									<joint name="j2s7s300_joint_5" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" />
+									<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_5"/>
+
+
+									<body name="j2s7s300_link_6" pos="0 0 -0.10375" quat="0 0 0.707 0.707">
+										<inertial pos="0 0.0497208855 -0.0028562765" mass="0.463" diaginertia="0.00043213 0.000092600 0.00043213" />
+										<joint name="j2s7s300_joint_6" pos="0 0 0" axis="0 0 1" limited="true" range="1.13388 5.1461" />
+										<geom type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_6"/>
+
+
+										<body name="j2s7s300_link_7" pos="0 0.10375 0" quat="0 0 -0.707 0.707">
+											<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
+											<joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" />
+											<geom name="palm" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_7"/>
+
+											<!-- palm center -->
+											<body name="j2s7s300_end_effector" pos="0 0 -0.1" quat="0 1 0 0">
+												<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
+											</body>
+
+
+											<body name="j2s7s300_link_finger_1" pos="0.00279 0.03126 -0.11467" quat="0.379408 -0.662973 -0.245899 0.596699">
+												<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
+												<joint name="j2s7s300_joint_finger_1" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
+												<geom name="f1_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
+												<site name="f1_prox" type="capsule" size= "0.005 0.005 0.005"/>
+
+
+												<body name="j2s7s300_link_finger_tip_1" pos="0.044 -0.003 0">
+													<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
+													<joint name="j2s7s300_joint_fingertip_1" pos="0 0 0" axis="0 0 1" range="0 2" />
+													<geom name="f1_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
+													<!-- <site name="f1_dist" size= "0.005 0.005 0.005"/> -->
+
+												</body>
+
+
+											</body>
+
+
+											<body name="j2s7s300_link_finger_2" pos="0.02226 -0.02707 -0.11482" quat="0.659653 -0.37146 0.601679 -0.254671">
+												<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
+												<joint name="j2s7s300_joint_finger_2" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
+												<geom name="f2_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
+												<!-- <site name="f2_prox" size= "0.00005 0.00005 0.00005"/> -->
+
+
+
+												<body name="j2s7s300_link_finger_tip_2" pos="0.044 -0.003 0">
+													<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
+													<joint name="j2s7s300_joint_fingertip_2" pos="0 0 0" axis="0 0 1" range="0 2"/>
+													<geom name="f2_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
+													<!-- <site name="f2_dist" size= "0.00005 0.00005 0.00005"/> -->
+
+												</body>
+
+
+											</body>
+
+
+											<body name="j2s7s300_link_finger_3" pos="-0.02226 -0.02707 -0.11482" quat="0.601679 -0.254671 0.659653 -0.37146">
+												<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
+												<joint name="j2s7s300_joint_finger_3" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
+												<geom name="f3_prox" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_proximal" />
+												<!-- <site name="f3_prox" size= "0.00005 0.00005 0.00005"/> -->
+
+
+
+												<body name="j2s7s300_link_finger_tip_3" pos="0.044 -0.003 0">
+													<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
+													<joint name="j2s7s300_joint_fingertip_3" pos="0 0 0" axis="0 0 1" range="0 2"/>
+													<geom name="f3_dist" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="finger_distal" />
+													<!-- <site name="f3_dist" size= "0.00005 0.00005 0.00005"/> -->
+
+												</body>
+
+
+											</body>
+										</body>
+									</body>								
+								</body>
+							</body>	
+						</body>					
+					</body>
+				</body>    		
+    		</body>
+    	</body>
+<!-- 		<body name="ground" pos="0 0 -0.01">
+			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
+		</body> -->
+		<geom name="ground" class="ground" pos="0 0 0.01" size="2 2 1"/>
+		<body name="cube" pos="0.0 -0.59 0.025">
+			<joint type="free"/>
+			<geom name="cube" mass="0.1" size="0.03 0.03 0.06" rgba="1 0 0 1" type="box"/> 
+		</body>
+    </worldbody>
+
+
+    <contact>
+    	<pair geom1="cube" geom2="ground" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="cube" geom2="f1_prox" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    	<pair geom1="cube" geom2="f1_dist" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    	<pair geom1="cube" geom2="f2_prox" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    	<pair geom1="cube" geom2="f2_dist" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    	<pair geom1="cube" geom2="f3_prox" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    	<pair geom1="cube" geom2="f3_dist" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    	<pair geom1="cube" geom2="palm" condim="3" friction="1.2 1.2 0.005 0.001 0.001"/>
+    
+    </contact>
+
+    <tendon>
+    	<fixed name="finger_1" range="0 1">
+    		<joint joint="j2s7s300_joint_finger_1" coef="1"/>
+    		<joint joint="j2s7s300_joint_fingertip_1" coef="-3"/>
+    	</fixed>
+    	<fixed name="finger_2" range="0 1">
+    		<joint joint="j2s7s300_joint_finger_2" coef="1"/>
+    		<joint joint="j2s7s300_joint_fingertip_2" coef="-3"/>
+    	</fixed>
+    	<fixed name="finger_3" range="0 1">
+    		<joint joint="j2s7s300_joint_finger_3" coef="1"/>
+    		<joint joint="j2s7s300_joint_fingertip_3" coef="-3"/>
+    	</fixed>    	
+    </tendon>
+
+    <equality>
+    	<tendon name="finger_1" tendon1="finger_1"/>
+    	<tendon name="finger_2" tendon1="finger_2"/>
+    	<tendon name="finger_3" tendon1="finger_3"/>
+
+    </equality>
+	<!-- ======================= Velocity actuators ================================ -->
+<!-- 	<actuator>
+		<velocity joint="j2s7s300_joint_1" kv="10" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
+		<velocity joint="j2s7s300_joint_2" kv="40" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-2.35 2.35"></velocity>
+		<velocity joint="j2s7s300_joint_3" kv="40" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
+		<velocity joint="j2s7s300_joint_4" kv="10" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="0.52333 5.75666"></velocity>
+		<velocity joint="j2s7s300_joint_5" kv="4" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
+		<velocity joint="j2s7s300_joint_6" kv="10" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="1.13388 5.1461"></velocity>
+		<velocity joint="j2s7s300_joint_7" kv="2" forcelimited="true" forcerange="-2000 2000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></velocity>
+		<position joint="j2s7s300_joint_finger_1" kp="5"  ctrllimited="true" ctrlrange="0 2"></position>
+		<position joint="j2s7s300_joint_finger_2" kp="5"  ctrllimited="true" ctrlrange="0 2"></position>
+		<position joint="j2s7s300_joint_finger_3" kp="5"  ctrllimited="true" ctrlrange="0 2"></position>
+	</actuator> -->
+	<!-- ======================= Position actuators ================================ -->
+	<actuator>
+		<position joint="j2s7s300_joint_1" kp="1000" ctrllimited="true" ctrlrange="-6.28319 6.28319"/>
+		<position joint="j2s7s300_joint_2" kp="1000" ctrllimited="true" ctrlrange="-2.32 2.32"></position>
+		<position joint="j2s7s300_joint_3" kp="1000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></position>
+		<position joint="j2s7s300_joint_4" kp="1000" ctrllimited="true" ctrlrange="0.52333 5.75666"></position>
+		<position joint="j2s7s300_joint_5" kp="1000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></position>
+		<position joint="j2s7s300_joint_6" kp="1000" ctrllimited="true" ctrlrange="1.13388 5.1461"></position>
+		<position joint="j2s7s300_joint_7" kp="1000" ctrllimited="true" ctrlrange="-6.28319 6.28319"></position>
+		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="1"/>
+		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="1"/>
+		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="1"/>
+
+		<velocity joint="j2s7s300_joint_1" kv="100"/>
+		<velocity joint="j2s7s300_joint_2" kv="100"/>
+		<velocity joint="j2s7s300_joint_3" kv="100"/>
+		<velocity joint="j2s7s300_joint_4" kv="100"/>
+		<velocity joint="j2s7s300_joint_5" kv="100"/>
+		<velocity joint="j2s7s300_joint_6" kv="100"/>
+		<velocity joint="j2s7s300_joint_7" kv="100"/>
+	</actuator>
+
+	<!-- ======================= Torque actuators ================================ -->
+<!-- 	<actuator>
+		<motor joint='j2s7s300_joint_1' name='j2s7s300_joint_1_act' gear="20" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_2' name='j2s7s300_joint_2_act' gear="50" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_3' name='j2s7s300_joint_3_act' gear="10" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_4' name='j2s7s300_joint_4_act' gear="20" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_5' name='j2s7s300_joint_5_act' gear="10" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_6' name='j2s7s300_joint_6_act' gear="10" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_7' name='j2s7s300_joint_7_act' gear="10" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="1" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="1" ctrlrange="-1 1" ctrllimited="true"/>
+		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="1" ctrlrange="-1 1" ctrllimited="true"/>
+	</actuator> -->
+    <sensor>
+        <jointpos joint='j2s7s300_joint_1'/>
+        <jointpos joint='j2s7s300_joint_2'/>
+        <jointpos joint='j2s7s300_joint_3'/>
+        <jointpos joint='j2s7s300_joint_4'/>
+        <jointpos joint='j2s7s300_joint_5'/>
+        <jointpos joint='j2s7s300_joint_6'/>
+        <jointpos joint='j2s7s300_joint_7'/>   
+        <jointpos joint='j2s7s300_joint_finger_1'/>
+        <jointpos joint='j2s7s300_joint_finger_2'/>
+        <jointpos joint='j2s7s300_joint_finger_3'/>
+
+        <rangefinder site='f1_prox'/>
+<!--         <rangefinder site='f1_dist'/>
+        <rangefinder site='f2_prox'/>
+        <rangefinder site='f2_dist'/>
+        <rangefinder site='f3_prox'/>
+        <rangefinder site='f3_dist'/> -->
+
+
+    </sensor>
+</mujoco>
