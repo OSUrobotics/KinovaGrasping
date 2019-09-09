@@ -10,7 +10,8 @@
 
 import gym
 from gym import utils, spaces
-from gym.envs.mujoco import mujoco_env
+from gym.utils import seeding
+# from gym.envs.mujoco import mujoco_env
 import numpy as np
 from mujoco_py import MjViewer, load_model_from_path, MjSim
 from PID_Kinova_MJ import *
@@ -18,6 +19,8 @@ import math
 import matplotlib.pyplot as plt
 import time
 import os, sys
+from scipy.spatial.transform import Rotation as R
+import random
 
 # resolve cv2 issue 
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
@@ -62,7 +65,7 @@ class KinovaGripper_Env(gym.Env):
 		# mujoco_env.MujocoEnv.__init__(self, full_path, frame_skip)
 		self.frame_skip = frame_skip
 		self.state_rep = state_rep
-
+		self.all_states = None
 
 	def set_step(self, seconds):
 		self._numSteps = seconds / self._timestep
@@ -106,27 +109,73 @@ class KinovaGripper_Env(gym.Env):
 
 		return np.array(finger_pose)
 
+
+	def _get_local_pose(self, mat):
+		rot_mat = []
+		trans = []
+		# print(mat)
+		for i in range(3):
+			orient_temp = []
+
+			for j in range(4):
+				if j != 3:
+					orient_temp.append(mat[i][j])
+				elif j == 3:
+					trans.append(mat[i][j])
+			rot_mat.append(orient_temp)
+
+		# print()
+		r = R.from_dcm(rot_mat)
+		euler_vec = r.as_euler('zyx', degrees=True)
+		pose = list(trans) + list(euler_vec)
+
+		return pose
+
 	# return global or local transformation matrix
-	def _get_finger_pose(self, local_or_global):
+	def _get_obs(self):
 		palm = self._get_trans_mat(["palm"])[0]
 		# print(palm)
-		finger_joints = self._get_trans_mat(["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"])
+		finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
+		finger_joints_transmat = self._get_trans_mat(["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"])
+		fingers_6D_pose = []
+		if self.state_rep == "global":
+			# return finger_joints
+			# print (self._sim.data.get_geom_xmat("f1_prox"))				
+			for joint in finger_joints:
+				rot_mat = R.from_dcm(self._sim.data.get_geom_xmat(joint))
+				euler_vec = rot_mat.as_euler('zyx', degrees=True)
+				trans = self._sim.data.get_geom_xpos(joint)
+				trans = list(trans)
+				trans += list(euler_vec)
+				for i in range(6):
+					fingers_6D_pose.append(trans[i])
 
-		if local_or_global == "global":
-			return finger_joints
+			# return np.array(fingers_6D_pose)
 
-		elif local_or_global == "local":
+		elif self.state_rep == "local":
 			finger_joints_local = []
 			palm_inverse = np.linalg.inv(palm)
-			for joint in range(len(finger_joints)):
-				joint_in_local_frame = np.matmul(finger_joints[joint], palm_inverse)
-				finger_joints_local.append(joint_in_local_frame)
+			for joint in range(len(finger_joints_transmat)):
+				joint_in_local_frame = np.matmul(finger_joints_transmat[joint], palm_inverse)
+				pose = self._get_local_pose(joint_in_local_frame)
+				for i in range(6):
+					fingers_6D_pose.append(pose[i])
+				# finger_joints_local.append(joint_in_local_frame)
 
-			return finger_joints_local
+			# return fingers_6D_pose)
+		elif self.state_rep == "metric":
+			fingers_6D_pose = self._get_rangefinder_data()
 
 		else:
-			print("Wrong entry, neither global or local frame")
+			print("Wrong entry, enter one of the following: global, local, metric")
 			raise ValueError
+
+		obj_pose = self._get_obj_pose()
+		joint_states = self._get_joint_states()
+		fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
+
+		return fingers_6D_pose 
+
 
 	# get range data from 1 step of time 
 	# Uncertainty: rangefinder could only detect distance to the nearest geom, therefore it could detect geom that is not object
@@ -135,7 +184,7 @@ class KinovaGripper_Env(gym.Env):
 		for i in range(14):
 			range_data.append(self._sim.data.sensordata[i+7])
 
-		return np.array(range_data)
+		return range_data
 
 	def _get_obj_pose(self):
 		arr = self._sim.data.get_geom_xpos("cube")
@@ -144,7 +193,8 @@ class KinovaGripper_Env(gym.Env):
 
 
 	def _get_done(self):
-		return False
+		self.done = False
+		return self.done
 
 	# set reward as object being lifted 
 	# need normalize
@@ -197,7 +247,7 @@ class KinovaGripper_Env(gym.Env):
 		for i in range(6):
 			arr.append(self._sim.data.sensordata[i+1])
 
-		return np.array(arr) 
+		return arr # it is a list
 
 	def _get_state(self):
 		return np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]]) 
@@ -214,39 +264,105 @@ class KinovaGripper_Env(gym.Env):
 	def _reset_state(self):
 		self._set_state(self.initial_state)
 
-
-	def _get_obs(self):
-		jA = self._get_joint_states()
-		obj_pose = self._get_obj_pose()
-		if self.state_rep == "world":
-			print("here")
-			fpose = list(self._get_finger_pose("global"))
-			fpose.append(obj_pose)
-			print (fpose)
-			# print("obj_pose", obj_pose )
-			return fpose
-		elif self.state_rep == "palm":
-			return np.concatenate((self._get_finger_pose("local"), jA, obj_pose))
-		elif self.state_rep == "rangedata":
-			return np.concatenate((self._get_rangefinder_data(), jA, obj_pose))
+	def _get_obj_size(self):
+		return self._sim.model.geom_size[-1]
 
 
-	# each step will last for 0.5 second
+	def _set_obj_size(self, random_type=False, chosen_type="box", random_size=False):
+		self.hand_param = {}
+		self.hand_param["span"] = 0.175
+		self.hand_param["depth"] = 0.08
+		self.hand_param["height"] = 0.20 # including distance between table and hand
+
+		geom_type = {"box": [6, 3], "cylinder": [5, 3], "sphere": [2, 1]}
+		geom_index = 0
+		if random_type:
+			chosen_type = random.choice(list(geom_type.keys()))
+			geom_index = geom_type[chosen_type][0]
+			geom_dim_size = geom_type[chosen_type][1]
+
+		else:
+			geom_index = geom_type[chosen_type][0]
+			geom_dim_size = geom_type[chosen_type][1]
+
+		width_max = self.hand_param["span"] * 0.35
+		width_min = self.hand_param["span"] * 0.10
+
+		height_max = self.hand_param["height"] 
+		height_min = self.hand_param["height"] * 0.25
+
+		geom_dim = np.array([])
+
+		if random_size:
+			if geom_index == 6 or geom_index == 5:
+				# geom_dim = []
+				width = random.uniform(width_min, width_max)
+				height = random.uniform(height_min, height_max)
+				geom_dim = np.array([width, width, height])
+			elif geom_index == 2:
+				radius = random.uniform(width_min, width_max)
+				while radius < height_min:
+					radius = random.uniform(width_min, width_max)
+				geom_dim = np.array([radius])
+			else:
+				raise ValueError
+
+			return geom_index, geom_dim
+		else:
+			# return medium size box
+			width = (self.hand_param["span"] * 0.20) / 2
+			height = 0.05
+
+			geom_dim = np.array([width, width, height])
+
+			return geom_index, geom_dim
+
+
+
+
+	def _reset_states(self):
+		# geom_index, geom_dim = self._set_obj_size()
+		# self._sim.model.geom_type[-1] = geom_index
+		# self._sim.model.geom_size[-1] = geom_dim
+
+		reset_states = [1,2]
+		chosen_state = random.choice(reset_states)
+		if chosen_state == 1:
+			self.all_states = np.array([0.0, 0.0, 0.0, 0.0, 0.07, 0.003, 0.08])
+			self._set_state(self.all_states)		
+		else:
+			self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.08])
+			self._set_state(self.all_states)					
+
+
+
+	def forward(self):
+		curr_allpose = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.05])
+		self._set_state(curr_allpose)
+
+		while True:
+			self._sim.forward()
+			self._viewer.render()
+
+
 	def step(self, action, render=False):
 		# print("control range", self._model.actuator_ctrlrange.copy())
-		curr_handpose = np.array([0.0, 0.0, 0.0, 0.0, 0.04, 0.0, 0.08])
+		# curr_handpose = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.05])
+		if self.done:
+			self._reset_states()
+		else:
+			self._set_state(self.all_states)
 
-		self._set_state(curr_handpose)
-
-		self.set_target_thetas(curr_handpose)
+		self.set_target_thetas(self.all_states)
 		step = 0
 		start = time.time()
 
 		total_reward = 0
 
-		initial_state = self._get_obs()
-
-		for i in range(self.frame_skip):
+		# initial_state = self._get_obs()
+		# self._sim.model.geom_type[-1] = 2
+		# self._sim.model.geom_size[-1] = np.array([0.03])
+		for _ in range(self.frame_skip):
 
 			target = np.array(action) # rad 
 			target_vel = np.zeros(3) + target
@@ -254,16 +370,16 @@ class KinovaGripper_Env(gym.Env):
 			# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
 			# if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
 				# print("curling in")
-			if self._sim.data.time < 0.5:
-				curr_handpose[1:4] += target_delta
-				self.set_target_thetas(curr_handpose[0:4])
+			# if self._sim.data.time < 0.5:
+			curr_handpose[1:4] += target_delta
+			self.set_target_thetas(curr_handpose[0:4])
 
-			else: # grasp validation
-				wrist_target = 0.2
-				wrist_delta = wrist_target / 500
-				if abs(curr_handpose[0] - wrist_target) > 0.001:
-					curr_handpose[0] += wrist_delta
-					self.set_target_thetas(curr_handpose[0:4])
+			# else: # grasp validation
+			# 	wrist_target = 0.2
+			# 	wrist_delta = wrist_target / 500
+			# 	if abs(curr_handpose[0] - wrist_target) > 0.001:
+			# 		curr_handpose[0] += wrist_delta
+			# 		self.set_target_thetas(curr_handpose[0:4])
 
 			self._wrist_control() # wrist action
 			self._finger_control() # finger action
@@ -273,22 +389,33 @@ class KinovaGripper_Env(gym.Env):
 				self._viewer.render()
 			# print(self._sim.data.qpos[:])
 			total_reward += self._get_reward_based_on_palm("world")
-				
 
-		curr_state = self._get_obs()
+			# print(self._get_obs("metric"))
+				
+		# curr_state = self._get_obs()
 		# print(curr_state)
-		obs = np.concatenate((curr_state, initial_state))
+		# obs = np.concatenate((curr_state, initial_state))
+			# r = R.from_dcm(self._sim.data.get_geom_xmat("f1_prox"))
+			# r1 = R.from_dcm(self._sim.data.get_geom_xmat("f1_prox"))
+			# t1 = self._sim.data.get_body_xpos("j2s7s300_link_finger_1")
+			# self._viewer.add_marker(pos=np.array([self._sim.data.get_geom_xpos("f1_dist")[0], self._sim.data.get_geom_xpos("f1_dist")[1], self._sim.data.get_geom_xpos("f1_dist")[2]]), size=np.array([0.02, 0.02, 0.02]))
+
+			# print("geom", r.as_euler('zyx', degrees=True))
+			# print("body", r1.as_euler('zyx', degrees=True))
+			# print("bodyt",t1) 
 
 			# pose = 
-		if total_reward < -2:
+		if total_reward < -5:
 			done = True
 		else:
 			done = self._get_done()
+		obs = self._get_obs()
 		
 		return obs, total_reward, done, {}
 
 if __name__ == '__main__':
 	# print(os.path.dirname(os.path.realpath(__file__)))
-	sim = KinovaGripper_Env("hand", frame_skip=250, state_rep="world")
+	sim = KinovaGripper_Env("hand", frame_skip=250, state_rep="global")
 	# data = sim.physim_mj()
-	sim.step([0.7, 0.3, 0.5], True)
+	sim.step([0.7, 0.5, 0.5], True)
+	# sim.forward()
