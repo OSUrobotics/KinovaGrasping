@@ -27,7 +27,7 @@ import random
 
 class KinovaGripper_Env(gym.Env):
 	metadata = {'render.modes': ['human']}
-	def __init__(self, arm_or_end_effector="hand", frame_skip=250, state_rep="global"):
+	def __init__(self, arm_or_end_effector="hand", frame_skip=250, state_rep="metric"):
 		file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
 			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
@@ -67,7 +67,24 @@ class KinovaGripper_Env(gym.Env):
 		self.frame_skip = frame_skip
 		self.state_rep = state_rep
 		self.all_states = None
-		self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(1, 3), dtype=np.float32)
+		self.action_space = spaces.Box(low=np.array([-1.0, -1.0, -1.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float32)
+		# self.action_space = ac_space[0]
+		# print()
+		if self.state_rep == "global" or self.state_rep == "local":
+			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
+				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
+				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
+				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
+				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
+				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
+				0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
+			ob_space = q
+			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
+		elif self.state_rep == "metric":
+			obs_min = np.zeros(17) 
+			obs_max = obs_min + np.Inf
+			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
 
 
 	def set_step(self, seconds):
@@ -176,9 +193,12 @@ class KinovaGripper_Env(gym.Env):
 			print("Wrong entry, enter one of the following: global, local, metric")
 			raise ValueError
 
-		obj_pose = self._get_obj_pose()
-		joint_states = self._get_joint_states()
-		fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
+		# print(len(fingers_6D_pose))
+		if self.state_rep != "metric":
+			obj_pose = self._get_obj_pose()
+
+			joint_states = self._get_joint_states()
+			fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
 
 		return fingers_6D_pose 
 
@@ -187,7 +207,7 @@ class KinovaGripper_Env(gym.Env):
 	# Uncertainty: rangefinder could only detect distance to the nearest geom, therefore it could detect geom that is not object
 	def _get_rangefinder_data(self):
 		range_data = []
-		for i in range(14):
+		for i in range(17):
 			range_data.append(self._sim.data.sensordata[i+7])
 
 		return range_data
@@ -209,6 +229,7 @@ class KinovaGripper_Env(gym.Env):
 		# if object is out of bounds
 		elif x > 0.07 and x < 0.07 and y < 0.0:
 			return True
+		# return Done if the object is flipped or tilted	
 		elif abs(obj_state[2] - self.all_states[-1]) > 0.015:
 			return True
 		else:  
@@ -350,12 +371,12 @@ class KinovaGripper_Env(gym.Env):
 		# if chosen_state == 1:
 		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.05, 0.003, 0.05])
 		self._set_state(self.all_states)		
-
+		states = self._get_obs()
 		# else:
 		# 	self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.08])
 		# 	self._set_state(self.all_states)					
 
-
+		return states
 
 	def forward(self):
 		curr_allpose = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.05])
@@ -395,7 +416,7 @@ class KinovaGripper_Env(gym.Env):
 
 			# print(type(action))
 			# target = np.array(action) # rad 
-			target_vel = np.zeros(3) + action[0]
+			target_vel = np.zeros(3) + action
 			target_delta = target_vel / 500
 			# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
 			# if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:

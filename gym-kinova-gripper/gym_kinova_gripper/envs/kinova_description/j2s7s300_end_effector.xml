@@ -229,14 +229,20 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 
         <rangefinder name="finger_1_proximal" site='f1_prox'/>
+        <rangefinder name="finger_1_proximal_1" site='f1_prox_1'/>
+
         <rangefinder name="finger_1_distal" site='f1_dist'/>
         <rangefinder name="finger_1_distal_1" site='f1_dist_1'/>
 
         <rangefinder name="finger_2_proximal" site='f2_prox'/>
+        <rangefinder name="finger_2_proximal_1" site='f2_prox_1'/>
+        
         <rangefinder name="finger_2_distal" site='f2_dist'/>
         <rangefinder name="finger_2_distal_1" site='f2_dist_1'/>
         
         <rangefinder name="finger_3_proximal" site='f3_prox'/>
+        <rangefinder name="finger_3_proximal_1" site='f3_prox_1'/>
+        
         <rangefinder name="finger_3_distal" site='f3_dist'/>
         <rangefinder name="finger_3_distal_1" site='f3_dist_1'/>
 
