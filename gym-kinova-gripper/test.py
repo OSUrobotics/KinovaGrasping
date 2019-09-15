@@ -7,14 +7,15 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 
 env.reset()
 
-print(env.action_space)
-for _ in range(5):
-	obs, reward, done, _ = env.step(env.action_space.sample())
+finger = np.array([0.25, 0.25, 0.25])
+# print(env.action_space)
+for _ in range(50):
+	obs, reward, done, _ = env.step(finger)
 	# env.render()
 	print("reward", reward)
 	# print("done", done)
-	print("obs", len(obs))
-
+	# print("obs", len(obs))
+# print(env._sim.data.time)
 
 # obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
 # 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,

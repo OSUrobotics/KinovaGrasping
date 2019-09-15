@@ -7,7 +7,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 <mujoco model="j2s7s300">
     <compiler angle="radian" meshdir="meshes/" />
-    <option timestep ="0.002" impratio="5"> 
+    <option timestep ="0.01" impratio="5"> 
     	
     </option>
     <!-- <size njmax="500" nconmax="100" /> -->
@@ -180,19 +180,19 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     </equality>
 	<!-- ======================= Velocity actuators ================================ -->
-<!-- 	<actuator>
-		<motor joint="j2s7s300_joint_7" gear="10"></motor>
-		<velocity joint="j2s7s300_joint_finger_1" kv="10"></velocity>
-		<velocity joint="j2s7s300_joint_finger_2" kv="10"></velocity>
-		<velocity joint="j2s7s300_joint_finger_3" kv="10"></velocity>
-	</actuator>  -->
-	<!-- ======================= Position actuators ================================ -->
 	<actuator>
+		<motor joint="j2s7s300_joint_7" gear="10"></motor>
+		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrlrange="-2 2"></velocity>
+		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrlrange="-2 2"></velocity>
+		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrlrange="-2 2"></velocity>
+	</actuator> 
+	<!-- ======================= Position actuators ================================ -->
+	<!-- <actuator>
 		<motor joint="j2s7s300_joint_7" gear="25"/>
 		<motor joint='j2s7s300_joint_finger_1' name='j2s7s300_joint_finger_1_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_2' name='j2s7s300_joint_finger_2_act' gear="5"/>
 		<motor joint='j2s7s300_joint_finger_3' name='j2s7s300_joint_finger_3_act' gear="5"/>
-	</actuator>
+	</actuator> -->
 
 	<!-- ======================= Torque actuators ================================ -->
 <!-- 	<actuator>

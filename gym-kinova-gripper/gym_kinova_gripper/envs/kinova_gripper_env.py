@@ -24,10 +24,13 @@ import random
 
 # resolve cv2 issue 
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
+# frame skip = 20
+# action update time = 0.002 * 20 = 0.04
+# total run time = 40 (n_steps) * 0.04 (action update time) = 1.6
 
 class KinovaGripper_Env(gym.Env):
 	metadata = {'render.modes': ['human']}
-	def __init__(self, arm_or_end_effector="hand", frame_skip=250, state_rep="metric"):
+	def __init__(self, arm_or_end_effector="hand", frame_skip=4, state_rep="metric"):
 		file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
 			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
@@ -67,7 +70,7 @@ class KinovaGripper_Env(gym.Env):
 		self.frame_skip = frame_skip
 		self.state_rep = state_rep
 		self.all_states = None
-		self.action_space = spaces.Box(low=np.array([-1.0, -1.0, -1.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float32)
+		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 		# self.action_space = ac_space[0]
 		# print()
 		if self.state_rep == "global" or self.state_rep == "local":
@@ -219,68 +222,89 @@ class KinovaGripper_Env(gym.Env):
 
 
 	def _get_done(self):
+		return False
+
+
+	# this reward min is 0.932 max is 1
+	def _get_dot_product(self):
 		obj_state = self._get_obj_pose()
-		x = obj_state[0]
-		y = obj_state[1]
+		hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
+		obj_state_x = abs(obj_state[0] - hand_pose[0])
+		obj_state_y = abs(obj_state[1] - hand_pose[1])
+		obj_vec = np.array([obj_state_x, obj_state_y])
+		obj_vec_norm = np.linalg.norm(obj_vec)
+		obj_unit_vec = obj_vec / obj_vec_norm
 
-		# if object is within bounds
-		if x >= -0.02 and x <= 0.02 and y >= -0.02:
-			return True
-		# if object is out of bounds
-		elif x > 0.07 and x < 0.07 and y < 0.0:
-			return True
-		# return Done if the object is flipped or tilted	
-		elif abs(obj_state[2] - self.all_states[-1]) > 0.015:
-			return True
-		else:  
-			return False
-		# return self.done
+		center_x = abs(0.0 - hand_pose[0])
+		center_y = abs(0.0 - hand_pose[1])
+		center_vec = np.array([center_x, center_y])
+		center_vec_norm = np.linalg.norm(center_vec)
+		center_unit_vec = center_vec / center_vec_norm
+		# print(obj_unit_vec, center_unit_vec)
+		# print(obj_vec, center_vec)
+		dot_prod = np.dot(obj_unit_vec, center_unit_vec)
+		# print(math.degrees(np.arccos(dot_prod)))
 
-	# set reward as object being lifted 
-	# need normalize
-	def _get_dist_reward(self):
-		state = self._get_obj_pose()
-		reward = -(self.state_des - state[2]) # only get z for now
+		return dot_prod**10 # cuspy to get distinct reward
 
-		return reward
-
-	def _get_norm_reward(self):
-		state = self._get_obj_pose()
-		reward_norm = (state[2] - 0.06) / (0.2 - 0.06)
-		if reward_norm > 1.0:
-			reward_norm = 1.0
-		elif reward_norm < 0.0:
-			reward_norm = 0.0
-
-		return reward_norm
-
-
-	def _get_reward(self, action):
-		# pc = self._get_palm_center(options)
+	def _get_contact_distance(self):
+		finger_pose = self._sim.data.get_geom_xpos("f2_dist")
+		x = finger_pose[0]
+		y = finger_pose[1]
 		obj_state = self._get_obj_pose()
-		# print(obj_state)
-		reward = - abs(obj_state[0] - 0.0) - abs(obj_state[1] - 0.0)
+		return x, obj_state[0]
+
+	'''
+	Reward function
+	'''
+	def _get_reward(self):
+		# obj_state = self._get_obj_pose()
+
+		# reward = - abs(obj_state[0] - 0.0) - abs(obj_state[1] - 0.0)
+
+		# reward = self._get_dot_product() 
+		
+		f1 = self._sim.data.get_geom_xpos("f1_dist")
+		f2 = self._sim.data.get_geom_xpos("f2_dist")
+		f3 = self._sim.data.get_geom_xpos("f3_dist")
+
+		f1_curr = math.sqrt((0.05813983 - f1[0])**2 + (0.01458329 - f1[1])**2)
+
+		# f1_init = math.sqrt((0.07998454 - f1[0])**2 + (0.03696302 - f1[1])**2)
+		# f1_dist = math.sqrt((0.07998454 - 0.05813983)**2 + (0.03696302 - 0.01458329)**2)
+
+		f1_reward = (math.exp(-100*f1_curr))
+
+		f2_curr = math.sqrt((-0.06437128 - f2[0])**2 + abs(0.02180294 - f2[1])**2)
+		# f2_dist = math.sqrt((-0.07601888 - -0.06437128)**2 + (0.03679844 - 0.02180294)**2)
+
+		f2_reward = (math.exp(-100*f2_curr))
+		# print("f1_reward", f1_curr)
+
+		# print("f2_reward", f2_curr)
+
+		f3_curr = math.sqrt((-0.06448944 - f3[0])**2 + abs(0.02191481 - f3[1])**2)
+		# f3_dist = math.sqrt((-0.07606889 - -0.06448944)**2 + (0.03684846 - 0.02191481)**2)
+
+		f3_reward = (math.exp(-100*f3_curr))
+		# print("f3 reward", f3_curr)
+
+		# reward = (f1_reward + f2_reward + f3_reward) / 3.0
+		reward = f3_reward
+
+
+		# reward = - math.sqrt((obj_state[0] - 0.0)**2 + (obj_state[1] - 0.0)**2 )
 		# print(self.all_states[-1])
-		if abs(obj_state[2] - self.all_states[-1]) > 0.01:
-			reward -= 1
+		# if abs(obj_state[2] - self.all_states[-1]) > 0.01:
+		# 	reward -= 1
 
-		if obj_state[0] < 0.0 and action[0] > action[1] and action[0] > action[2]:
-			reward -= 1
+		# if obj_state[0] < 0.0 and action[0] > action[1] and action[0] > action[2]:
+		# 	reward -= 1
 
-		if obj_state[0] > 0.0 and action[0] < action[1] and action[0] < action[2]:
-			reward -= 1
+		# if obj_state[0] > 0.0 and action[0] < action[1] and action[0] < action[2]:
+		# 	reward -= 1
 
 		return reward
-
-
-	def _get_palm_center(self, options):
-		if options == "world" or options == "metric":
-			return [0.0, 0.0]
-		elif options == "palm":
-			return [0.0, 0.119]
-		else:
-			raise ValueError
-
 
 
 	def _get_joint_states(self):
@@ -360,26 +384,18 @@ class KinovaGripper_Env(gym.Env):
 
 
 
-
 	def reset(self):
 		# geom_index, geom_dim = self._set_obj_size()
 		# self._sim.model.geom_type[-1] = geom_index
 		# self._sim.model.geom_size[-1] = geom_dim
-
-		# reset_states = [1,2]
-		# chosen_state = random.choice(reset_states)
-		# if chosen_state == 1:
-		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.05, 0.003, 0.05])
+		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.05, -0.2, 0.05])
 		self._set_state(self.all_states)		
-		states = self._get_obs()
-		# else:
-		# 	self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.08])
-		# 	self._set_state(self.all_states)					
+		states = self._get_obs()				
 
 		return states
 
 	def forward(self):
-		curr_allpose = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.05])
+		curr_allpose = np.array([0.0, 0.0, 0.0, 0.0, -0.07, -0.2, 0.05])
 		self._set_state(curr_allpose)
 
 		while True:
@@ -393,15 +409,9 @@ class KinovaGripper_Env(gym.Env):
 		pass
 
 
-	def step(self, action, render=False):
+	def step(self, action, render=True):
 		# print("control range", self._model.actuator_ctrlrange.copy())
 		# curr_handpose = np.array([0.0, 0.0, 0.0, 0.0, -0.07, 0.003, 0.05])
-		# if self.done:
-		# 	self._reset_states()
-		# else:
-		# 	self._set_state(self.all_states)
-		# if done:
-		# self.set_target_thetas(self.all_states)
 
 		# step = 0
 		# start = time.time()
@@ -412,50 +422,17 @@ class KinovaGripper_Env(gym.Env):
 		# self._sim.model.geom_type[-1] = 2
 		# self._sim.model.geom_size[-1] = np.array([0.03])
 		for _ in range(self.frame_skip):
-			# self._viewer.add_marker(pos=np.array([0.0, 0.07, 0.0654]), size=np.array([0.02, 0.02, 0.02]))
-
-			# print(type(action))
-			# target = np.array(action) # rad 
-			target_vel = np.zeros(3) + action
-			target_delta = target_vel / 500
-			# print(np.max(np.abs(gripper[1:] - target_vel)) > 0.01)
-			# if np.max(np.abs(gripper[1:] - target_vel)) > 0.001:
-				# print("curling in")
-			# if self._sim.data.time < 0.5:
-			self.all_states[1:4] += target_delta
-			self.set_target_thetas(self.all_states[0:4])
-
-			# else: # grasp validation
-			# 	wrist_target = 0.2
-			# 	wrist_delta = wrist_target / 500
-			# 	if abs(curr_handpose[0] - wrist_target) > 0.001:
-			# 		curr_handpose[0] += wrist_delta
-			# 		self.set_target_thetas(curr_handpose[0:4])
-
 			self._wrist_control() # wrist action
-			self._finger_control() # finger action
-			# step += 1
+			# self._finger_control() # finger action
+			for i in range(3):
+				self._sim.data.ctrl[i+1] = 1.1*action[i]
+
 			self._sim.step() # update every 0.002 seconds (500 Hz)
 			if render:
 				self.render()
-			# print(self._sim.data.qpos[:])
-			total_reward += self._get_reward(target_delta)
+			# print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_3"))
 
-			# print(self._get_obs("metric"))
-				
-		# curr_state = self._get_obs()
-		# print(curr_state)
-		# obs = np.concatenate((curr_state, initial_state))
-			# r = R.from_dcm(self._sim.data.get_geom_xmat("f1_prox"))
-			# r1 = R.from_dcm(self._sim.data.get_geom_xmat("f1_prox"))
-			# t1 = self._sim.data.get_body_xpos("j2s7s300_link_finger_1")
-
-			# print("geom", r.as_euler('zyx', degrees=True))
-			# print("body", r1.as_euler('zyx', degrees=True))
-			# print("bodyt",t1) 
-
-			# pose = 
-		# print(abs(self._get_obj_pose()[2] - self.all_states[-1]))
+		total_reward = self._get_reward()
 		done = self._get_done()
 		obs = self._get_obs()
 		
@@ -513,3 +490,20 @@ class PID_(object):
 	# data = sim.physim_mj()
 	# sim.step([0.7, 0.5, 0.5], True)
 	# sim.forward()
+
+	# else: # grasp validation
+	# 	wrist_target = 0.2
+	# 	wrist_delta = wrist_target / 500
+	# 	if abs(curr_handpose[0] - wrist_target) > 0.001:
+	# 		curr_handpose[0] += wrist_delta
+	# 		self.set_target_thetas(curr_handpose[0:4])
+	# self._viewer.add_marker(pos=np.array([0.0, 0.07, 0.0654]), size=np.array([0.02, 0.02, 0.02]))
+
+	# target = np.array(action) # rad 
+	# target_vel = np.zeros(3) + action
+	# target_vel = np.zeros(1) + action
+	# target_delta = target_vel / 500
+
+	# self.all_states[1:4] += target_delta
+	# self.all_states[1] += target_delta
+	# self.set_target_thetas(self.all_states[0:4])	
