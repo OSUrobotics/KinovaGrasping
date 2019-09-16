@@ -30,7 +30,7 @@ import random
 
 class KinovaGripper_Env(gym.Env):
 	metadata = {'render.modes': ['human']}
-	def __init__(self, arm_or_end_effector="hand", frame_skip=4, state_rep="metric"):
+	def __init__(self, arm_or_end_effector="hand", frame_skip=4, state_rep="global"):
 		file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
 			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
@@ -70,19 +70,23 @@ class KinovaGripper_Env(gym.Env):
 		self.frame_skip = frame_skip
 		self.state_rep = state_rep
 		self.all_states = None
-		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
+		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 		# self.action_space = ac_space[0]
+		self.action_space = spaces.Box(low=np.array([-0.8]), high=np.array([0.8]), dtype=np.float32)
+
 		# print()
 		if self.state_rep == "global" or self.state_rep == "local":
-			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
-				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
-				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
-				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
-				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-				0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
-			ob_space = q
+			# obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
+			# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
+			# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
+			# 	-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360])
+			# obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
+			# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
+			# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
+			# 	0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
+			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360])
+
 			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
 		elif self.state_rep == "metric":
 			obs_min = np.zeros(17) 
@@ -161,7 +165,8 @@ class KinovaGripper_Env(gym.Env):
 	def _get_obs(self):
 		palm = self._get_trans_mat(["palm"])[0]
 		# print(palm)
-		finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
+		# finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
+		finger_joints = ["f1_prox", "f1_dist"]
 		finger_joints_transmat = self._get_trans_mat(["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"])
 		fingers_6D_pose = []
 		if self.state_rep == "global":
@@ -197,11 +202,11 @@ class KinovaGripper_Env(gym.Env):
 			raise ValueError
 
 		# print(len(fingers_6D_pose))
-		if self.state_rep != "metric":
-			obj_pose = self._get_obj_pose()
+		# if self.state_rep != "metric":
+		# 	obj_pose = self._get_obj_pose()
 
-			joint_states = self._get_joint_states()
-			fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
+		# 	joint_states = self._get_joint_states()
+		# 	fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
 
 		return fingers_6D_pose 
 
@@ -290,7 +295,10 @@ class KinovaGripper_Env(gym.Env):
 		# print("f3 reward", f3_curr)
 
 		# reward = (f1_reward + f2_reward + f3_reward) / 3.0
-		reward = f3_reward
+		if f1_curr < 0.001:
+			reward = 1.0
+		else:
+			reward = f1_reward
 
 
 		# reward = - math.sqrt((obj_state[0] - 0.0)**2 + (obj_state[1] - 0.0)**2 )
@@ -424,19 +432,55 @@ class KinovaGripper_Env(gym.Env):
 		for _ in range(self.frame_skip):
 			self._wrist_control() # wrist action
 			# self._finger_control() # finger action
-			for i in range(3):
+
+			for i in range(1):
 				self._sim.data.ctrl[i+1] = 1.1*action[i]
+
+
+			# self._sim.data.ctrl[1], self._sim.data.ctrl[4] = self._pd_controller(action)
+
+			# # joint position control
+			# ref_poses, ref_vels = self._joint_position_controller(action)
+			# for i in range(1):
+			# 	self._sim.data.ctrl[i+1] = ref_poses[i]
+			# 	self._sim.data.ctrl[i+4] = ref_vels[i]
+
+			# joint velocity control
+			# ref_forces, ref_vels = self._joint_velocity_controller(action)
+			# for i in range(1):
+			# 	self._sim.data.ctrl[i+1] = ref_forces[i]
+			# 	self._sim.data.ctrl[i+4] = ref_vels[i]			
 
 			self._sim.step() # update every 0.002 seconds (500 Hz)
 			if render:
 				self.render()
+			# print(self._sim.data.get_joint_qvel("j2s7s300_joint_finger_1"))
+			# print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_2"))
 			# print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_3"))
+			# if self._sim.data.time == 1:
+			# 	print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1"))
+
 
 		total_reward = self._get_reward()
 		done = self._get_done()
 		obs = self._get_obs()
 		
 		return obs, total_reward, done, {}
+
+
+	def _joint_position_controller(self, action):
+		# err = action - self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1") 
+		ref_pos = action
+		ref_vel = action * self._sim.model.opt.timestep
+		return ref_pos, ref_vel
+
+	def _joint_velocity_controller(self, action):
+		err = action - self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1") 
+		diff_err = err * self._sim.model.opt.timestep
+		ref_force = err + diff_err
+		ref_vel = action
+		return ref_force, ref_vel
+
 
 class PID_(object):
 	def __init__(self, kp=0.0, kd=0.0, ki=0.0):

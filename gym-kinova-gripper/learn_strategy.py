@@ -15,11 +15,11 @@ from stable_baselines.common.policies import MlpPolicy
 from stable_baselines.common.vec_env import SubprocVecEnv
 from stable_baselines import PPO2, A2C
 
-n_cpu = 4
+n_cpu = 2
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') # to import cv2 successfully at stable_baselines
 env = SubprocVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0') for i in range(n_cpu)])
 
 # ent_coef=0.1, lr = 0.0001
 model = PPO2(MlpPolicy, env, n_steps=50, learning_rate = 0.0001, verbose=1, tensorboard_log="./kinova_gripper_strategy" ,full_tensorboard_log=True)
-model.learn(total_timesteps = 300000)
-model.save("ppo2_kinova_strategy_ec01_lr0001_steps2e5_5")
+model.learn(total_timesteps = 200000)
+model.save("ppo2_kinova_strategy_learnf1_test_3")

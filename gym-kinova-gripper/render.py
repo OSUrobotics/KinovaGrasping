@@ -19,10 +19,11 @@ n_cpu = 4
 env = SubprocVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0') for i in range(n_cpu)])
 
 
-model = PPO2.load("ppo2_kinova_strategy_ec01_lr0001_steps2e5_5")
+model = PPO2.load("ppo2_kinova_strategy_learnf1_test_3")
 obs = env.reset()
 while True:
 	action, _states = model.predict(obs)
+	# print("action", action)
 	obs, rewards, dones, info = env.step(action)
-	print("rewards", rewards)
+	# print("rewards", rewards)
 	# env.render()
