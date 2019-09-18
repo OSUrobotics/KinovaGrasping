@@ -11,19 +11,36 @@ import numpy as np
 import gym
 
 from stable_baselines.common.policies import MlpPolicy
-from stable_baselines.common.vec_env import SubprocVecEnv
+from stable_baselines.common.vec_env import SubprocVecEnv, DummyVecEnv
 from stable_baselines import PPO2, A2C
+import matplotlib.pyplot as plt
 
-n_cpu = 4
+n_cpu = 2
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages') # to import cv2 successfully at stable_baselines
-env = SubprocVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0') for i in range(n_cpu)])
+# env = SubprocVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0' )])
+
+env = DummyVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0')])
 
 
-model = PPO2.load("ppo2_kinova_strategy_learnf1_test_3")
+model = PPO2.load("ppo2_kinova_strategy_learnf1_test_17")
+# model = PPO2.load("ppo2_kinova_strategy_ec01_lr0001_steps2e5")
+
 obs = env.reset()
-while True:
+qvel = []
+for _ in range(100):
 	action, _states = model.predict(obs)
 	# print("action", action)
 	obs, rewards, dones, info = env.step(action)
+	# print(env._sim.data.get_joint_qvel("j2s7s300_joint_finger_1"))
 	# print("rewards", rewards)
 	# env.render()
+
+	# print(model.action_probability(obs))
+	print(action)
+
+	qvel.append(action[0][0])
+
+timestep = np.arange(0, len(qvel))
+print(min(map(abs, qvel)))
+plt.plot(timestep, qvel)
+plt.show()

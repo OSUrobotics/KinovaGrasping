@@ -22,6 +22,7 @@ import os, sys
 from scipy.spatial.transform import Rotation as R
 import random
 
+
 # resolve cv2 issue 
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 # frame skip = 20
@@ -72,7 +73,7 @@ class KinovaGripper_Env(gym.Env):
 		self.all_states = None
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 		# self.action_space = ac_space[0]
-		self.action_space = spaces.Box(low=np.array([-0.8]), high=np.array([0.8]), dtype=np.float32)
+		self.action_space = spaces.Box(low=np.array([-0.50]), high=np.array([0.50]), dtype=np.float64)
 
 		# print()
 		if self.state_rep == "global" or self.state_rep == "local":
@@ -81,6 +82,7 @@ class KinovaGripper_Env(gym.Env):
 			# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
 			# 	-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
 			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360])
+		
 			# obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
 			# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
 			# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
@@ -262,7 +264,7 @@ class KinovaGripper_Env(gym.Env):
 	'''
 	Reward function
 	'''
-	def _get_reward(self):
+	def _get_reward(self, state, action):
 		# obj_state = self._get_obj_pose()
 
 		# reward = - abs(obj_state[0] - 0.0) - abs(obj_state[1] - 0.0)
@@ -270,47 +272,48 @@ class KinovaGripper_Env(gym.Env):
 		# reward = self._get_dot_product() 
 		
 		f1 = self._sim.data.get_geom_xpos("f1_dist")
-		f2 = self._sim.data.get_geom_xpos("f2_dist")
-		f3 = self._sim.data.get_geom_xpos("f3_dist")
+		# f2 = self._sim.data.get_geom_xpos("f2_dist")
+		# f3 = self._sim.data.get_geom_xpos("f3_dist")
 
-		f1_curr = math.sqrt((0.05813983 - f1[0])**2 + (0.01458329 - f1[1])**2)
+		f1_curr = (0.05813983 - state[0])**2 + (0.01458329 - state[1])**2
+		# f1_curr = math.sqrt((0.05813983 - state[0])**2 + (0.01458329 - state[1])**2)
+		# f1_curr = (0.058 - state[0])**2 + (0.014 - state[1])**2
+
+
+		# f1_dist = math.sqrt((0.07998454 - 0.05813983)**2 + (0.03696302 - 0.01458329)**2)
+		# x = f1_curr / f1_dist # normalize between 0 and 1
+		# # print(x)
+		# if x > 1:
+		# 	x = 1
+		# reward = math.sqrt(1 - x**2) - 1
 
 		# f1_init = math.sqrt((0.07998454 - f1[0])**2 + (0.03696302 - f1[1])**2)
-		# f1_dist = math.sqrt((0.07998454 - 0.05813983)**2 + (0.03696302 - 0.01458329)**2)
 
-		f1_reward = (math.exp(-100*f1_curr))
+		# f1_reward = (math.exp(-100*f1_curr))
 
-		f2_curr = math.sqrt((-0.06437128 - f2[0])**2 + abs(0.02180294 - f2[1])**2)
+		f1_reward = 11*(math.exp(-100*f1_curr) - 1)
+
+		# f2_curr = math.sqrt((-0.06437128 - f2[0])**2 + abs(0.02180294 - f2[1])**2)
 		# f2_dist = math.sqrt((-0.07601888 - -0.06437128)**2 + (0.03679844 - 0.02180294)**2)
 
-		f2_reward = (math.exp(-100*f2_curr))
-		# print("f1_reward", f1_curr)
+		# f2_reward = (math.exp(-100*f2_curr))
 
-		# print("f2_reward", f2_curr)
-
-		f3_curr = math.sqrt((-0.06448944 - f3[0])**2 + abs(0.02191481 - f3[1])**2)
+		# f3_curr = math.sqrt((-0.06448944 - f3[0])**2 + abs(0.02191481 - f3[1])**2)
 		# f3_dist = math.sqrt((-0.07606889 - -0.06448944)**2 + (0.03684846 - 0.02191481)**2)
 
-		f3_reward = (math.exp(-100*f3_curr))
+		# f3_reward = (math.exp(-100*f3_curr))
 		# print("f3 reward", f3_curr)
 
 		# reward = (f1_reward + f2_reward + f3_reward) / 3.0
-		if f1_curr < 0.001:
-			reward = 1.0
+
+		if f1_curr < 1e-6: 
+			reward = f1_reward + (-100*action**2)
 		else:
 			reward = f1_reward
 
-
-		# reward = - math.sqrt((obj_state[0] - 0.0)**2 + (obj_state[1] - 0.0)**2 )
-		# print(self.all_states[-1])
-		# if abs(obj_state[2] - self.all_states[-1]) > 0.01:
-		# 	reward -= 1
-
-		# if obj_state[0] < 0.0 and action[0] > action[1] and action[0] > action[2]:
-		# 	reward -= 1
-
-		# if obj_state[0] > 0.0 and action[0] < action[1] and action[0] < action[2]:
-		# 	reward -= 1
+		# target = 0.5
+		# err = (target - state)**2
+		# reward = 5*(math.exp(-err) -1)
 
 		return reward
 
@@ -398,7 +401,10 @@ class KinovaGripper_Env(gym.Env):
 		# self._sim.model.geom_size[-1] = geom_dim
 		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.05, -0.2, 0.05])
 		self._set_state(self.all_states)		
-		states = self._get_obs()				
+		states = self._get_obs()
+		# obs_x = self._sim.data.get_geom_xpos("f1_dist")[0]
+		# obs_y = self._sim.data.get_geom_xpos("f1_dist")[1]
+		# states = np.array([obs_x, obs_y])				
 
 		return states
 
@@ -429,12 +435,18 @@ class KinovaGripper_Env(gym.Env):
 		# initial_state = self._get_obs()
 		# self._sim.model.geom_type[-1] = 2
 		# self._sim.model.geom_size[-1] = np.array([0.03])
+		# qvel = []
+		state = self._sim.data.get_geom_xpos("f1_dist")
+		# state = self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1")
 		for _ in range(self.frame_skip):
 			self._wrist_control() # wrist action
 			# self._finger_control() # finger action
 
 			for i in range(1):
-				self._sim.data.ctrl[i+1] = 1.1*action[i]
+				# if abs(action[i]) < 0.2:
+				# 	self._sim.data.ctrl[i+1] = 0.0
+				# else: 
+				self._sim.data.ctrl[i+1] = 1.1*action[i] 
 
 
 			# self._sim.data.ctrl[1], self._sim.data.ctrl[4] = self._pd_controller(action)
@@ -458,12 +470,17 @@ class KinovaGripper_Env(gym.Env):
 			# print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_2"))
 			# print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_3"))
 			# if self._sim.data.time == 1:
-			# 	print(self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1"))
+			# qvel.append(
+			# print(self._sim.data.get_joint_qvel("j2s7s300_joint_finger_1"))
 
 
-		total_reward = self._get_reward()
+		total_reward = self._get_reward(state,action[0])
 		done = self._get_done()
 		obs = self._get_obs()
+
+		# obs_x = self._sim.data.get_geom_xpos("f1_dist")[0]
+		# obs_y = self._sim.data.get_geom_xpos("f1_dist")[1]
+		# obs = np.array([obs_x, obs_y])
 		
 		return obs, total_reward, done, {}
 

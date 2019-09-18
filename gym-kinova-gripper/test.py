@@ -11,14 +11,14 @@ env.reset()
 finger = np.array([0.25])
 
 # print(env.action_space)
-for _ in range(50):
-	obs, reward, done, _ = env.step(finger)
+for _ in range(200):
+	# obs, reward, done, _ = env.step(finger)
 	# env.render()
-	print("reward", reward)
+	# print("reward", reward)
 	# print("obs", len(obs))
 	# print("done", done)
 	# print(type(env._sim.data.time))
-
+	print(env.action_space.sample())
 	# if abs(env._sim.data.time - 2.000) < 0.0000001:
 	# 	print(env._sim.data.get_joint_qpos("j2s7s300_joint_finger_1") / 2) 
 
