@@ -22,23 +22,24 @@ n_cpu = 2
 env = DummyVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0')])
 
 
-model = PPO2.load("ppo2_kinova_strategy_learnf1_test_17")
+model = PPO2.load("ppo2_kinova_strategy_learn_to_move_box_4")
 # model = PPO2.load("ppo2_kinova_strategy_ec01_lr0001_steps2e5")
 
 obs = env.reset()
 qvel = []
-for _ in range(100):
+
+for _ in range(400):
 	action, _states = model.predict(obs)
 	# print("action", action)
 	obs, rewards, dones, info = env.step(action)
 	# print(env._sim.data.get_joint_qvel("j2s7s300_joint_finger_1"))
-	# print("rewards", rewards)
+	print("rewards", rewards)
 	# env.render()
 
 	# print(model.action_probability(obs))
-	print(action)
+	# print(action)
 
-	qvel.append(action[0][0])
+	qvel.append(action[0][0]*0.05)
 
 timestep = np.arange(0, len(qvel))
 print(min(map(abs, qvel)))

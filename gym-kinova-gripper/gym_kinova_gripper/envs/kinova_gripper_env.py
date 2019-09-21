@@ -31,7 +31,7 @@ import random
 
 class KinovaGripper_Env(gym.Env):
 	metadata = {'render.modes': ['human']}
-	def __init__(self, arm_or_end_effector="hand", frame_skip=4, state_rep="global"):
+	def __init__(self, arm_or_end_effector="hand", frame_skip=2, state_rep="global"):
 		file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
 			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
@@ -59,7 +59,7 @@ class KinovaGripper_Env(gym.Env):
 		self._positions = [] # ??
 		self._numSteps = 0
 		self._simulator = "Mujoco"
-
+		self.action_scale = 0.0333
 		# define pid controllers for all joints
 		self.pid = [PID_(65,0.04,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0), PID_(10,0.01,0.0)]
 		# self.pid = [PID_(10,0.01,0.0), PID_(1,0.0,0.0), PID_(1,0.0,0.0), PID_(1,0.0,0.0)]
@@ -73,21 +73,23 @@ class KinovaGripper_Env(gym.Env):
 		self.all_states = None
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 		# self.action_space = ac_space[0]
-		self.action_space = spaces.Box(low=np.array([-0.50]), high=np.array([0.50]), dtype=np.float64)
-
+		self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf, -np.inf]), high=np.array([np.inf, np.inf, np.inf]), dtype=np.float32)
+		# self.action_space = spaces.Box(low=np.array([-np.inf]), high=np.array([np.inf]), dtype=np.float32)
+		
+		# self.obj_original_state = self._sim.data.get_joint_qpos("cube")
 		# print()
 		if self.state_rep == "global" or self.state_rep == "local":
-			# obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
-			# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
-			# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
-			# 	-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360])
+			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
+				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
+				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
+				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+			# obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360, -0.5])
 		
-			# obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
-			# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-			# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-			# 	0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
-			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360])
+			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
+				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
+				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
+				0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
+			# obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360, 0.5])
 
 			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
 		elif self.state_rep == "metric":
@@ -167,8 +169,8 @@ class KinovaGripper_Env(gym.Env):
 	def _get_obs(self):
 		palm = self._get_trans_mat(["palm"])[0]
 		# print(palm)
-		# finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
-		finger_joints = ["f1_prox", "f1_dist"]
+		finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
+		# finger_joints = ["f1_prox", "f1_dist"]
 		finger_joints_transmat = self._get_trans_mat(["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"])
 		fingers_6D_pose = []
 		if self.state_rep == "global":
@@ -204,11 +206,12 @@ class KinovaGripper_Env(gym.Env):
 			raise ValueError
 
 		# print(len(fingers_6D_pose))
-		# if self.state_rep != "metric":
-		# 	obj_pose = self._get_obj_pose()
+		if self.state_rep != "metric":
+			obj_pose = self._get_obj_pose()
 
-		# 	joint_states = self._get_joint_states()
-		# 	fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
+			joint_states = self._get_joint_states()
+			fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
+		# fingers_6D_pose += [self._sim.data.get_joint_qvel("j2s7s300_joint_finger_1")]
 
 		return fingers_6D_pose 
 
@@ -229,6 +232,9 @@ class KinovaGripper_Env(gym.Env):
 
 
 	def _get_done(self):
+		# if states[0] > self.obj_original_state[0]:
+		# 	return True
+		# else:
 		return False
 
 
@@ -252,7 +258,7 @@ class KinovaGripper_Env(gym.Env):
 		dot_prod = np.dot(obj_unit_vec, center_unit_vec)
 		# print(math.degrees(np.arccos(dot_prod)))
 
-		return dot_prod**10 # cuspy to get distinct reward
+		return dot_prod**20 # cuspy to get distinct reward
 
 	def _get_contact_distance(self):
 		finger_pose = self._sim.data.get_geom_xpos("f2_dist")
@@ -264,7 +270,7 @@ class KinovaGripper_Env(gym.Env):
 	'''
 	Reward function
 	'''
-	def _get_reward(self, state, action):
+	def _get_dist_reward(self, state, action):
 		# obj_state = self._get_obj_pose()
 
 		# reward = - abs(obj_state[0] - 0.0) - abs(obj_state[1] - 0.0)
@@ -275,10 +281,13 @@ class KinovaGripper_Env(gym.Env):
 		# f2 = self._sim.data.get_geom_xpos("f2_dist")
 		# f3 = self._sim.data.get_geom_xpos("f3_dist")
 
-		f1_curr = (0.05813983 - state[0])**2 + (0.01458329 - state[1])**2
+		target_pos = np.array([0.05813983, 0.01458329])
+		target_vel = np.array([0.0])
+
+		f1_pos_err = (target_pos[0] - state[0])**2 + (target_pos[1] - state[1])**2
 		# f1_curr = math.sqrt((0.05813983 - state[0])**2 + (0.01458329 - state[1])**2)
 		# f1_curr = (0.058 - state[0])**2 + (0.014 - state[1])**2
-
+		f1_vel_err = (target_vel[0] - action)**2
 
 		# f1_dist = math.sqrt((0.07998454 - 0.05813983)**2 + (0.03696302 - 0.01458329)**2)
 		# x = f1_curr / f1_dist # normalize between 0 and 1
@@ -291,7 +300,9 @@ class KinovaGripper_Env(gym.Env):
 
 		# f1_reward = (math.exp(-100*f1_curr))
 
-		f1_reward = 11*(math.exp(-100*f1_curr) - 1)
+		f1_pos_reward = 12*(math.exp(-100*f1_pos_err) - 1)
+		f1_vel_reward = 4.5*(math.exp(-f1_vel_err) - 1)
+
 
 		# f2_curr = math.sqrt((-0.06437128 - f2[0])**2 + abs(0.02180294 - f2[1])**2)
 		# f2_dist = math.sqrt((-0.07601888 - -0.06437128)**2 + (0.03679844 - 0.02180294)**2)
@@ -306,17 +317,47 @@ class KinovaGripper_Env(gym.Env):
 
 		# reward = (f1_reward + f2_reward + f3_reward) / 3.0
 
-		if f1_curr < 1e-6: 
-			reward = f1_reward + (-100*action**2)
-		else:
-			reward = f1_reward
+		# if f1_pos_err < 5e-6: 
+		# 	reward = f1_pos_reward + 0.1*f1_vel_reward
+		# else:
+		reward = f1_pos_reward # + 0.3*f1_vel_reward
+		# reward = -math.sqrt(f1_pos_err) # - f1_vel_err**2
 
-		# target = 0.5
-		# err = (target - state)**2
-		# reward = 5*(math.exp(-err) -1)
 
 		return reward
 
+
+	def _get_reward(self, state, action):
+		# get states from fingers and object
+		obj_state = state[0]
+		f1 = state[1]
+		f2 = state[2]
+		f3 = state[3]
+
+		# target
+		obj_target = np.array([0.0, 0.0])
+
+		
+		target_dist = np.array([0.0, 0.0])
+		obj_fg_err = (f1[0] - obj_state[0])**2 + (f1[1] - obj_state[1])**2
+		obj_state_err = math.sqrt((self.obj_original_state[0] - obj_state[0])**2 + (self.obj_original_state[1] - obj_state[1])**2)
+		obj_pos_err = (obj_target[0] - obj_state[0])**2 + (obj_target[1] - obj_state[1])**2
+		
+		dot_prod = self._get_dot_product()
+		# first level of reward : approach object
+		# if obj_state_err < 1e-4:
+			# print("here")
+		# reward = 12*(math.exp(-100*obj_fg_err) - 1) + 12*(math.exp(-100*obj_pos_err) - 1) 
+		 # + np.log(dot_prod) 
+
+		# second level of reward : move object to target
+		# else:
+			# reward = 12*(math.exp(-100*obj_pos_err) - 1) 
+		if abs(dot_prod - 0.4755) > 0.001:
+			reward = np.log(dot_prod)
+		else:
+			reward = 12*(math.exp(-100*obj_fg_err) - 1) + action[0]
+		return reward
 
 	def _get_joint_states(self):
 		arr = []
@@ -337,8 +378,6 @@ class KinovaGripper_Env(gym.Env):
 		self._sim.data.set_joint_qpos("cube", [states[4], states[5], states[6], 1.0, 0.0, 0.0, 0.0])
 		self._sim.forward()
 
-	def _reset_state(self):
-		self._set_state(self.initial_state)
 
 	def _get_obj_size(self):
 		return self._sim.model.geom_size[-1]
@@ -399,7 +438,8 @@ class KinovaGripper_Env(gym.Env):
 		# geom_index, geom_dim = self._set_obj_size()
 		# self._sim.model.geom_type[-1] = geom_index
 		# self._sim.model.geom_size[-1] = geom_dim
-		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, -0.05, -0.2, 0.05])
+		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, 0.05, 0.0, 0.05])
+		self.obj_original_state = np.array([0.05, 0.0])
 		self._set_state(self.all_states)		
 		states = self._get_obs()
 		# obs_x = self._sim.data.get_geom_xpos("f1_dist")[0]
@@ -436,17 +476,22 @@ class KinovaGripper_Env(gym.Env):
 		# self._sim.model.geom_type[-1] = 2
 		# self._sim.model.geom_size[-1] = np.array([0.03])
 		# qvel = []
-		state = self._sim.data.get_geom_xpos("f1_dist")
+		# state = self._sim.data.get_geom_xpos("f1_dist")
 		# state = self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1")
 		for _ in range(self.frame_skip):
 			self._wrist_control() # wrist action
 			# self._finger_control() # finger action
 
-			for i in range(1):
+			for i in range(3):
 				# if abs(action[i]) < 0.2:
-				# 	self._sim.data.ctrl[i+1] = 0.0
+					# self._sim.data.ctrl[i+1] = 0.0
 				# else: 
-				self._sim.data.ctrl[i+1] = 1.1*action[i] 
+				# vel = 1.1*action[0]*self.action_scale
+				vel = action[i] 
+
+				# if abs(vel) < 0.01:
+				# 	vel = 0.0 
+				self._sim.data.ctrl[i+1] = vel
 
 
 			# self._sim.data.ctrl[1], self._sim.data.ctrl[4] = self._pd_controller(action)
@@ -473,15 +518,20 @@ class KinovaGripper_Env(gym.Env):
 			# qvel.append(
 			# print(self._sim.data.get_joint_qvel("j2s7s300_joint_finger_1"))
 
+		f1 = self._sim.data.get_geom_xpos("f1_dist")
+		f2 = self._sim.data.get_geom_xpos("f2_dist")
+		f3 = self._sim.data.get_geom_xpos("f3_dist")
+		obj_state = self._sim.data.get_geom_xpos("cube")
+		states = [obj_state, f1, f2, f3]
+		total_reward = self._get_reward(states,action)
+		# total_reward = self._get_dist_reward(f1,action)
 
-		total_reward = self._get_reward(state,action[0])
 		done = self._get_done()
 		obs = self._get_obs()
 
 		# obs_x = self._sim.data.get_geom_xpos("f1_dist")[0]
 		# obs_y = self._sim.data.get_geom_xpos("f1_dist")[1]
 		# obs = np.array([obs_x, obs_y])
-		
 		return obs, total_reward, done, {}
 
 
