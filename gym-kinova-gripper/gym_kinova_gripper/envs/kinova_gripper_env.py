@@ -73,7 +73,7 @@ class KinovaGripper_Env(gym.Env):
 		self.all_states = None
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 		# self.action_space = ac_space[0]
-		self.action_space = spaces.Box(low=np.array([-np.inf, -np.inf, -np.inf]), high=np.array([np.inf, np.inf, np.inf]), dtype=np.float32)
+		self.action_space = spaces.Box(low=np.array([0.0, -np.inf, -np.inf, -np.inf]), high=np.array([0.30, np.inf, np.inf, np.inf]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-np.inf]), high=np.array([np.inf]), dtype=np.float32)
 		
 		# self.obj_original_state = self._sim.data.get_joint_qpos("cube")
@@ -82,13 +82,13 @@ class KinovaGripper_Env(gym.Env):
 			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
 				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
 				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
-				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -np.inf, -np.inf, -np.inf])
 			# obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360, -0.5])
 		
 			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
 				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
 				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-				0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
+				0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, np.inf, np.inf, np.inf])
 			# obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360, 0.5])
 
 			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
@@ -105,9 +105,9 @@ class KinovaGripper_Env(gym.Env):
 	# might want to do this function on other file to provide command on ros moveit as well
 	def set_target_thetas(self, thetas): 
 		self.pid[0].set_target_jointAngle(thetas[0])
-		self.pid[1].set_target_jointAngle(thetas[1])
-		self.pid[2].set_target_jointAngle(thetas[2])
-		self.pid[3].set_target_jointAngle(thetas[3])
+		# self.pid[1].set_target_jointAngle(thetas[1])
+		# self.pid[2].set_target_jointAngle(thetas[2])
+		# self.pid[3].set_target_jointAngle(thetas[3])
 
 
 	def _finger_control(self):
@@ -166,7 +166,7 @@ class KinovaGripper_Env(gym.Env):
 		return pose
 
 	# return global or local transformation matrix
-	def _get_obs(self):
+	def _get_obs(self, action):
 		palm = self._get_trans_mat(["palm"])[0]
 		# print(palm)
 		finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
@@ -206,11 +206,12 @@ class KinovaGripper_Env(gym.Env):
 			raise ValueError
 
 		# print(len(fingers_6D_pose))
-		if self.state_rep != "metric":
-			obj_pose = self._get_obj_pose()
+		# if self.state_rep != "metric":
+		obj_pose = self._get_obj_pose()
 
-			joint_states = self._get_joint_states()
-			fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states
+		joint_states = self._get_joint_states()
+		fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states + list(action)
+			# fingers_6D_pose += list(action)
 		# fingers_6D_pose += [self._sim.data.get_joint_qvel("j2s7s300_joint_finger_1")]
 
 		return fingers_6D_pose 
@@ -335,28 +336,27 @@ class KinovaGripper_Env(gym.Env):
 		f3 = state[3]
 
 		# target
-		obj_target = np.array([0.0, 0.0])
-
+		obj_target = 0.3 
 		
 		target_dist = np.array([0.0, 0.0])
-		obj_fg_err = (f1[0] - obj_state[0])**2 + (f1[1] - obj_state[1])**2
-		obj_state_err = math.sqrt((self.obj_original_state[0] - obj_state[0])**2 + (self.obj_original_state[1] - obj_state[1])**2)
-		obj_pos_err = (obj_target[0] - obj_state[0])**2 + (obj_target[1] - obj_state[1])**2
+		obj_fg1_err = (f1[0] - obj_state[0])**2 + (f1[1] - obj_state[1])**2
+		obj_fg2_err = (f2[0] - obj_state[0])**2 + (f2[1] - obj_state[1])**2
+		obj_fg3_err = (f3[0] - obj_state[0])**2 + (f3[1] - obj_state[1])**2
 		
 		dot_prod = self._get_dot_product()
-		# first level of reward : approach object
-		# if obj_state_err < 1e-4:
-			# print("here")
-		# reward = 12*(math.exp(-100*obj_fg_err) - 1) + 12*(math.exp(-100*obj_pos_err) - 1) 
-		 # + np.log(dot_prod) 
+		obj_height_err = (obj_state[2] - obj_target)**2
 
-		# second level of reward : move object to target
+
+		# if abs(dot_prod - 0.4755) > 0.001:
+		# 	reward = np.log(dot_prod)
 		# else:
-			# reward = 12*(math.exp(-100*obj_pos_err) - 1) 
-		if abs(dot_prod - 0.4755) > 0.001:
-			reward = np.log(dot_prod)
+		# 	reward = 4*(math.exp(-100*obj_fg1_err) - 1) + 2*(math.exp(-100*obj_fg2_err) - 1)  + 2*(math.exp(-100*obj_fg3_err) - 1) 
+		if abs(dot_prod) > 0.1:
+			reward = np.log(dot_prod) + 2*(math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1) 
 		else:
-			reward = 12*(math.exp(-100*obj_fg_err) - 1) + action[0]
+			reward = (math.exp(-100*obj_height_err) - 1) + (math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1)
+
+		# reward = math.exp(action[0])
 		return reward
 
 	def _get_joint_states(self):
@@ -441,7 +441,7 @@ class KinovaGripper_Env(gym.Env):
 		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, 0.05, 0.0, 0.05])
 		self.obj_original_state = np.array([0.05, 0.0])
 		self._set_state(self.all_states)		
-		states = self._get_obs()
+		states = self._get_obs(np.array([0.0,0.0,0.0]))
 		# obs_x = self._sim.data.get_geom_xpos("f1_dist")[0]
 		# obs_y = self._sim.data.get_geom_xpos("f1_dist")[1]
 		# states = np.array([obs_x, obs_y])				
@@ -479,19 +479,19 @@ class KinovaGripper_Env(gym.Env):
 		# state = self._sim.data.get_geom_xpos("f1_dist")
 		# state = self._sim.data.get_joint_qpos("j2s7s300_joint_finger_1")
 		for _ in range(self.frame_skip):
-			self._wrist_control() # wrist action
-			# self._finger_control() # finger action
+			# self._wrist_control() # wrist action
+			self.set_target_thetas(action[0])
+			self._wrist_control()
 
 			for i in range(3):
 				# if abs(action[i]) < 0.2:
 					# self._sim.data.ctrl[i+1] = 0.0
 				# else: 
 				# vel = 1.1*action[0]*self.action_scale
-				vel = action[i] 
 
-				# if abs(vel) < 0.01:
-				# 	vel = 0.0 
-				self._sim.data.ctrl[i+1] = vel
+				if abs(vel) < 0.01:
+					vel = 0.0 
+				self._sim.data.ctrl[i+1] = vel 
 
 
 			# self._sim.data.ctrl[1], self._sim.data.ctrl[4] = self._pd_controller(action)
@@ -527,7 +527,7 @@ class KinovaGripper_Env(gym.Env):
 		# total_reward = self._get_dist_reward(f1,action)
 
 		done = self._get_done()
-		obs = self._get_obs()
+		obs = self._get_obs(action)
 
 		# obs_x = self._sim.data.get_geom_xpos("f1_dist")[0]
 		# obs_y = self._sim.data.get_geom_xpos("f1_dist")[1]

@@ -24,9 +24,9 @@ env = DummyVecEnv([lambda: gym.make('gym_kinova_gripper:kinovagripper-v0') for i
 
 # ent_coef=0.1, lr = 0.0001 14,15
 # PPO2
-model = PPO2(MlpPolicy, env, n_steps=400, learning_rate = 0.0002, verbose=1, tensorboard_log="./kinova_gripper_strategy" ,full_tensorboard_log=True)
-model.learn(total_timesteps = 500000)
-model.save("ppo2_kinova_strategy_learn_to_move_box_5") # 14, 15 are good for demo
+model = PPO2(MlpPolicy, env, n_steps=600, learning_rate = 0.0002, verbose=1, tensorboard_log="./kinova_gripper_strategy" ,full_tensorboard_log=True)
+model.learn(total_timesteps = 300000)
+model.save("ppo2_kinova_strategy_learn_to_move_box_9") 
 
 # A2C
 # model = A2C(MlpPolicy, env, learning_rate = 0.0002, verbose=1, tensorboard_log="./kinova_gripper_strategy" ,full_tensorboard_log=True)
