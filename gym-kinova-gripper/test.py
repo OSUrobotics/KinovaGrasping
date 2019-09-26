@@ -8,25 +8,30 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 
 env.reset()
 
-# finger = np.array([1.0, 0.0, 0.0])
-finger = np.array([0.0, 0.8, 0.8, 0.8])
+finger = np.array([0.8, 0.5, 0.5])
+# finger = np.array([0.0, 0.4, 0.4, 0.5])
 reward_total = 0
 # print(env.action_space)
 step = 0
-for i in range(125):
-	obs, reward, done, _ = env.step(finger)
+print(env._max_episode_steps)
+for i in range(50):
+	obs, reward, done, dot_prod = env.step(finger)
 	# # env.render()
 	# if i == 50:
 	# 	finger = np.array([-0.2, 0.0, 0.0])
 	# if i == 100:
 	# 	finger = np.array([0.2, 0.0, 0.0])
 	# pdb.set_trace()
-	reward_total += reward 
-	# print("reward", reward)
-	if step == 62:
-		# print("here")
-		finger = np.array([0.3, 0.5, 0.5, 0.5])
-	step += 1	
+	# reward_total += reward 
+	print("reward", reward)
+	# print("dot_prod", dot_prod)
+
+	# if abs(dot_prod) > 0.9:
+	# if step == 50:
+
+	# 	# print("here")
+	# 	finger = np.array([0.3, 0.8, 0.8, 0.8])
+	# step += 1	
 	# print("obs", len(obs))
 	# print("done", done)
 	# print(type(env._sim.data.time))
