@@ -8,14 +8,14 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 
 env.reset()
 
-finger = np.array([0.8, 0.5, 0.5])
+finger = np.array([0.5, 0.5, 0.5])
 # finger = np.array([0.0, 0.4, 0.4, 0.5])
 reward_total = 0
 # print(env.action_space)
 step = 0
-print(env._max_episode_steps)
+# print(env._max_episode_steps)
 for i in range(50):
-	obs, reward, done, dot_prod = env.step(finger)
+	obs, reward, done, _ = env.step(finger)
 	# # env.render()
 	# if i == 50:
 	# 	finger = np.array([-0.2, 0.0, 0.0])
@@ -40,7 +40,8 @@ for i in range(50):
 	# 	print(env._sim.data.get_joint_qpos("j2s7s300_joint_finger_1") / 2) 
 	# print(done)
 
-print(env._sim.data.time)
+print(env.env._sim.data.time)
+# print(env._elapsed_steps)
 
 # obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
 # 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
