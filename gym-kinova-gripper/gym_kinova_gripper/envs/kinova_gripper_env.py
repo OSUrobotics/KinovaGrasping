@@ -22,7 +22,7 @@ import os, sys
 from scipy.spatial.transform import Rotation as R
 import random
 import pickle
-
+import pdb
 
 # resolve cv2 issue 
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
@@ -430,18 +430,21 @@ class KinovaGripper_Env(gym.Env):
 
 		return rand_x, rand_y
 
+	def grasp_reward(self, states):
+		obj_state = states[0]
+		if obj_state[2] > 0.05:
+			return 1
+		else:
+			return 0
 
-	def grasp_classifier_reset(self, index):
-		file = open("dataset_cube_1.pkl", "rb")
-		data = pickle.load(file)
-		file.close()
-		states = data["states"][index]
-
+	def grasp_classifier_reset(self, states):
+		# pdb.set_trace()
 		obj_state = states[36:39]
 		finger_state = states[39:43]
-		print(finger_state + obj_state)
+		# print(finger_state + obj_state)
 		self._set_state(finger_state + obj_state)
-		states = self._get_obs()
+		states = self._get_obs(np.array([0.0, 0.0, 0.0, 0.0]))
+		return states
 
 	def reset(self):
 		# geom_index, geom_dim = self._set_obj_size()
@@ -499,11 +502,14 @@ class KinovaGripper_Env(gym.Env):
 		f3 = self._sim.data.get_geom_xpos("f3_dist")
 		obj_state = self._sim.data.get_geom_xpos("cube")
 		states = [obj_state, f1, f2, f3]
-		total_reward, dot_prod, done = self._get_reward(states,action)
+		# total_reward, dot_prod, done = self._get_reward(states,action)
+		total_reward = self.grasp_reward(states)
+		done = False
+
 		# done = self._get_done() if d is not True else d
 		obs = self._get_obs(action)
 
-		return obs, total_reward, done, {"dot_prod":dot_prod}
+		return obs, total_reward, done, _
 
 
 	def _joint_position_controller(self, action):

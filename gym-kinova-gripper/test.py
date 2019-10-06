@@ -8,7 +8,7 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 
 env.reset()
 
-finger = np.array([0.5, 0.5, 0.5])
+finger = np.array([0.2, 0.5, 0.5, 0.5])
 # finger = np.array([0.0, 0.4, 0.4, 0.5])
 reward_total = 0
 # print(env.action_space)
