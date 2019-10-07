@@ -509,7 +509,7 @@ class KinovaGripper_Env(gym.Env):
 		# done = self._get_done() if d is not True else d
 		obs = self._get_obs(action)
 
-		return obs, total_reward, done, _
+		return obs, total_reward, done, {}
 
 
 	def _joint_position_controller(self, action):

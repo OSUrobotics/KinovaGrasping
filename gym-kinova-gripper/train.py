@@ -105,8 +105,8 @@ if __name__ == '__main__':
 	max_steps = 100 # changes with env
 	actor_net = TD3.Actor(state_dim, action_dim, max_action).to(device)
 	if args.data_gen:
-		# data = expert_data.generate_Data(env, args.num_episode, args.filename)
-		data = expert_data.generate_lifting_data(env, args.num_episode*max_steps, args.filename, args.grasp_filename)
+		data = expert_data.generate_Data(env, args.num_episode, args.filename)
+		# data = expert_data.generate_lifting_data(env, args.num_episode*max_steps, args.filename, args.grasp_filename)
 	else:
 		assert os.path.exists(args.filename + ".pkl"), "Dataset file does not exist"
 		actor_net = train_network(args.filename, actor_net, args.epoch, args.num_episode*max_steps, args.batch_size, args.trained_model)

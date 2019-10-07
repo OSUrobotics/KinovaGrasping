@@ -49,5 +49,5 @@ class GraspValid_net(nn.Module):
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		return F.relu(self.l3(a)) # output binary 0 or 1 
+		return F.sigmoid(self.l3(a)) # output binary 0 or 1 
 
