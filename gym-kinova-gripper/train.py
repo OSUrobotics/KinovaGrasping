@@ -22,7 +22,8 @@ import pickle
 import datetime
 import NCS_nn
 import expert_data
-
+import random
+import pandas 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -32,14 +33,16 @@ def test(actor_net, trained_model):
 	model = torch.load(trained_model)
 	actor_net.load_state_dict(model)
 	actor_net.eval()
-	obs, done = env.reset(), False
-	for _ in range(100):
+	for _ in range(10):
 		# inference
-		obs = torch.FloatTensor(np.array(obs).reshape(1,-1)).to(device)
-		action = actor_net(obs).cpu().data.numpy().flatten()
-		print(action)
-		obs, reward, done, _ = env.step(action)
+		obs, done = env.reset(), False
 
+		while not done:
+			obs = torch.FloatTensor(np.array(obs).reshape(1,-1)).to(device)
+			action = actor_net(obs).cpu().data.numpy().flatten()
+			# print(action)
+			obs, reward, done, _ = env.step(action)
+			# print(reward)
 def train_network(data_filename, actor_net, num_epoch, total_steps, batch_size, model_path="trained_model"):
 	# import data
 	file = open(data_filename + ".pkl", "rb")
@@ -47,36 +50,55 @@ def train_network(data_filename, actor_net, num_epoch, total_steps, batch_size, 
 	file.close()
 	state_input = data["states"]
 	actions = data["grasp_sucess"]
+	actions = np.array(actions)
+	action_0_loc = np.where(actions == 0)[0]
+	action_0_loc_same_size = np.random.choice(action_0_loc, size=44461)
+	action_1_loc = np.where(actions == 1)[0]
+	actions_all_loc = list(action_0_loc_same_size) + list(action_1_loc)
+	actions_all_loc = np.array(actions_all_loc)
+
 
 	# define loss and optimizer
 	# criterion = nn.MSELoss()
+	# state_input = data_filename[0]
+	# actions = data_filename[1]
+
 	criterion = nn.BCELoss()
 	optimizer = optim.Adam(actor_net.parameters(), lr=1e-4)
 
 	# number of updates
-	num_update = total_steps / batch_size
+	num_update = len(actions_all_loc) / batch_size
+	print(num_update)
 
 	for epoch in range(num_epoch):
+			# all_ind = np.random.randint(0,total_steps, size=total_steps)
+			random.shuffle(actions_all_loc)
+			# actions_all_loc = np.array(actions_all_loc)
 			running_loss = 0.0
 			start_batch = 0
 			end_batch = batch_size
+			# pdb.set_trace()
+
 			for i in range(int(num_update)):
 				# zero parameter gradients
 				optimizer.zero_grad()
 				# forward, backward, and optimize
 				ind = np.arange(start_batch, end_batch)
+				# ind = np.random.randint(start_batch,end_batch, size=batch_size)
 				start_batch += batch_size
 				end_batch += batch_size
-				states = torch.FloatTensor(np.array(state_input)[ind]).to(device)
-				labels = torch.FloatTensor(np.array(actions)[ind].reshape(-1, 1)).to(device)
+				states = torch.FloatTensor(np.array(state_input)[actions_all_loc[ind]]).to(device)
+				labels = torch.FloatTensor(np.array(actions)[actions_all_loc[ind]].reshape(-1, 1)).to(device)
 				output = actor_net(states)
-				loss = criterion(output, labels)
 				# pdb.set_trace()
+				loss = criterion(output, labels)
 				loss.backward()
 				optimizer.step()
 				running_loss += loss.item()
-				if i % 100 == 99:
-					print("Epoch {} , idx {}, loss: {}".format(epoch + 1, i + 1, running_loss / 100))
+				# print("here", i)
+				if (i % batch_size) == (batch_size-1):
+					print(running_loss)
+					print("Epoch {} , idx {}, loss: {}".format(epoch + 1, i + 1, running_loss/100))
 					running_loss = 0.0
 
 	print("Finish training, saving...")
@@ -129,4 +151,4 @@ if __name__ == '__main__':
 			# assert os.path.exists(args.data + ".pkl"), "Dataset file does not exist"
 			test(actor_net, args.trained_model)
 
-	 
+	

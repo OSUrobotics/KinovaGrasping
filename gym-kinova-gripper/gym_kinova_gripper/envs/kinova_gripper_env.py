@@ -324,7 +324,7 @@ class KinovaGripper_Env(gym.Env):
 		# else:
 		# 	# print("before touching")
 
-		reward = dot_prod + (math.exp(-100*obj_height_err)) + (math.exp(-100*obj_fg1_err)) + (math.exp(-100*obj_fg2_err))  + (math.exp(-100*obj_fg3_err))
+		reward = dot_prod + (math.exp(-100*obj_height_err)) # + (math.exp(-100*obj_fg1_err)) + (math.exp(-100*obj_fg2_err))  + (math.exp(-100*obj_fg3_err))
 		
 		# # Lifting condition
 		# if lift_dot > 0.8:
@@ -336,7 +336,7 @@ class KinovaGripper_Env(gym.Env):
 		# 	reward = obj_state[2] * 100 - 5
 		
 
-		if abs(obj_state[2] - obj_target) < 0.02:
+		if abs(obj_state[2] - obj_target) < 0.0001:
 			done = True
 		else:
 			done = False
@@ -451,8 +451,8 @@ class KinovaGripper_Env(gym.Env):
 
 	def reset(self):
 		# geom_index, geom_dim = self._set_obj_size()
-		# self._sim.model.geom_type[-1] = geom_index
-		# self._sim.model.geom_size[-1] = geom_dim
+		# self._sim.model.geom_type[-1] = 5
+		# self._sim.model.geom_size[-1] = np.array([0.0175, 0.05, 0.0175])
 
 		x, y = self.randomize_initial_pose()
 		# print(x, y)

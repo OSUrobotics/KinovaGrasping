@@ -23,11 +23,9 @@ class Actor(nn.Module):
 		
 
 	def forward(self, state):
-		# pdb.set_trace()
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		network_output = torch.tanh(self.l3(a))
-		# pdb.set_trace()
+		network_output = torch.sigmoid(self.l3(a))
 		return network_output * torch.FloatTensor(self.max_action.reshape(1,-1)).to(device)
 		# return network_output * torch.tensor(self.max_action)
 		# return self.max_action * torch.tanh(self.l3(a))
@@ -85,14 +83,15 @@ class TD3(object):
 	
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		if trained_model is not None:
-			self.actor.load_state_dict(trained_model)
+			model = torch.load(trained_model) 
+			self.actor.load_state_dict(model)
 			self.actor.eval()
 		self.actor_target = copy.deepcopy(self.actor)
-		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=3e-4)
+		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=3e-4)
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4)
 
 		self.max_action = max_action
 		self.discount = discount

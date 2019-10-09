@@ -39,7 +39,7 @@ if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--policy_name", default="TD3")					# Policy name
-	parser.add_argument("--env_name", default="HalfCheetah-v2")			# OpenAI gym environment name
+	parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
 	parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=1e4, type=int)		# How many time steps purely random policy is run for
 	parser.add_argument("--eval_freq", default=5e3, type=float)			# How often (time steps) we evaluate
@@ -49,8 +49,8 @@ if __name__ == "__main__":
 	parser.add_argument("--batch_size", default=128, type=int)			# Batch size for both actor and critic
 	parser.add_argument("--discount", default=0.995, type=float)			# Discount factor
 	parser.add_argument("--tau", default=0.0005, type=float)				# Target network update rate
-	parser.add_argument("--policy_noise", default=0.05, type=float)		# Noise added to target policy during critic update
-	parser.add_argument("--noise_clip", default=0.5, type=float)		# Range to clip target policy noise
+	parser.add_argument("--policy_noise", default=0.01, type=float)		# Noise added to target policy during critic update
+	parser.add_argument("--noise_clip", default=0.1, type=float)		# Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
 	parser.add_argument("--tensorboardindex", default=0, type=int)	# tensorboard log index
 	parser.add_argument("--model", default=1, type=int)	# save model index
@@ -84,6 +84,7 @@ if __name__ == "__main__":
 		"max_action": max_action,
 		"discount": args.discount,
 		"tau": args.tau,
+		"trained_model": "data_cube_5_trained_model_10_07_19_1749.pt"
 	}
 
 	# Initialize policy
@@ -118,22 +119,23 @@ if __name__ == "__main__":
 	model_save_path = "kinova_gripper_learning{}.pt".format(args.model)
 
 	noise = OUNoise(4)
-
+	expl_noise = OUNoise(4, sigma=0.001)
 	for t in range(int(args.max_timesteps)):
 		
 		episode_timesteps += 1
 
 		# Select action randomly or according to policy
-		if t < args.start_timesteps:
-			# action = env.action_space.sample()
-			finger = noise.noise().clip(env.action_space.low, env.action_space.high)
-			# print("action_random", action)
-		else:
-			action = (
-				policy.select_action(np.array(state))
-				+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
-			).clip(-max_action, max_action)
+		# if t < args.start_timesteps:
+		# 	# action = env.action_space.sample()
+		# 	action = noise.noise().clip(-max_action, max_action)
+		# 	# print("action_random", action)
+		# else:
+			# action = (
+			# 	policy.select_action(np.array(state))
+			# 	+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
+			# ).clip(-max_action, max_action)
 			# print("action", action)
+		action = (policy.select_action(np.array(state)) + expl_noise.noise()).clip(0.0, max_action)
 
 		# pdb.set_trace()
 		# Perform action

@@ -52,6 +52,5 @@ class GraspValid_net(nn.Module):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
 		output = torch.sigmoid(self.l3(a)) # output binary 0 or 1 
-		pdb.set_trace()
 		return output
 
