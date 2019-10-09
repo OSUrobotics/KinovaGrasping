@@ -82,12 +82,12 @@ class KinovaGripper_Env(gym.Env):
 			obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
 				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
 				-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
-				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -0.2, -0.8, -0.8, -0.8])
+				-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])#, -0.2, -0.8, -0.8, -0.8])
 		
 			obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
 				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
 				0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-				0.1, 0.7, 0.3, 0.2, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0, 0.2, 0.8, 0.8, 0.8])
+				0.1, 0.7, 0.3, 0.2, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 1.0])# , 0.2, 0.8, 0.8, 0.8])
 
 			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
 		elif self.state_rep == "metric":
@@ -164,7 +164,7 @@ class KinovaGripper_Env(gym.Env):
 		return pose
 
 	# return global or local transformation matrix
-	def _get_obs(self, action):
+	def _get_obs(self):
 		palm = self._get_trans_mat(["palm"])[0]
 		# print(palm)
 		finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
@@ -209,7 +209,7 @@ class KinovaGripper_Env(gym.Env):
 		dot_prod = self._get_dot_product()
 
 		joint_states = self._get_joint_states()
-		fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states + [dot_prod] + list(action)
+		fingers_6D_pose = fingers_6D_pose + list(obj_pose) + joint_states + [dot_prod] # + list(action)
 			# fingers_6D_pose += list(action)
 		# fingers_6D_pose += [self._sim.data.get_joint_qvel("j2s7s300_joint_finger_1")]
 
@@ -305,32 +305,35 @@ class KinovaGripper_Env(gym.Env):
 		obj_rad = 2*0.0175**2 # need to change this when randomize object size or shape
 
 		target_dist = np.array([0.0, 0.0])
-		obj_fg1_err = ((f1[0] - obj_state[0])**2 + (f1[1] - obj_state[1])**2) #- obj_rad
-		obj_fg2_err = ((f2[0] - obj_state[0])**2 + (f2[1] - obj_state[1])**2) #- obj_rad
-		obj_fg3_err = ((f3[0] - obj_state[0])**2 + (f3[1] - obj_state[1])**2) #- obj_rad	
+		obj_fg1_err = ((f1[0] - obj_state[0])**2 + (f1[1] - obj_state[1])**2) - obj_rad
+		obj_fg2_err = ((f2[0] - obj_state[0])**2 + (f2[1] - obj_state[1])**2) - obj_rad
+		obj_fg3_err = ((f3[0] - obj_state[0])**2 + (f3[1] - obj_state[1])**2) - obj_rad	
 		
 		dot_prod = self._get_dot_product()
 		obj_height_err = (obj_state[2] - obj_target)**2
 
-		# ------ Reward ------- #
-		# After contact
-		if abs(dot_prod - 0.4755) > 0.001:
-			reward = np.log(dot_prod) # + 2*((math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1)) 
-		# # Before contact
-		else:
+		# lift_dot = 0.0
+		# lift = 0
+		# # ------ Reward ------- #
+		# # After contact
+		# # pdb.set_trace()
+		# if abs(dot_prod - self.init_dotprod) > 0.001:
+		# 	reward = np.log(dot_prod) # + 2*((math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1)) 
+		# 	lift_dot = dot_prod
+		# # # Before contact
+		# else:
 		# 	# print("before touching")
-			reward = (math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1)
-		
-		# if action[1] <= 0.0 or action[2] <= 0.0 or action[3] <= 0.0:
-		# 	reward -= 1
 
-		reward = 0
-		# Lifting condition
-		if f1jA > 0.9 and f2jA > 0.9 and f3jA > 0.9:
-			# print("lifting")
-			#reward = 0.2*(math.exp(-100*obj_height_err) - 1) #+ action[0] #+ ((math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1)) #  + 0.1*action[1] + 0.1*action[2] + 0.1*action[3] + 0.2*action[0]
-			#reward = -np.log(obj_height_err)*0.001
-			reward = obj_state[2] * 100 - 5
+		reward = dot_prod + (math.exp(-100*obj_height_err)) + (math.exp(-100*obj_fg1_err)) + (math.exp(-100*obj_fg2_err))  + (math.exp(-100*obj_fg3_err))
+		
+		# # Lifting condition
+		# if lift_dot > 0.8:
+		# 	lift = 1
+		# if lift == 1:
+		# 	# print("lifting")
+		# 	#reward = 0.2*(math.exp(-100*obj_height_err) - 1) #+ action[0] #+ ((math.exp(-100*obj_fg1_err) - 1) + (math.exp(-100*obj_fg2_err) - 1)  + (math.exp(-100*obj_fg3_err) - 1)) #  + 0.1*action[1] + 0.1*action[2] + 0.1*action[3] + 0.2*action[0]
+		# 	#reward = -np.log(obj_height_err)*0.001
+		# 	reward = obj_state[2] * 100 - 5
 		
 
 		if abs(obj_state[2] - obj_target) < 0.02:
@@ -338,7 +341,7 @@ class KinovaGripper_Env(gym.Env):
 		else:
 			done = False
 
-		return reward, dot_prod, done
+		return 0.2*reward, dot_prod, done
 
 	def _get_joint_states(self):
 		arr = []
@@ -457,12 +460,12 @@ class KinovaGripper_Env(gym.Env):
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
-		dot_prod = self._get_dot_product()
 
 		self.obj_original_state = np.array([0.05, 0.0])
 		self._set_state(self.all_states[0])		
+		self.init_dotprod = self._get_dot_product()
 
-		states = self._get_obs(np.array([0.0, 0.0, 0.0, 0.0]))
+		states = self._get_obs()
 		# states = self._get_obs(np.array([0.0]))		
 
 		return states
@@ -485,7 +488,7 @@ class KinovaGripper_Env(gym.Env):
 		self.np_random, seed = seeding.np_random(seed)
 		return [seed]
 
-	def step(self, action, render=False):
+	def step(self, action, render=True):
 		total_reward = 0
 		for _ in range(self.frame_skip):
 			# self._sim.data.ctrl[0] = 0.0
@@ -502,12 +505,12 @@ class KinovaGripper_Env(gym.Env):
 		f3 = self._sim.data.get_geom_xpos("f3_dist")
 		obj_state = self._sim.data.get_geom_xpos("cube")
 		states = [obj_state, f1, f2, f3]
-		# total_reward, dot_prod, done = self._get_reward(states,action)
-		total_reward = self.grasp_reward(states)
-		done = False
+		total_reward, dot_prod, done = self._get_reward(states,action)
+		# total_reward = self.grasp_reward(states)
+		# done = False
 
 		# done = self._get_done() if d is not True else d
-		obs = self._get_obs(action)
+		obs = self._get_obs()
 
 		return obs, total_reward, done, {}
 

@@ -18,6 +18,7 @@ import torch.optim as optim
 import pdb
 import pickle
 import datetime
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Take from actor network of TD3
 class NCS_net(nn.Module):
@@ -28,18 +29,19 @@ class NCS_net(nn.Module):
 		self.l2 = nn.Linear(256, 256)
 		self.l3 = nn.Linear(256, action_dim)
 		
-		self.max_action = np.array(max_action)
-		
+		self.max_action = np.array(max_action)		
 
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		network_output = torch.tanh(self.l3(a))
+		network_output = torch.sigmoid(self.l3(a))
+		# action = torch.FloatTensor(self.max_action.reshape(1,-1)).to(device)
+		# pdb.set_trace()
 		return network_output * torch.FloatTensor(self.max_action.reshape(1,-1)).to(device)
 
 class GraspValid_net(nn.Module):
 	def __init__(self, state_dim):
-		super(NCS_net, self).__init__()
+		super(GraspValid_net, self).__init__()
 
 		self.l1 = nn.Linear(state_dim, 256)
 		self.l2 = nn.Linear(256, 256)
@@ -49,5 +51,7 @@ class GraspValid_net(nn.Module):
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		return F.sigmoid(self.l3(a)) # output binary 0 or 1 
+		output = torch.sigmoid(self.l3(a)) # output binary 0 or 1 
+		pdb.set_trace()
+		return output
 

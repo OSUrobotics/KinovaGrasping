@@ -56,19 +56,20 @@ class expert_PID():
 		max_move_vel = self.get_PID_vel(dot_prod)
 		clipped_vel = self.map_action(max_move_vel)
 		self.x += (self.action_range[1][-1] - clipped_vel) * 0.04
+		if self.x >= clipped_vel: # if x accumulate to clipped vel, use clipped vel instead
+			self.x = clipped_vel
+		if self.x < 0.0:
+			self.x = 0.0
 		vel = 0.8 - self.x
-		print(vel)
-		if vel <= (2 * clipped_vel):
-			vel = 2 * clipped_vel 
 		# pdb.set_trace()
-		if dominant_finger > 0:
-			f1 = vel
-			f2 = vel * 0.8
-			f3 = vel * 0.8
-		else:
-			f1 = vel * 0.8
-			f2 = vel 
-			f3 = vel 
+		# if dominant_finger > 0:
+		# 	f1 = vel
+		# 	f2 = vel * 0.8
+		# 	f3 = vel * 0.8
+		# else:
+		f1 = vel
+		f2 = vel 
+		f3 = vel 
 		return np.array([0.0, f1, f2, f3])
 
 	def generate_expert_move_to_close(self, vel, max_vel, dominant_finger):
@@ -84,7 +85,7 @@ class expert_PID():
 				self.vel[i+1] += 0.1*self.vel[i+1]
 			else:
 				self.vel[i+1] = max_vel
-		return np.array([wrist, self.vel[1], self.vel[2]*0.6, self.vel[3]*0.6])
+		return np.array([wrist, self.vel[1], self.vel[2]*0.7, self.vel[3]*0.7])
 
 
 def generate_lifting_data(env, total_steps, filename, grasp_filename):
@@ -93,10 +94,10 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
 	file = open(filename + ".pkl", "rb")
 	data = pickle.load(file)
 	file.close()
-	print(total_steps / 10)
-	for step in range(int(total_steps/10)):
+	print(total_steps)
+	for step in range(int(total_steps)):
 		env.reset()
-		curr_states = data["states"][step]	
+		curr_states = data["states_for_lifting"][step]	
 		obs = env.env.grasp_classifier_reset(curr_states)
 		# pdb.set_trace()		
 		for _ in range(30):
@@ -112,7 +113,7 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
 	print("Finish collecting grasp validation data, saving...")
 	grasp_data = {}
 	grasp_data["grasp_sucess"] = label
-	grasp_data["states"] = data["states"][:]
+	grasp_data["states"] = data["states"][0:int(total_steps)]
 	grasp_file = open(grasp_filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
 	pickle.dump(grasp_data, grasp_file)
 	grasp_file.close()
@@ -145,53 +146,71 @@ def generate_Data(env, num_episode, filename):
 	expert = expert_PID(env.action_space)
 	episode_timesteps = 0
 
-	# open file
+	# display filename
+	print("filename:", filename)
 
 	label = []
 	states = []
+	states_for_lifting = []
+	label_for_lifting = []
+	states_for_closing = []
+	label_for_closing = []
+	states_when_lifting = []
+	label_when_lifting = []
 	for episode in range(num_episode):
-
 		obs, done = env.reset(), False
-		ini_dot_prod = obs[-5]
+		ini_dot_prod = obs[-1]
 		dom_finger = obs[36]
 		action = expert.get_expert_move_to_touch(ini_dot_prod, dom_finger)
 		touch = 0
 		not_close = 1
+		close = 0
+		touch_dot_prod = 0.0
+		# states.append(obs)
+		# label.append(action)		
 		for t in range(100):
-			# print(action)
 			states.append(obs)
-			label.append(action)
-			# print(len(obs))
+			label.append(action)	
 			next_obs, reward, done, _ = env.step(action)
-
-			# done_bool = float(done) if t < env._max_episode_steps else 0
-			# replay_buffer.add(obs, action, next_obs, reward, done_bool)
 			obs = next_obs
-			dot_prod = obs[-5]
-			# print(dot_prod)
-			# if abs(dot_prod - ini_dot_prod) < 0.001:
+			dot_prod = obs[-1]
+			# move closer towards object
 			if touch == 0:
 				action = expert.get_expert_move_to_touch(dot_prod, dom_finger)
-			if abs(dot_prod - ini_dot_prod) > 0.001 and not_close == 1:
+			# contact with object, PID control with object pose as feedback
+			if abs(dot_prod - ini_dot_prod) > 0.001 and not_close == 1:				
 				action = expert.get_expert_vel(dot_prod, dom_finger)
 				prev_vel = action
-				touch = 1
-			if dot_prod > 0.8 and touch == 1:
+				touch_dot_prod = dot_prod
+			# if object is close to center 
+			if touch_dot_prod > 0.8: # can only check dot product after fingers are making contact
+				close = 1				
+			if close == 1:
 				action = expert.generate_expert_move_to_close(prev_vel, 0.6, dom_finger)
 				not_close = 0
-				# lift = 1
-				# action = move_to_close_action
-			if t > 60 and touch == 1:
-				action[0] = 0.2
-				# action = move_to_lift
-			
-			print(action)
+				# when it's time to lift
+				states_for_lifting.append(obs)
+				label_for_lifting.append(action)				
+				if t > 60:
+					action[0] = 0.2
+					states_when_lifting.append(obs)
+					label_when_lifting.append(action)
+			if t <= 60:
+				states_for_closing.append(obs)
+				label_for_closing.append(action)
+		
 
 		print("Collecting.., num_episode:{}".format(episode))
 	# print("saving...")
 	data = {}
 	data["states"] = states
 	data["label"] = label
+	data["states_for_lifting"] = states_for_lifting
+	data["label_for_lifting"] = label_for_lifting
+	data["states_for_closing"] = states_for_closing
+	data["label_for_closing"] = label_for_closing	
+	data["states_when_lifting"] = states_when_lifting
+	data["label_when_lifting"] = label_when_lifting
 	file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
 	pickle.dump(data, file)
 	file.close()
@@ -201,3 +220,14 @@ def generate_Data(env, num_episode, filename):
 
 # def generate_closing_data(env, num_episode, filename):
 
+# Command line
+'''
+# Collect entire sequence / trajectory
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --num_episode 5000 --data_gen 1 --filename data_cube_5 
+
+# Collect grasp data
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_total_steps 10 --filename data_cube_5_10_07_19_1612 --grasp_filename data_cube_5_10_07_19_1612_grasp --grasp_validation 1 --data_gen 1
+
+# Training
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_validation 1 --filename data_cube_5_10_07_19_1612 --trained_model data_cube_5_trained_model --num_episode 5000
+'''
