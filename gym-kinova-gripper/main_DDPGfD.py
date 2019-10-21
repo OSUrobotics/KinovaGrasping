@@ -27,7 +27,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 	# step = 0
 	for i in range(eval_episodes):
 		state, done = eval_env.reset(), False
-		for _ in range(100):
+		while not done:
 			action = policy.select_action(np.array(state))
 			# print("eval act", action)
 			state, reward, done, _ = eval_env.step(action)
@@ -49,7 +49,7 @@ if __name__ == "__main__":
 	parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
 	parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=3e4, type=int)		# How many time steps purely random policy is run for
-	parser.add_argument("--eval_freq", default=10, type=float)			# How often (time steps) we evaluate
+	parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
 	parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
 	parser.add_argument("--max_episode", default=10000, type=int)		# Max time steps to run environment for
 	parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
@@ -136,10 +136,14 @@ if __name__ == "__main__":
 	expl_noise = OUNoise(4, sigma=0.001)
 	expl_noise.reset()
 
+	# Initialize SummaryWriter 
+	writer = SummaryWriter(logdir="kinova_gripper_strategy", )
+
 	# Pretrain 
 	num_updates = 100000 / 100
 	for k in range(int(num_updates)):
 		policy.train(replay_buffer, args.batch_size)
+
 
 
 	for t in range(int(args.max_episode)):
@@ -148,6 +152,7 @@ if __name__ == "__main__":
 		state, done = env.reset(), False
 		noise.reset()
 		expl_noise.reset()
+		episode_reward = 0
 		# for one episode
 		for _ in range(100):
 			# Select action randomly or according to policy
@@ -163,15 +168,15 @@ if __name__ == "__main__":
 			state = next_state
 			episode_reward += reward
 
+		writer.add_scalar("Episode reward", episode_reward, episode_num)
 
 		# Train agent after collecting sufficient data:
-		for learning in range(1000):
+		for learning in range(100):
 			policy.train(replay_buffer, args.batch_size)
 
 		# if done: 
 		# 	# +1 to account for 0 indexing. +0 on ep_timesteps since it will increment +1 even if done=True
 		print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
-		episode_reward = 0
 
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:

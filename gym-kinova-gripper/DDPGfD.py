@@ -45,7 +45,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n=5, discount=0.99, tau=0.001):
+	def __init__(self, state_dim, action_dim, max_action, n=3, discount=0.99, tau=0.001):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -57,7 +57,7 @@ class DDPGfD(object):
 		self.discount = discount
 		self.tau = tau
 		self.n = n
-		self.param_freq = 2
+		self.network_repl_freq = 2
 		self.total_it = 0
 
 	def select_action(self, state):
@@ -65,22 +65,22 @@ class DDPGfD(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, replay_buffer, batch_size=64):
+	def train(self, replay_buffer, batch_size, writer):
 		self.total_it += 1
 
 		# Sample replay buffer 
 		state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
 		# Compute the target Q value
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
-		target_Q = reward + (not_done * self.discount * target_Q).detach()
+		target_Q = reward + (self.discount * target_Q).detach()
 
 		# Compute the target Q_N value
 		rollreward = []
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
 		for i in range(batch_size):
 			if i >= (self.n - 1):
-				roll_reward = reward[i].item() + reward[i-(self.n - 1)].item() + reward[i - (self.n - 2)].item()
-				rollreward.append((self.discount ** i) * roll_reward)
+				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
+				rollreward.append(roll_reward)
 
 		if len(rollreward) != batch_size - (self.n - 1):
 			raise ValueError
@@ -101,7 +101,7 @@ class DDPGfD(object):
 		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
 
 		# Total critic loss 
-		critic_loss = critic_L1loss + 10*critic_LNloss
+		critic_loss = critic_L1loss + 0.5*critic_LNloss
 		
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
@@ -116,13 +116,13 @@ class DDPGfD(object):
 		actor_loss.backward()
 		self.actor_optimizer.step()
 
-		#if self.total_it % self.param_freq == 0:
-		# Update the frozen target models
-		for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
-			target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+		if self.total_it % self.network_repl_freq == 0:
+			# Update the frozen target models
+			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 
-		for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
-			target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 		# pdb.set_trace()
 		
 

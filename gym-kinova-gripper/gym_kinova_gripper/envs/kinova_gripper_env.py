@@ -111,7 +111,7 @@ class KinovaGripper_Env(gym.Env):
 			self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
 
 		self.Grasp_net = GraspValid_net(self.observation_space.shape[0]).to(device) 
-		trained_model = "data_cube_9_grasp_classifier_10_17_19_1734.pt"
+		trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
 		model = torch.load(trained_model)
 		self.Grasp_net.load_state_dict(model)
 		self.Grasp_net.eval()
@@ -381,10 +381,10 @@ class KinovaGripper_Env(gym.Env):
 		grasp_reward = 0.0
 		obs = self._get_obs() 
 		inputs = torch.FloatTensor(np.array(obs)).to(device)
-		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
+		if np.absolute(np.max(np.array(obs[41:47])) - 0.035) < 0.01 or np.absolute(np.max(np.array(obs[35:41])) - 0.015) < 0.01: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
 			if outputs > 0.90:
-				grasp_reward = 5.0
+				grasp_reward = 3.0
 			else:
 				grasp_reward = 0.0
 		
@@ -403,8 +403,12 @@ class KinovaGripper_Env(gym.Env):
 		reward = 0.2*finger_reward + grasp_reward + lift_reward
 
 		self.prev_fr = finger_reward
-		# print((math.exp(finger_reward)), grasp_reward, lift_reward)
-		# print(dot_prod)
+		# print(0.2*finger_reward, grasp_reward, lift_reward)
+		# print(reward)
+		# if reward < self.prev_r:
+		# 	pdb.set_trace()
+		# self.prev_r = reward
+
 
 		# if reward > -0.8:
 			# pdb.set_trace()
@@ -539,6 +543,7 @@ class KinovaGripper_Env(gym.Env):
 		self.initial_f3d = self._sim.data.get_geom_xpos("f3_dist")
 
 		self.prev_fr = 0.0
+		self.prev_r = 0.0
 		return states
 
 	def forward(self):

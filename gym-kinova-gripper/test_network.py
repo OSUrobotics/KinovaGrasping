@@ -99,7 +99,7 @@ def test_network_structure():
 
 
 def test_grasp_classifier():
-	data_filename = "data_cube_8_grasp_10_17_19_1239"
+	data_filename = "/home/graspinglab/NCS_data/data_cube_9_grasp_10_17_19_1709"
 	file = open(data_filename + ".pkl", "rb")
 	data = pickle.load(file)
 	file.close()	
@@ -107,7 +107,7 @@ def test_grasp_classifier():
 	label = data[400000:500000, -1]
 
 	grasp_net = NCS_nn.GraspValid_net(48).to(device)
-	trained_model = "data_cube_9_grasp_classifier_10_17_19_1734.pt"
+	trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
 	model = torch.load(trained_model)
 	grasp_net.load_state_dict(model)
 	grasp_net.eval()
@@ -119,24 +119,26 @@ def test_grasp_classifier():
 		max_action = float(env.action_space.high[0])
 		correct = 0
 		noise.reset()
-		for i in range(100000):
+		cum_reward = 0.0
+		for i in range(100):
 			finger_actions = noise.noise().clip(-max_action, max_action)
 			# actions = np.array([0.0, finger_actions[0], finger_actions[1], finger_actions[2]])
-			actions = np.array([0.0, 0.5, 0.5, 0.5])
+			actions = np.array([0.4, 0.5, 0.5, 0.5])
 			obs, reward, done, _ = env.step(actions)
 			inputs = torch.FloatTensor(np.array(obs)).to(device)
-			print(obs[41:47]) # finger obj distance
-			print(obs[35:41]) # finger obj distance
-
+			# print(obs[41:47]) # finger obj distance
+			# print(obs[35:41]) # finger obj distance
+			# cum_reward += reward
+			# print(cum_reward)
 			# print(np.max(np.array(obs[35:38]) - 0.0175), np.max(np.array(obs[38:41]) - 0.0175))
 			# if obs[20] < 0.07:
 
 			# Condition where we can use the grasp classifier
-			if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
-				outputs = grasp_net(inputs).cpu().data.numpy().flatten()
+			# if (np.max(np.array(obs[41:47])) - 0.035) < 0.01 or (np.max(np.array(obs[35:41])) - 0.015) < 0.01: 
+			# 	outputs = grasp_net(inputs).cpu().data.numpy().flatten()
 				# print(outputs)
-				if outputs == 1.0:
-					pdb.set_trace()
+				# if outputs == 1.0:
+					# pdb.set_trace()
 
 	def test_expert_action(state_input, actions):
 		correct = 0.0

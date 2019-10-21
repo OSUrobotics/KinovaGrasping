@@ -8,6 +8,7 @@ class ReplayBuffer(object):
 		self.ptr = 0
 		self.size = 0
 		self.episode = 0
+		self.agent_episode = 100
 
 		self.state = np.zeros((max_size, state_dim))
 		self.action = np.zeros((max_size, action_dim))
@@ -31,13 +32,26 @@ class ReplayBuffer(object):
 
 		if self.size % 100 == 0 and self.size <= 10000:
 			self.episode = (self.episode + 1) % int(self.max_size / 100)
+		elif self.size % 100 == 0 and self.size > 10000:
+			self.agent_episode = (self.agent_episode + 1) % int(self.max_size / 100)
 
 	def sample(self, batch_size=100):
 		# ind = np.random.randint(0, self.size, size=batch_size)
-		random_episode = np.random.randint(1, self.episode + 1, size=1)
+		if self.agent_episode > 101:
+			prob = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
+		else:
+			prob = "expert"
+
+		# sample expert examples 
+		if prob	== "expert":
+			random_episode = np.random.randint(1, self.episode + 1, size=1)
+		else:
+		# sample agent episode
+			random_episode = np.random.randint(101, self.agent_episode + 1, size = 1)
+
 		# sample episode 
 		ind = np.arange((random_episode[0] - 1)*100, random_episode[0]*100) 
-		pdb.set_trace()
+		# pdb.set_trace()
 
 		return (
 			torch.FloatTensor(self.state[ind]).to(self.device),

@@ -187,6 +187,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 		close = 0
 		touch_dot_prod = 0.0
 		t = 0	
+		cum_reward = 0.0
 		for _ in range(100):
 			states.append(obs)
 			label.append(action)	
@@ -194,7 +195,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
 			# store data into replay buffer 
 			replay_buffer.add(obs, action, next_obs, reward, done)
-
+			cum_reward += reward
 			# print(outputs)
 			# print(action)
 			obs = next_obs
@@ -225,7 +226,6 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 				states_when_closing.append(obs)
 				label_when_closing.append(action)
 			t += 1
-
 		print("Collecting.., num_episode:{}".format(episode))
 	# print("saving...")
 	# data = {}
