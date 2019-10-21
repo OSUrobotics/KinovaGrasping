@@ -1,12 +1,13 @@
 import numpy as np
 import torch
-
+import pdb
 
 class ReplayBuffer(object):
 	def __init__(self, state_dim, action_dim, max_size=int(1e6)):
 		self.max_size = max_size
 		self.ptr = 0
 		self.size = 0
+		self.episode = 0
 
 		self.state = np.zeros((max_size, state_dim))
 		self.action = np.zeros((max_size, action_dim))
@@ -25,11 +26,18 @@ class ReplayBuffer(object):
 		self.not_done[self.ptr] = 1. - done
 
 		self.ptr = (self.ptr + 1) % self.max_size
+
 		self.size = min(self.size + 1, self.max_size)
 
+		if self.size % 100 == 0 and self.size <= 10000:
+			self.episode = (self.episode + 1) % int(self.max_size / 100)
 
-	def sample(self, batch_size):
-		ind = np.random.randint(0, self.size, size=batch_size)
+	def sample(self, batch_size=100):
+		# ind = np.random.randint(0, self.size, size=batch_size)
+		random_episode = np.random.randint(1, self.episode + 1, size=1)
+		# sample episode 
+		ind = np.arange((random_episode[0] - 1)*100, random_episode[0]*100) 
+		pdb.set_trace()
 
 		return (
 			torch.FloatTensor(self.state[ind]).to(self.device),

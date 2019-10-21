@@ -4,64 +4,46 @@ import gym
 from gym import spaces
 import numpy as np
 import pdb
-env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+import pickle
+import utils
 
+env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+from ounoise import OUNoise
+from expert_data import generate_Data
 env.reset()
 
-finger = np.array([0.2, 0.5, 0.5, 0.5])
-# finger = np.array([0.0, 0.4, 0.4, 0.5])
 reward_total = 0
-# print(env.action_space)
+
 step = 0
-# print(env._max_episode_steps)
-for i in range(50):
-	obs, reward, done, _ = env.step(finger)
-	# # env.render()
-	# if i == 50:
-	# 	finger = np.array([-0.2, 0.0, 0.0])
-	# if i == 100:
-	# 	finger = np.array([0.2, 0.0, 0.0])
-	# pdb.set_trace()
-	# reward_total += reward 
-	print("reward", reward)
-	# print("dot_prod", dot_prod)
+# file_name = open("data_cube_5_10_07_19_1612.pkl", "rb")
+# data = pickle.load(file_name)
+# states = np.array(data["states"])
+# random_states_index = np.random.randint(0, len(states), size = len(states))
 
-	# if abs(dot_prod) > 0.9:
-	# if step == 50:
+num_episode = 5000
+filename = "data_cube_9"
+replay_buffer = utils.ReplayBuffer(48, 4)
+replay_buffer = generate_Data(env, 100, "random", replay_buffer)
+'''
+for _ in range(3):
+	# noise.reset()
+	env.reset()
+	# state = env.env.intermediate_state_reset(states[np.random.choice(random_states_index, 1)[0]])
 
-	# 	# print("here")
-	# 	finger = np.array([0.3, 0.8, 0.8, 0.8])
-	# step += 1	
-	# print("obs", len(obs))
-	# print("done", done)
-	# print(type(env._sim.data.time))
-	# print(env.action_space.sample())
-	# if abs(env._sim.data.time - 2.000) < 0.0000001:
-	# 	print(env._sim.data.get_joint_qpos("j2s7s300_joint_finger_1") / 2) 
-	# print(done)
+	done = False
+	finger = np.array([0.0, 0.5, 0.5, 0.5])
+	i = 0
+	while not done:
 
-print(env.env._sim.data.time)
-# print(env._elapsed_steps)
+		i += 1
+		obs, reward, done, _ = env.step(finger)
 
-# obs_min = np.array([-0.1, -0.1, 0.0, -360, -360, -360, -0.1, -0.1, 0.0, -360, -360, -360,
-# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360,
-# 	-0.1, -0.1, 0.0, -360, -360, -360,-0.1, -0.1, 0.0, -360, -360, -360, 
-# 	-0.1, -0.01, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-# obs_max = np.array([0.1, 0.1, 0.3, 360, 360, 360, 0.1, 0.1, 0.3, 360, 360, 360,
-# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-# 	0.1, 0.1, 0.3, 360, 360, 360,0.1, 0.1, 0.3, 360, 360, 360,
-# 	0.1, 0.7, 0.3, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0])
+		reward_total += reward 
 
-# # print(len(obs_max))
-# # obs_min = np.zeros(17)
-# # obs_max = obs_min + np.Inf
-# # print(type(np.Inf))
-# a = spaces.Box(low=obs_min, high=obs_max, dtype=np.float32)
-# b = spaces.Box(low=np.array([-1.0, -1.0, -1.0]), high=np.array([1.0, 1.0, 1.0]), dtype=np.float32)
-# print(b.shape)
+		# print(reward)
+		if i > 20:
+			finger = np.array([0.0, 0.5,0.5, 0.5])
+		if i > 60:
+			finger = np.array([2.0, 0.5,0.5, 0.5])
 
-
-# obs_min = np.zeros(17) 
-# obs_max = obs_min + np.Inf
-# c = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
-# print(c.shape)
+'''

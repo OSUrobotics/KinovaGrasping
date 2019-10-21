@@ -19,16 +19,19 @@ class Actor(nn.Module):
 		self.l2 = nn.Linear(256, 256)
 		self.l3 = nn.Linear(256, action_dim)
 		
-		self.max_action = np.array(max_action)
+		# self.max_action = np.array(max_action)
+		self.max_action = max_action
+
 		
 
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		network_output = torch.sigmoid(self.l3(a))
-		return network_output * torch.FloatTensor(self.max_action.reshape(1,-1)).to(device)
+		# network_output = torch.sigmoid(self.l3(a))
+		# return network_output * torch.FloatTensor(self.max_action.reshape(1,-1)).to(device)
 		# return network_output * torch.tensor(self.max_action)
-		# return self.max_action * torch.tanh(self.l3(a))
+		# pdb.set_trace()
+		return self.max_action * torch.sigmoid(self.l3(a))
 
 class Critic(nn.Module):
 	def __init__(self, state_dim, action_dim):
@@ -113,37 +116,25 @@ class TD3(object):
 
 		# Sample replay buffer 
 		state, action, next_state, reward, not_done = replay_buffer.sample(batch_size)
+		# pdb.set_trace()
 
 		with torch.no_grad():
 			# Select action according to policy and add clipped noise 
 
-			random_action = torch.randn_like(action)
-			self.policy_noise = torch.tensor(self.policy_noise).to(device)
-			noises = random_action * self.policy_noise
-			noises = noises.cpu().numpy()
-			noises = noises.clip(-self.noise_clip, self.noise_clip)
-			all_noises = torch.tensor(noises).to(device)
-
-			# noise = (
-			# 	torch.randn_like(action) *  self.policy_noise
-			# ).clamp(-self.noise_clip, self.noise_clip)
-
-		
-			next_action = self.actor_target(next_state) + all_noises
-			next_action = next_action.cpu().numpy()
-			next_action = next_action.clip(-self.max_action, self.max_action)
-			next_action = torch.tensor(next_action).to(device)
+			noise = (
+				torch.randn_like(action) *  self.policy_noise
+			).clamp(-self.noise_clip, self.noise_clip)
 	
-			# next_action = (
-			# 	self.actor_target(next_state) + noise
-			# ).clamp(-self.max_action, self.max_action)
-
-			# pdb.set_trace()
+			next_action = (
+				self.actor_target(next_state) + noise
+			).clamp(0.0, self.max_action)
 
 			# Compute the target Q value
 			target_Q1, target_Q2 = self.critic_target(next_state, next_action)
+
 			target_Q = torch.min(target_Q1, target_Q2)
 			target_Q = reward + not_done * self.discount * target_Q
+
 
 		# Get current Q estimates
 		current_Q1, current_Q2 = self.critic(state, action)
@@ -173,7 +164,17 @@ class TD3(object):
 
 			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
-		# return 
+			# return 
 
-	def save_model(self, path):
-		torch.save(self.actor.state_dict(), path)
+	def save(self, filename):
+		torch.save(self.critic.state_dict(), filename + "_critic")
+		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
+		torch.save(self.actor.state_dict(), filename + "_actor")
+		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+
+
+	def load(self, filename):
+		self.critic.load_state_dict(torch.load(filename + "_critic"))
+		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
+		self.actor.load_state_dict(torch.load(filename + "_actor"))
+		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))

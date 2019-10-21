@@ -13,6 +13,11 @@ import argparse
 import pdb
 import pickle
 import datetime
+from NCS_nn import NCS_net, GraspValid_net
+import torch 
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
 
 
 class expert_PID():
@@ -91,19 +96,27 @@ class expert_PID():
 def generate_lifting_data(env, total_steps, filename, grasp_filename):
 	states = []
 	label = []
-	file = open(filename + ".pkl", "rb")
-	data = pickle.load(file)
-	file.close()
+	# file = open(filename + ".pkl", "rb")
+	# data = pickle.load(file)
+	# file.close()
+	import time
 	print(total_steps)
 	for step in range(int(total_steps)):
-		env.reset()
-		curr_states = data["states_for_lifting"][step]	
-		obs = env.env.grasp_classifier_reset(curr_states)
-		# pdb.set_trace()		
-		for _ in range(30):
-			# lift
-			action = np.array([0.2, 0.0,0.0, 0.0])
-			obs, reward , _, _ = env.step(action)
+		_, curr_actions, reward = env.reset()
+		if reward == 1:
+			continue
+		else:	
+			for i in range(40):
+				# lift
+				if i < 20:
+					action = np.array([0.0, 0.0, 0.0, 0.0])
+				else:
+					action = np.array([0.2, curr_actions[1], curr_actions[2], curr_actions[3]])
+				# pdb.set_trace()
+				obs, reward , _, _ = env.step(action)
+		
+			# time.sleep(0.25)	
+		print(reward)
 
 		# record fail or success
 		label.append(reward)
@@ -120,7 +133,14 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
 
 
 # function that generates expert data for grasping an object from ground up
-def generate_Data(env, num_episode, filename):
+def generate_Data(env, num_episode, filename, replay_buffer):
+	# grasp_net = GraspValid_net(35).to(device)
+	# trained_model = "data_cube_7_grasp_classifier_10_16_19_1509.pt"
+
+	# model = torch.load(trained_model)
+	# grasp_net.load_state_dict(model)
+	# grasp_net.eval()
+
 	# preaction
 	wrist = 0.0
 	f1 = 0.8
@@ -153,25 +173,30 @@ def generate_Data(env, num_episode, filename):
 	states = []
 	states_for_lifting = []
 	label_for_lifting = []
-	states_for_closing = []
-	label_for_closing = []
-	states_when_lifting = []
-	label_when_lifting = []
+	states_when_closing = []
+	label_when_closing = []
+	states_ready_grasp = []
+	label_ready_grasp = []
 	for episode in range(num_episode):
 		obs, done = env.reset(), False
 		ini_dot_prod = obs[-1]
-		dom_finger = obs[36]
+		dom_finger = obs[21]
 		action = expert.get_expert_move_to_touch(ini_dot_prod, dom_finger)
 		touch = 0
 		not_close = 1
 		close = 0
 		touch_dot_prod = 0.0
-		# states.append(obs)
-		# label.append(action)		
-		for t in range(100):
+		t = 0	
+		for _ in range(100):
 			states.append(obs)
 			label.append(action)	
 			next_obs, reward, done, _ = env.step(action)
+
+			# store data into replay buffer 
+			replay_buffer.add(obs, action, next_obs, reward, done)
+
+			# print(outputs)
+			# print(action)
 			obs = next_obs
 			dot_prod = obs[-1]
 			# move closer towards object
@@ -190,32 +215,35 @@ def generate_Data(env, num_episode, filename):
 				not_close = 0
 				# when it's time to lift
 				states_for_lifting.append(obs)
-				label_for_lifting.append(action)				
+				label_for_lifting.append(action)
 				if t > 60:
-					action[0] = 0.2
-					states_when_lifting.append(obs)
-					label_when_lifting.append(action)
-			if t <= 60:
-				states_for_closing.append(obs)
-				label_for_closing.append(action)
-		
+					action[0] = 0.8
+			if t > 50:
+				states_ready_grasp.append(obs)
+				label_ready_grasp.append(action)	
+			if t <= 50:
+				states_when_closing.append(obs)
+				label_when_closing.append(action)
+			t += 1
 
 		print("Collecting.., num_episode:{}".format(episode))
 	# print("saving...")
-	data = {}
-	data["states"] = states
-	data["label"] = label
-	data["states_for_lifting"] = states_for_lifting
-	data["label_for_lifting"] = label_for_lifting
-	data["states_for_closing"] = states_for_closing
-	data["label_for_closing"] = label_for_closing	
-	data["states_when_lifting"] = states_when_lifting
-	data["label_when_lifting"] = label_when_lifting
-	file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
-	pickle.dump(data, file)
-	file.close()
+	# data = {}
+	# data["states"] = states
+	# data["label"] = label
+	# data["states_for_lifting"] = states_for_lifting
+	# data["label_for_lifting"] = label_for_lifting
+	# data["states_when_closing"] = states_when_closing
+	# data["label_when_closing"] = label_when_closing	
+	# data["states_ready_grasp"] = states_ready_grasp
+	# data["label_ready_grasp"] = label_ready_grasp
+	# file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+	# pickle.dump(data, file)
+	# file.close()
+	# return data
 
-	return data
+	return replay_buffer
+
 
 
 # def generate_closing_data(env, num_episode, filename):

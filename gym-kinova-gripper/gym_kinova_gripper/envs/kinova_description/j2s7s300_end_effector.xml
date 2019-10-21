@@ -138,7 +138,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
 		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
-		<body name="cube" pos="0.0 0.0 0.05">
+		<body name="cube" pos="0.1 0.1 0.05">
 			<joint name="cube" type="free"/>
 			<geom name="cube" mass="0.1" size="0.0175 0.0175 0.05" rgba="1 0 0 1" type="box"/>
 			
@@ -234,11 +234,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <jointpos joint='j2s7s300_joint_finger_1'/>
         <jointpos joint='j2s7s300_joint_finger_2'/>
         <jointpos joint='j2s7s300_joint_finger_3'/>
-
         <jointpos joint='j2s7s300_joint_fingertip_1'/>
-
         <jointpos joint='j2s7s300_joint_fingertip_2'/>
-
         <jointpos joint='j2s7s300_joint_fingertip_3'/>
       
         <!-- Distance data -->

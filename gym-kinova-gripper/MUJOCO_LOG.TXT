@@ -13,3 +13,9 @@ ERROR: GLEW initalization error: Missing GL version
 Mon Oct  7 11:39:54 2019
 ERROR: GLEW initalization error: Missing GL version
 
+Thu Oct 17 13:34:47 2019
+ERROR: GLEW initalization error: Missing GL version
+
+Sun Oct 20 19:37:11 2019
+ERROR: mjvScene frustum_near too small in mjv_cameraInModel
+

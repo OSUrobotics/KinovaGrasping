@@ -26,7 +26,7 @@ class Actor(nn.Module):
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		return self.max_action * torch.tanh(self.l3(a)) 
+		return self.max_action * torch.sigmoid(self.l3(a)) 
 
 
 class Critic(nn.Module):
@@ -52,7 +52,7 @@ class DDPG(object):
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), weight_decay=1e-2)
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), weight_decay=1e-4)
 
 		self.discount = discount
 		self.tau = tau
