@@ -33,7 +33,6 @@ class NCS_net(nn.Module):
 
 	def forward(self, state):
 		# pdb.set_trace()
-
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
 		network_output = torch.sigmoid(self.l3(a))

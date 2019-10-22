@@ -107,13 +107,6 @@ if __name__ == "__main__":
 
 	replay_buffer = utils.ReplayBuffer(state_dim, action_dim)
 	
-	# add in trained network
-	# from NCS_nn import NCS_net
-	# trained_model = "data_cube_5_trained_model_10_07_19_1749.pt"
-	# pretrained_model = torch.load(trained_model) 
-	# pretrained_network = NCS_net(state_dim, action_dim, max_action_trained).to(device)
-	# pretrained_network.load_state_dict(pretrained_model)
-	# pretrained_network.eval()
 
 	# Add expert data into replay buffer
 	from expert_data import generate_Data
@@ -131,12 +124,6 @@ if __name__ == "__main__":
 
 	model_save_path = "kinova_gripper_learning{}.pt".format(args.model)
 
-	# file_name = open("data_cube_5_10_07_19_1612.pkl", "rb")
-	# data = pickle.load(file_name)
-	# states = np.array(data["states"])
-	# random_states_index = np.random.randint(0, len(states), size = len(states))
-
-	# pdb.set_trace()
 
 	noise = OUNoise(4)
 	noise.reset()
