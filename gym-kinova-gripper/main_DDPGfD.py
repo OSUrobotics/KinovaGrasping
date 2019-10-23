@@ -28,16 +28,16 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 	# step = 0
 	for i in range(eval_episodes):
 		state, done = eval_env.reset(), False
-		cumulative_reward = 0
+		# cumulative_reward = 0
 
 		while not done:
 			action = policy.select_action(np.array(state))
 			# print(action)
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
-			cumulative_reward += reward
-			eval_env.render()
-			
+			# cumulative_reward += reward
+			# eval_env.render()
+		# pdb.set_trace()
 		# print(cumulative_reward)
 	avg_reward /= eval_episodes
 
@@ -193,7 +193,7 @@ if __name__ == "__main__":
 		writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
 		writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
 
-		print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
+		# print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:
 			evaluations.append(eval_policy(policy, args.env_name, args.seed))

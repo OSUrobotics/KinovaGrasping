@@ -288,7 +288,7 @@ class KinovaGripper_Env(gym.Env):
 			else:
 				grasp_reward = 0.0
 		
-		if abs(obs[23] - obj_target) < 0.01 or (obs[23] >= obj_target):
+		if abs(obs[23] - obj_target) < 0.001 or (obs[23] >= obj_target):
 			lift_reward = 50.0
 			done = True
 		else:
@@ -297,9 +297,9 @@ class KinovaGripper_Env(gym.Env):
 
 		finger_reward = np.sum((1 - np.array(obs[41:47])) + (1 - np.array(obs[35:41])))
 
-		if finger_reward < self.prev_fr:
-			# pdb.set_trace()
-			finger_reward = self.prev_fr
+		# if finger_reward < self.prev_fr:
+		# 	# pdb.set_trace()
+		# 	finger_reward = self.prev_fr
 
 		# print(np.array(obs[41:47]), np.array(obs[35:41]))
 		reward = 0.2*finger_reward + grasp_reward + lift_reward
