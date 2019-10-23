@@ -14,7 +14,7 @@ from tensorboardX import SummaryWriter
 from ounoise import OUNoise
 import pickle
 import datetime
-
+# 'gym_kinova_gripper:kinovagripper-v0'
 # from pretrain import Pretrain
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -32,12 +32,12 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 
 		while not done:
 			action = policy.select_action(np.array(state))
-			# print("eval act", action)
+			# print(action)
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 			cumulative_reward += reward
-			# eval_env.render()
-
+			eval_env.render()
+			
 		# print(cumulative_reward)
 	avg_reward /= eval_episodes
 
@@ -51,7 +51,7 @@ if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
 	parser.add_argument("--policy_name", default="DDPGfD")					# Policy name
-	parser.add_argument("--env_name", default="HalfCheetah-v2")			# OpenAI gym environment name
+	parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
 	parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
 	parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
@@ -117,12 +117,12 @@ if __name__ == "__main__":
 
 	# Initialize replay buffer with expert demo
 	print("----Generating {} expert episodes----".format(args.pre_replay_episode))
-	# from expert_data import generate_Data
-	from pretrain_from_RL import pretrain_from_agent
+	from expert_data import generate_Data
+	# from pretrain_from_RL import pretrain_from_agent
 	expert_policy = DDPGfD.DDPGfD(**kwargs)
 	replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode)
-	replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
-	# replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
+	# replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
+	replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
 
 	# Evaluate untrained policy
 	# evaluations = [eval_policy(policy, args.env_name, args.seed)] 

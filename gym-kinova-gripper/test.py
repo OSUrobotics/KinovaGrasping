@@ -23,7 +23,7 @@ step = 0
 num_episode = 5000
 filename = "data_cube_9"
 replay_buffer = utils.ReplayBuffer_episode(48, 4, 100, 100)
-replay_buffer = generate_Data(env, 100, "random", replay_buffer)
+replay_buffer = generate_Data(env, 10, "random", replay_buffer)
 '''
 for _ in range(3):
 	# noise.reset()

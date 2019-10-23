@@ -281,15 +281,15 @@ class KinovaGripper_Env(gym.Env):
 		grasp_reward = 0.0
 		# obs = self._get_obs() 
 		inputs = torch.FloatTensor(np.array(obs)).to(device)
-		if action[0] == 0.0 and (np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015): 
+		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
 			if outputs == 1.0:
-				grasp_reward = 3.0
+				grasp_reward = 5.0
 			else:
 				grasp_reward = 0.0
 		
 		if abs(obs[23] - obj_target) < 0.01 or (obs[23] >= obj_target):
-			lift_reward = 10.0
+			lift_reward = 50.0
 			done = True
 		else:
 			lift_reward = 0.0
@@ -305,7 +305,7 @@ class KinovaGripper_Env(gym.Env):
 		reward = 0.2*finger_reward + grasp_reward + lift_reward
 
 		self.prev_fr = finger_reward
-		print(0.2*finger_reward, grasp_reward, lift_reward)
+		# print(0.2*finger_reward, grasp_reward, lift_reward)
 		return reward, {}, done
 
 	# only set proximal joints, cuz this is an underactuated hand

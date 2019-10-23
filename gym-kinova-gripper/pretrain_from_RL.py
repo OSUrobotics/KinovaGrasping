@@ -21,10 +21,10 @@ def pretrain_from_agent(policy, env, replay_buffer, episode_num):
 	return replay_buffer
 	
 
-# env = gym.make("HalfCheetah-v2")
-# state_dim = env.observation_space.shape[0]
-# action_dim = env.action_space.shape[0] 
-# max_action = float(env.action_space.high[0])
-# policy = DDPGfD.DDPGfD(state_dim, action_dim, max_action)
-# policy.load("DDPGfD_kinovaGrip_10_21_19_1801")
-# main_DDPGfD.eval_policy(policy, "HalfCheetah-v2", 2)
+env = gym.make("gym_kinova_gripper:kinovagripper-v0")
+state_dim = env.observation_space.shape[0]
+action_dim = env.action_space.shape[0] 
+max_action = float(env.action_space.high[0])
+policy = DDPGfD.DDPGfD(state_dim, action_dim, max_action)
+policy.load("DDPGfD_kinovaGrip_10_22_19_2151")
+main_DDPGfD.eval_policy(policy, "gym_kinova_gripper:kinovagripper-v0", 2)
