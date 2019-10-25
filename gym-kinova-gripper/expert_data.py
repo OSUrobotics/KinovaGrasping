@@ -179,8 +179,8 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	label_ready_grasp = []
 	for episode in range(num_episode):
 		obs, done = env.reset(), False
-		ini_dot_prod = obs[-1]
-		dom_finger = obs[21]
+		ini_dot_prod = env.env._get_dot_product() # 
+		dom_finger = env.env._get_obj_pose()[0] # obj's position in x
 		action = expert.get_expert_move_to_touch(ini_dot_prod, dom_finger)
 		touch = 0
 		not_close = 1
@@ -196,10 +196,10 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 			# store data into replay buffer 
 			replay_buffer.add(obs, action, next_obs, reward, done)
 			cum_reward += reward
-			# print(reward)
-			# print(action)
+
 			obs = next_obs
-			dot_prod = obs[-1]
+			# dot_prod = obs[-1]
+			dot_prod = env.env._get_dot_product()			
 			# move closer towards object
 			if touch == 0:
 				action = expert.get_expert_move_to_touch(dot_prod, dom_finger)

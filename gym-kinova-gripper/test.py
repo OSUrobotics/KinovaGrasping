@@ -19,7 +19,7 @@ step = 0
 # data = pickle.load(file_name)
 # states = np.array(data["states"])
 # random_states_index = np.random.randint(0, len(states), size = len(states))
-
+# global local = 48 , metric 47
 num_episode = 5000
 filename = "data_cube_9"
 replay_buffer = utils.ReplayBuffer_episode(48, 4, 100, 100)

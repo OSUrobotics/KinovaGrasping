@@ -36,11 +36,13 @@ class ReplayBuffer_episode(object):
 		if self.size % self.episode_step == 0 and self.size <= self.episode_step * self.expert_episode_num:
 			self.expert_episode = self.expert_episode + 1
 		elif self.size % self.episode_step == 0 and self.size > self.episode_step * self.expert_episode_num:
+			# pdb.set_trace()
 			self.agent_episode = self.agent_episode + 1
 
 	def sample(self):
 		# ind = np.random.randint(0, self.size, size=batch_size)
 		if self.agent_episode > self.expert_episode:
+			# pdb.set_trace()
 			prob = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
 		else:
 			prob = "expert"

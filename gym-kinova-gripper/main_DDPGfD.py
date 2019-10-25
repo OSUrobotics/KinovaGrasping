@@ -50,7 +50,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 if __name__ == "__main__":
 	
 	parser = argparse.ArgumentParser()
-	parser.add_argument("--policy_name", default="DDPGfD")					# Policy name
+	parser.add_argument("--policy_name", default="DDPGfD")				# Policy name
 	parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
 	parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
 	parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
@@ -133,7 +133,9 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
-	model_save_path = "DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+	saving_dir = "./policies/reward_lift_only"
+	assert os.path.isdir(saving_dir), "Unavailable Directory"
+	model_save_path = saving_dir + "/DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
 
 	# Initialize OU noise
 	noise = OUNoise(4)
