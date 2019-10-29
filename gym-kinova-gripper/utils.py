@@ -9,7 +9,7 @@ class ReplayBuffer_episode(object):
 		self.ptr = 0
 		self.size = 0
 		self.expert_episode = 0
-		self.agent_episode = 100
+		self.agent_episode = expert_episode_num
 		self.episode_step = episode_step
 		self.expert_episode_num = expert_episode_num
 
@@ -41,7 +41,7 @@ class ReplayBuffer_episode(object):
 
 	def sample(self):
 		# ind = np.random.randint(0, self.size, size=batch_size)
-		if self.agent_episode > self.expert_episode:
+		if self.agent_episode > self.expert_episode_num:
 			# pdb.set_trace()
 			prob = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
 		else:
@@ -53,7 +53,9 @@ class ReplayBuffer_episode(object):
 		else:
 		# sample agent episode
 			random_episode = np.random.randint(self.expert_episode + 1, self.agent_episode + 1, size = 1)
-
+			if random_episode[0] > 10000:
+				print("random_episode is out of bound:", random_episode[0], self.expert_episode, self.agent_episode)
+				raise ValueError 
 
 		# sample episode 
 		ind = np.arange((random_episode[0] - 1)*self.episode_step, random_episode[0]*self.episode_step) 

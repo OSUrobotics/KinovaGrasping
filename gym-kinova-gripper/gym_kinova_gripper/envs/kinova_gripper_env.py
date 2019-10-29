@@ -72,7 +72,7 @@ class KinovaGripper_Env(gym.Env):
 		self.frame_skip = frame_skip
 		self.all_states = None
 		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32)
-		self.state_rep = "global" # change accordingly
+		self.state_rep = "metric" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 
@@ -335,7 +335,7 @@ class KinovaGripper_Env(gym.Env):
 		self.hand_param = {}
 		self.hand_param["span"] = 0.175
 		self.hand_param["depth"] = 0.08
-		self.hand_param["height"] = 0.20 # including distance between table and hand
+		self.hand_param["height"] = 0.15 # including distance between table and hand
 
 		geom_type = {"box": [6, 3], "cylinder": [5, 3], "sphere": [2, 1]}
 		geom_index = 0
@@ -348,28 +348,43 @@ class KinovaGripper_Env(gym.Env):
 			geom_index = geom_type[chosen_type][0]
 			geom_dim_size = geom_type[chosen_type][1]
 
-		width_max = self.hand_param["span"] * 0.35
-		width_min = self.hand_param["span"] * 0.10
+		# Cube w: 0.1, 0.2, 0.3
+		# Cylinder w: 0.1, 0.2, 0.3
+		# Sphere w: 0.1, 0.2, 0.3
 
-		height_max = self.hand_param["height"] 
-		height_min = self.hand_param["height"] * 0.25
+		# Cube & Cylinder
+		width_max = self.hand_param["span"] * 0.30 
+		width_mid = self.hand_param["span"] * 0.20
+		width_min = self.hand_param["span"] * 0.10 
+		width_choice = np.array([width_min, width_mid, width_max])
+
+		height_max = self.hand_param["height"] * 0.80
+		height_mid = self.hand_param["height"] * 0.6667
+		height_min = self.hand_param["height"] * 0.50
+		height_choice = np.array([height_min, height_mid, height_max])
+
+		# Sphere
+		radius_max = self.hand_param["span"] * 0.30
+		radius_mid = self.hand_param["span"] * 0.28 
+		radius_min = self.hand_param["span"] * 0.25
+		radius_choice = np.array([radius_min, radius_mid, radius_max])
 
 		geom_dim = np.array([])
 
 		if random_size:
+			# if box and cylinder
 			if geom_index == 6 or geom_index == 5:
 				# geom_dim = []
-				width = random.uniform(width_min, width_max)
-				height = random.uniform(height_min, height_max)
+				width = random.choice(width_choice)
+				height = random.choice(height_choice)
 				geom_dim = np.array([width, width, height])
+			# if sphere
 			elif geom_index == 2:
-				radius = random.uniform(width_min, width_max)
-				while radius < height_min:
-					radius = random.uniform(width_min, width_max)
-				geom_dim = np.array([radius])
+				width = random.choice(radius_choice)
 			else:
 				raise ValueError
-
+				geom_dim = np.array([width])
+				
 			return geom_index, geom_dim
 		else:
 			# return medium size box
@@ -396,14 +411,19 @@ class KinovaGripper_Env(gym.Env):
 
 
 	def reset(self):
-		# geom_index, geom_dim = self._set_obj_size()
-		# self._sim.model.geom_type[-1] = 5
-		# self._sim.model.geom_size[-1] = np.array([0.0175, 0.05, 0.0175])
+		# geom_index, geom_dim = self._set_obj_size(random_type=True, random_size=True)
+		# self._sim.model.geom_type[-1] = geom_index
+		# self._sim.model.geom_size[-1] = geom_dim
+		# print(geom_dim)
+		# if len(geom_dim) > 1:
+		# 	obj_height = geom_dim[2]
+		# else:
+		# 	obj_height = geom_dim[0]
 
 		x, y = self.randomize_initial_pose()
 		# # print(x, y)
 
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.05])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)

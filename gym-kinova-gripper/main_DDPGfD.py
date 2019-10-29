@@ -67,7 +67,8 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
 	parser.add_argument("--tensorboardindex", default=0, type=int)	# tensorboard log index
 	parser.add_argument("--model", default=1, type=int)	# save model index
-	parser.add_argument("--pre_replay_episode", default=100, type=int)	# Number of episode for loading expert trajectories
+	parser.add_argument("--pre_replay_episode", default=50, type=int)	# Number of episode for loading expert trajectories
+	parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
 	
 	args = parser.parse_args()
 
@@ -133,8 +134,10 @@ if __name__ == "__main__":
 	episode_timesteps = 0
 	episode_num = 0
 
-	saving_dir = "./policies/reward_lift_only"
-	assert os.path.isdir(saving_dir), "Unavailable Directory"
+	# Check and create directory
+	saving_dir = "./policies/" + args.saving_dir
+	if not os.path.isdir(saving_dir):
+		os.mkdir(saving_dir)
 	model_save_path = saving_dir + "/DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
 
 	# Initialize OU noise

@@ -196,7 +196,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 			# store data into replay buffer 
 			replay_buffer.add(obs, action, next_obs, reward, done)
 			cum_reward += reward
-
+			# print(next_obs[0:7])
 			obs = next_obs
 			# dot_prod = obs[-1]
 			dot_prod = env.env._get_dot_product()			
