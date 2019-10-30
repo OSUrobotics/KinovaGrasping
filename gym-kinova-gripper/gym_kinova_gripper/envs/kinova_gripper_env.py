@@ -114,6 +114,8 @@ class KinovaGripper_Env(gym.Env):
 
 		self.Grasp_net = GraspValid_net(48).to(device) 
 		trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
+		trained_model = "/home/graspinglab/NCSGen/gym-kinova_gripper/data_cube_9_grasp_classifier_10_17_19_1734.pt"
+
 		model = torch.load(trained_model)
 		self.Grasp_net.load_state_dict(model)
 		self.Grasp_net.eval()
