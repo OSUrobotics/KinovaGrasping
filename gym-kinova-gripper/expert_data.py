@@ -15,6 +15,7 @@ import pickle
 import datetime
 from NCS_nn import NCS_net, GraspValid_net
 import torch 
+from gen_new_env import gen_new_obj
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
