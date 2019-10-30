@@ -36,13 +36,14 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 			# cumulative_reward += reward
-			# eval_env.render()
+			eval_env.render()
 		# pdb.set_trace()
 		# print(cumulative_reward)
 	avg_reward /= eval_episodes
 
 	print("---------------------------------------")
-	print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
+	# print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
+	print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
 	print("---------------------------------------")
 	return avg_reward
 
@@ -67,7 +68,7 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
 	parser.add_argument("--tensorboardindex", default=0, type=int)	# tensorboard log index
 	parser.add_argument("--model", default=1, type=int)	# save model index
-	parser.add_argument("--pre_replay_episode", default=50, type=int)	# Number of episode for loading expert trajectories
+	parser.add_argument("--pre_replay_episode", default=100, type=int)	# Number of episode for loading expert trajectories
 	parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
 	
 	args = parser.parse_args()

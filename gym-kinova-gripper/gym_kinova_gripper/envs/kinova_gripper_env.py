@@ -72,7 +72,7 @@ class KinovaGripper_Env(gym.Env):
 		self.frame_skip = frame_skip
 		self.all_states = None
 		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32)
-		self.state_rep = "global" # change accordingly
+		self.state_rep = "joint_states" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 
@@ -293,10 +293,11 @@ class KinovaGripper_Env(gym.Env):
 		inputs = torch.FloatTensor(np.array(obs)).to(device)
 		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-			if outputs == 1.0:
-				grasp_reward = 5.0
-			else:
-				grasp_reward = 0.0
+			# if outputs == 1.0:
+			#	grasp_reward = 5.0
+			# else:
+			#	grasp_reward = 0.0
+			grasp_reward = outputs
 		
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
 			lift_reward = 50.0
@@ -353,7 +354,7 @@ class KinovaGripper_Env(gym.Env):
 		random_start = np.random.randint(2)
 
 		self.obj_original_state = np.array([0.05, 0.0])
-		self._set_state(self.all_states[0])		
+		self._set_state(self.all_states[0])
 		self.init_dotprod = self._get_dot_product()
 		self.init_pose = np.array([x, y, 0.05])
 
