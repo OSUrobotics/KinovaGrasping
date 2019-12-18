@@ -138,7 +138,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
 		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
-		<include file="objects.xml"/>
+		<include file="/objects.xml"/>
     </worldbody>
 
 

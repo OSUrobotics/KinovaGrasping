@@ -44,8 +44,8 @@ class KinovaGripper_Env(gym.Env):
 			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
 			full_path = file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300_end_effector.xml")
-			full_path = file_dir + "/kinova_description/j2s7s300_end_effector.xml"
+			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
+			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
 			raise ValueError
@@ -72,7 +72,7 @@ class KinovaGripper_Env(gym.Env):
 		self.frame_skip = frame_skip
 		self.all_states = None
 		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32)
-		self.state_rep = "joint_states" # change accordingly
+		self.state_rep = "global" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
 
@@ -113,8 +113,8 @@ class KinovaGripper_Env(gym.Env):
 			self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
 
 		self.Grasp_net = GraspValid_net(48).to(device) 
-		# trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
-		trained_model = "/home/graspinglab/NCSGen/gym-kinova_gripper/data_cube_9_grasp_classifier_10_17_19_1734.pt"
+		trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
+		# trained_model = "/home/graspinglab/NCSGen/gym-kinova_gripper/data_cube_9_grasp_classifier_10_17_19_1734.pt"
 
 		model = torch.load(trained_model)
 		self.Grasp_net.load_state_dict(model)
@@ -295,11 +295,11 @@ class KinovaGripper_Env(gym.Env):
 		inputs = torch.FloatTensor(np.array(obs)).to(device)
 		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-			# if outputs == 1.0:
-			#	grasp_reward = 5.0
-			# else:
-			#	grasp_reward = 0.0
-			grasp_reward = outputs
+			if outputs == 1.0:
+				grasp_reward = 5.0
+			else:
+				grasp_reward = 0.0
+			# grasp_reward = outputs
 		
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
 			lift_reward = 50.0

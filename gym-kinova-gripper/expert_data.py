@@ -193,7 +193,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 			states.append(obs)
 			label.append(action)	
 			next_obs, reward, done, _ = env.step(action)
-			# env.render()
+			env.render()
 			# store data into replay buffer 
 			replay_buffer.add(obs, action, next_obs, reward, done)
 			cum_reward += reward
