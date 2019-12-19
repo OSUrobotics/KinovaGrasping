@@ -1,0 +1,6 @@
+<mujoco>
+	<body name="object" pos="0 0 0">
+		<joint name="object" type="free" />
+		<geom mass="0.1" name="object" type="mesh" rgba="1 0 0 1" mesh="Large_hourglass" euler="1.57 0 0"/>
+	</body>
+</mujoco>

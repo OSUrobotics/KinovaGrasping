@@ -141,7 +141,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	# model = torch.load(trained_model)
 	# grasp_net.load_state_dict(model)
 	# grasp_net.eval()
-
+	env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 	# preaction
 	wrist = 0.0
 	f1 = 0.8
@@ -179,6 +179,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	states_ready_grasp = []
 	label_ready_grasp = []
 	for episode in range(num_episode):
+		env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 		obs, done = env.reset(), False
 		ini_dot_prod = env.env._get_dot_product() # 
 		dom_finger = env.env._get_obj_pose()[0] # obj's position in x
@@ -192,6 +193,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 		for _ in range(100):
 			states.append(obs)
 			label.append(action)	
+			# pdb.set_trace()
 			next_obs, reward, done, _ = env.step(action)
 			env.render()
 			# store data into replay buffer 

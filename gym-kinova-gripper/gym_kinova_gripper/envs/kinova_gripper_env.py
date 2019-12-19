@@ -26,6 +26,7 @@ import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import xml.etree.ElementTree as ET
 
 # resolve cv2 issue 
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
@@ -39,12 +40,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class KinovaGripper_Env(gym.Env):
 	metadata = {'render.modes': ['human']}
 	def __init__(self, arm_or_end_effector="hand", frame_skip=4):
-		file_dir = os.path.dirname(os.path.realpath(__file__))
+		self.file_dir = os.path.dirname(os.path.realpath(__file__))
 		if arm_or_end_effector == "arm":
-			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300.xml")
-			full_path = file_dir + "/kinova_description/j2s7s300.xml"
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300.xml")
+			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path(file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
 			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
@@ -234,7 +235,7 @@ class KinovaGripper_Env(gym.Env):
 		return range_data
 
 	def _get_obj_pose(self):
-		arr = self._sim.data.get_geom_xpos("cube")
+		arr = self._sim.data.get_geom_xpos("object")
 		return arr
 
 
@@ -327,30 +328,143 @@ class KinovaGripper_Env(gym.Env):
 		self._sim.data.qpos[1] = states[1]
 		self._sim.data.qpos[3] = states[2]
 		self._sim.data.qpos[5] = states[3]
-		self._sim.data.set_joint_qpos("cube", [states[4], states[5], states[6], 1.0, 0.0, 0.0, 0.0])
+		self._sim.data.set_joint_qpos("object", [states[4], states[5], states[6], 1.0, 0.0, 0.0, 0.0])
 		self._sim.forward()
 
 	def _get_obj_size(self):
 		return self._sim.model.geom_size[-1]
 
-	def randomize_initial_pose(self):
-		x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
-		y = [0.0, 0.02, 0.03, 0.04]
-		rand_x = random.choice(x)
-		if rand_x == 0.05 or rand_x == -0.05:
-			rand_y = 0.0
-		elif rand_x == 0.04 or rand_x == -0.04:
-			rand_y = random.uniform(0.0, 0.02)
-		elif rand_x == 0.03 or rand_x == -0.03:
-			rand_y = random.uniform(0.0, 0.03)
-		elif rand_x == 0.02 or rand_x == -0.02:
-			rand_y = random.uniform(0.0, 0.04)
-		return rand_x, rand_y
 
+	def set_obj_size(self, default = False):
+		hand_param = {}
+		hand_param["span"] = 0.15
+		hand_param["depth"] = 0.08
+		hand_param["height"] = 0.15 # including distance between table and hand
+
+		geom_types = ["box", "cylinder"]#, "sphere"]
+		geom_sizes = ["s", "m", "b"]
+
+		geom_type = random.choice(geom_types)
+		geom_size = random.choice(geom_sizes)
+
+		# Cube w: 0.1, 0.2, 0.3
+		# Cylinder w: 0.1, 0.2, 0.3
+		# Sphere w: 0.1, 0.2, 0.3
+
+		# Cube & Cylinder
+		width_max = hand_param["span"] * 0.3333 # 5 cm
+		width_mid = hand_param["span"] * 0.2833 # 4.25 cm
+		width_min = hand_param["span"] * 0.2333 # 3.5 cm
+		width_choice = np.array([width_min, width_mid, width_max])
+
+		height_max = hand_param["height"] * 0.80 # 0.12
+		height_mid = hand_param["height"] * 0.73333 # 0.11
+		height_min = hand_param["height"] * 0.66667 # 0.10
+		height_choice = np.array([height_min, height_mid, height_max])
+
+		# Sphere
+		radius_max = hand_param["span"] * 0.
+		radius_mid = hand_param["span"] * 0.2833 
+		radius_min = hand_param["span"] * 0.2333
+		radius_choice = np.array([radius_min, radius_mid, radius_max])
+
+		if default:
+			# print("here")
+			return "box", np.array([width_choice[1]/2.0, width_choice[1]/2.0, height_choice[1]/2.0])
+		else:
+
+			if geom_type == "box": #or geom_type == "cylinder":
+				if geom_size == "s":
+					geom_dim = np.array([width_choice[0] / 2.0, width_choice[0] / 2.0, height_choice[0] / 2.0])
+				if geom_size == "m":
+					geom_dim = np.array([width_choice[1] / 2.0, width_choice[1] / 2.0, height_choice[1] / 2.0])
+				if geom_size == "b":
+					geom_dim = np.array([width_choice[2] / 2.0, width_choice[2] / 2.0, height_choice[2] / 2.0])
+			if geom_type == "cylinder":
+				if geom_size == "s":
+					geom_dim = np.array([width_choice[0] / 2.0, height_choice[0] / 2.0])
+				if geom_size == "m":
+					geom_dim = np.array([width_choice[1] / 2.0, height_choice[1] / 2.0])
+				if geom_size == "b":
+					geom_dim = np.array([width_choice[2] / 2.0, height_choice[2] / 2.0])
+			# if geom_type == "sphere":
+			# 	if geom_size == "s":
+			# 		geom_dim = np.array([radius_choice[0]])
+			# 	if geom_size == "m":
+			# 		geom_dim = np.array([radius_choice[1]])
+			# 	if geom_size == "b":
+			# 		geom_dim = np.array([radius_choice[2]])
+
+			return geom_type, geom_dim, geom_size
+							
+	def gen_new_obj(self, default = False):
+		file_dir = "./gym_kinova_gripper/envs/kinova_description"
+		filename = "/objects.xml"
+		tree = ET.parse(file_dir + filename)
+		root = tree.getroot()
+		d = default
+		next_root = root.find("body")
+		# print(next_root)
+		# pick a shape and size
+		geom_type, geom_dim, geom_size = self.set_obj_size(default = d)
+		# if geom_type == "sphere":
+		# 	next_root.find("geom").attrib["size"] = "{}".format(geom_dim[0])
+		if geom_type == "box":
+			next_root.find("geom").attrib["size"] = "{} {} {}".format(geom_dim[0], geom_dim[1], geom_dim[2])
+		if geom_type == "cylinder":
+			next_root.find("geom").attrib["size"] = "{} {}".format(geom_dim[0], geom_dim[1])
+			
+		next_root.find("geom").attrib["type"] = geom_type
+		tree.write(file_dir + "/objects.xml")
+
+		return geom_type, geom_dim, geom_size
+
+
+	def randomize_initial_pose(self):
+		geom_type, geom_dim, geom_size = self.gen_new_obj()
+		# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
+		# self._sim = MjSim(self._model)
+
+		if geom_size == "s":
+			x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
+			y = [0.0, 0.02, 0.03, 0.04]
+			rand_x = random.choice(x)
+			if rand_x == 0.05 or rand_x == -0.05:
+				rand_y = 0.0
+			elif rand_x == 0.04 or rand_x == -0.04:
+				rand_y = random.uniform(0.0, 0.02)
+			elif rand_x == 0.03 or rand_x == -0.03:
+				rand_y = random.uniform(0.0, 0.03)
+			elif rand_x == 0.02 or rand_x == -0.02:
+				rand_y = random.uniform(0.0, 0.04)
+		if geom_size == "m":
+			x = [0.04, 0.03, 0.02, -0.04, -0.03, -0.02]
+			y = [0.0, 0.02, 0.03]
+			rand_x = random.choice(x)
+			if rand_x == 0.04 or rand_x == -0.04:
+				rand_y = 0.0
+			elif rand_x == 0.03 or rand_x == -0.03:
+				rand_y = random.uniform(0.0, 0.02)
+			elif rand_x == 0.02 or rand_x == -0.02:
+				rand_y = random.uniform(0.0, 0.03)
+		if geom_size == "b":
+			x = [0.03, 0.02, -0.03, -0.02]
+			y = [0.0, 0.02]
+			rand_x = random.choice(x)
+			if rand_x == 0.03 or rand_x == -0.03:
+				rand_y = 0.0
+			elif rand_x == 0.02 or rand_x == -0.02:
+				rand_y = random.uniform(0.0, 0.02)
+		return rand_x, rand_y, geom_dim[-1]
+
+		# medium x = [0.04, 0.03, 0.02]
+		# med y = [0.0, 0.02, 0.03]
+		# large x = [0.03, 0.02] 
+		# large y = [0.0, 0.02]
 
 	def reset(self):
-		x, y = self.randomize_initial_pose()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
+		x, y, z = self.randomize_initial_pose()
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
