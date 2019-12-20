@@ -45,7 +45,7 @@ class KinovaGripper_Env(gym.Env):
 			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300.xml")
 			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml")
 			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
@@ -56,6 +56,8 @@ class KinovaGripper_Env(gym.Env):
 		self._viewer = None
 		# self.viewer = None
 
+		##### Indicate object size (Nigel, data collection only) ###### 
+		self.obj_size = "b"
 
 		self._timestep = self._sim.model.opt.timestep
 		self._torque = [0,0,0,0]
@@ -462,8 +464,45 @@ class KinovaGripper_Env(gym.Env):
 		# large x = [0.03, 0.02] 
 		# large y = [0.0, 0.02]
 
+	def randomize_initial_pos_data_collection(self):
+		# print(self._sim.model.geom_size[-1])
+		if self.obj_size == "s":
+			x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
+			y = [0.0, 0.02, 0.03, 0.04]
+			rand_x = random.choice(x)
+			if rand_x == 0.05 or rand_x == -0.05:
+				rand_y = 0.0
+			elif rand_x == 0.04 or rand_x == -0.04:
+				rand_y = random.uniform(0.0, 0.02)
+			elif rand_x == 0.03 or rand_x == -0.03:
+				rand_y = random.uniform(0.0, 0.03)
+			elif rand_x == 0.02 or rand_x == -0.02:
+				rand_y = random.uniform(0.0, 0.04)
+		if self.obj_size == "m":
+			x = [0.04, 0.03, 0.02, -0.04, -0.03, -0.02]
+			y = [0.0, 0.02, 0.03]
+			rand_x = random.choice(x)
+			if rand_x == 0.04 or rand_x == -0.04:
+				rand_y = 0.0
+			elif rand_x == 0.03 or rand_x == -0.03:
+				rand_y = random.uniform(0.0, 0.02)
+			elif rand_x == 0.02 or rand_x == -0.02:
+				rand_y = random.uniform(0.0, 0.03)
+		if self.obj_size == "b":
+			x = [0.03, 0.02, -0.03, -0.02]
+			y = [0.0, 0.02]
+			rand_x = random.choice(x)
+			if rand_x == 0.03 or rand_x == -0.03:
+				rand_y = 0.0
+			elif rand_x == 0.02 or rand_x == -0.02:
+				rand_y = random.uniform(0.0, 0.02)
+
+		z = self._sim.model.geom_size[-1][-1]
+		return rand_x, rand_y, z	
+
 	def reset(self):
-		x, y, z = self.randomize_initial_pose()
+		# x, y, z = self.randomize_initial_pose()
+		x, y, z = self.randomize_initial_pos_data_collection()
 		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
