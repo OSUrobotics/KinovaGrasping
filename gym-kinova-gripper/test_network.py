@@ -158,7 +158,52 @@ def test_grasp_classifier():
 	# test_expert_action(state_input, label)
 	test_random_action()
 
+def extract_jA_4_action():
+	data_filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/test_jA_12_23_19_1604"
+	file = open(data_filename + ".pkl", "rb")
+	data = pickle.load(file)
+	file.close()	
+	states = np.array(data["states_all_episode"])
+	jA_all_episode = []
+
+	for i in range(10): # episode
+		# states[i]
+		episode = states[i][:]
+		jA_arr = []
+		for j in range(100): # states
+			jA = episode[j, 24:31]
+			jA_arr.append(jA)
+		jA_all_episode.append(jA_arr)
+	# pdb.set_trace()
+
+	file_save = open("jA_action" + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+	pickle.dump(jA_all_episode, file_save)
+	file_save.close()
+
+def test_jA_actions():
+	data_filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/jA_action_12_23_19_1606"
+	file = open(data_filename + ".pkl", "rb")
+	data = pickle.load(file)
+	file.close()	
+	data = np.array(data)
+	# states = np.array(data["states_all_episode"])	
+	env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+	# pdb.set_trace()
+
+	for i in range(10):
+		episode = data[i][:]
+		env.reset()
+		# env.env.reset([0.0, 0.0])
+		for j in range(100):
+			actions = episode[j, 0:4]
+			obs, reward, done, _ = env.step(actions)
+			env.render()
+			# print(actions)
+
+		pdb.set_trace()
 
 if __name__ == '__main__':
-	test_grasp_classifier()
+	# test_grasp_classifier()
 	# label_grasp_data()
+	# extract_jA_4_action()
+	test_jA_actions()

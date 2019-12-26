@@ -178,8 +178,15 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	label_when_closing = []
 	states_ready_grasp = []
 	label_ready_grasp = []
+	states_all_episode = []
+	obs_all_episode = []
+	action_all_episode = []
+	nextobs_all_episode = []
+	reward_all_episode = []
+	done_all_episode = []
+
 	for episode in range(num_episode):
-		env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+		# env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 		obs, done = env.reset(), False
 		ini_dot_prod = env.env._get_dot_product() # 
 		dom_finger = env.env._get_obj_pose()[0] # obj's position in x
@@ -190,14 +197,33 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 		touch_dot_prod = 0.0
 		t = 0	
 		cum_reward = 0.0
+		states_each_episode = []
+		obs_each_episode = []
+		action_each_episode = []
+		nextobs_each_episode = []
+		reward_each_episode = []
+		done_each_episode = []
+
 		for _ in range(100):
 			states.append(obs)
 			label.append(action)	
+			states_each_episode.append(obs)
+			
+			obs_each_episode.append(obs)
+
 			# pdb.set_trace()
 			next_obs, reward, done, _ = env.step(action)
-			env.render()
+
+			action_each_episode.append(next_obs[24:28]) # get joint angle as action
+			nextobs_each_episode.append(next_obs)
+			reward_each_episode.append(reward)
+			done_each_episode.append(done)
+
+			# env.render()
 			# store data into replay buffer 
 			replay_buffer.add(obs, action, next_obs, reward, done)
+			# replay_buffer.add(obs, obs[24:28], next_obs, reward, done) # store joint angles as actions
+
 			cum_reward += reward
 			# print(next_obs[0:7])
 			obs = next_obs
@@ -229,10 +255,22 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 				states_when_closing.append(obs)
 				label_when_closing.append(action)
 			t += 1
+			# print(next_obs[24:31])
+		states_all_episode.append(states_each_episode)
+
+		obs_all_episode.append(obs_each_episode)
+		action_all_episode.append(action_each_episode)
+		nextobs_all_episode.append(nextobs_each_episode)
+		reward_all_episode.append(reward_each_episode)
+		done_all_episode.append(done_each_episode)
+
 		# print("Collecting.., num_episode:{}".format(episode))
 		# pdb.set_trace()
-	# print("saving...")
-	# data = {}
+	print("saving...")
+	data = {}
+	# data["states_all_episode"] = states_all_episode
+	# pdb.set_trace()
+
 	# data["states"] = states
 	# data["label"] = label
 	# data["states_for_lifting"] = states_for_lifting
@@ -241,14 +279,43 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	# data["label_when_closing"] = label_when_closing	
 	# data["states_ready_grasp"] = states_ready_grasp
 	# data["label_ready_grasp"] = label_ready_grasp
-	# file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
-	# pickle.dump(data, file)
-	# file.close()
+
+	### Data collection for joint angle action space ###
+	data["obs"] = obs_all_episode
+	data["action"] = action_all_episode
+	data["next_obs"] = nextobs_all_episode
+	data["reward"] = reward_all_episode
+	data["done"] = done_all_episode
+	file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+	pickle.dump(data, file)
+	file.close()
 	# return data
 
 	return replay_buffer
 
 
+def store_saved_data_into_replay(replay_buffer, num_episode):
+	filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/collect_jA_12_24_19_1150"
+	file = open(filename + ".pkl", "rb")
+	data = pickle.load(file)
+	obs = data["obs"]
+	action = data["action"]
+	next_obs = data["next_obs"]
+	reward = data["reward"]
+	done = data["done"]
+	file.close()	
+	# pdb.set_trace()
+
+	for i in range(num_episode):
+		obs_episode = obs[i][:]
+		action_episode = action[i][:]
+		next_obs_episode = next_obs[i][:]
+		reward_episode = reward[i][:]
+		done_episode = done[i][:]
+		for j in range(100):
+			replay_buffer.add(obs_episode[j], action_episode[j], next_obs_episode[j], reward_episode[j], done_episode[j]) # store joint angles as actions
+
+	return replay_buffer
 
 # def generate_closing_data(env, num_episode, filename):
 

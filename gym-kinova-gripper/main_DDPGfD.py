@@ -36,7 +36,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 			# cumulative_reward += reward
-			eval_env.render()
+			# eval_env.render()
 		# pdb.set_trace()
 		# print(cumulative_reward)
 	avg_reward /= eval_episodes
@@ -119,13 +119,14 @@ if __name__ == "__main__":
 
 	# Initialize replay buffer with expert demo
 	print("----Generating {} expert episodes----".format(args.pre_replay_episode))
-	from expert_data import generate_Data
+	from expert_data import generate_Data, store_saved_data_into_replay
 	# from pretrain_from_RL import pretrain_from_agent
 	expert_policy = DDPGfD.DDPGfD(**kwargs)
 	replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode)
 	# replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
-	replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
-
+	# replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
+	replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
+	
 	# Evaluate untrained policy
 	# evaluations = [eval_policy(policy, args.env_name, args.seed)] 
 	evaluations = []

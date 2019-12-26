@@ -138,23 +138,23 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
 		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
-		<body name="cube" pos="0.1 0.1 0.05">
-			<joint name="cube" type="free"/>
-			<geom name="cube" mass="0.1" size="0.0175 0.0175 0.05" rgba="1 0 0 1" type="box"/>
+		<body name="object" pos="0.1 0.1 0.05">
+			<joint name="object" type="free"/>
+			<geom name="object" mass="0.1" size="0.0175 0.0175 0.05" rgba="1 0 0 1" type="box"/>
 			
 		</body>
     </worldbody>
 
 
     <contact>
-    	<pair geom1="cube" geom2="ground" condim="3" friction="0.3 0.3 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="f1_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="f1_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="f2_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="f2_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="f3_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="f3_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="cube" geom2="palm" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="ground" condim="3" friction="0.3 0.3 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="f1_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="f1_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="f2_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="f2_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="f3_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="f3_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<pair geom1="object" geom2="palm" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     
     </contact>
 
@@ -180,15 +180,16 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     </equality>
 	<!-- ======================= Joint position control with velocity and position actuators ================================ -->
-<!-- 	<actuator>
-		<motor joint="j2s7s300_joint_7" gear="10"></motor>
-		<position joint="j2s7s300_joint_finger_1" kp="20" ctrlrange="-2 2"></position>
-		<position joint="j2s7s300_joint_finger_2" kp="20" ctrlrange="-2 2"></position>
-		<position joint="j2s7s300_joint_finger_3" kp="20" ctrlrange="-2 2"></position>		
-		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrlrange="-2 2"></velocity>
-		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrlrange="-2 2"></velocity>
-		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrlrange="-2 2"></velocity>
-	</actuator>  -->
+	<actuator>
+		<position joint="j2s7s300_joint_7" kp="300" ctrllimited="true" ctrlrange="0 0.2"></position>		
+		<position joint="j2s7s300_joint_finger_1" kp="13" ctrllimited="true" ctrlrange="0 2"></position>
+		<position joint="j2s7s300_joint_finger_2" kp="13" ctrllimited="true" ctrlrange="0 2"></position>
+		<position joint="j2s7s300_joint_finger_3" kp="13" ctrllimited="true" ctrlrange="0 2"></position>
+		<velocity joint="j2s7s300_joint_7" kv="100" ctrllimited="true" ctrlrange="-0.2 0.2"></velocity>	
+		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
+		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
+		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
+	</actuator> 
 	<!-- ======================= Joint velocity control with velocity and force actuators ================================ -->
 <!-- 	<actuator>
 		<motor joint="j2s7s300_joint_7" gear="10"></motor>
@@ -200,13 +201,12 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrlrange="-2 2"></velocity>
 	</actuator>  -->
 	<!-- ================== Velocity actuators ==========================-->
-	<actuator>
-		<!-- <position joint="j2s7s300_joint_7" kp="10"></position>			 -->
+<!-- 	<actuator>
 		<velocity joint="j2s7s300_joint_7" kv="150" ctrllimited="true" ctrlrange="-0.2 0.2"></velocity>	
 		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
 		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
 		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
-	</actuator> 	
+	</actuator> 	 -->
 	<!-- ======================= Torque actuators ================================ -->
 	<!-- <actuator>
 		<motor joint="j2s7s300_joint_7" gear="25"/>

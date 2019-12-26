@@ -3,7 +3,7 @@ import torch
 import pdb
 
 class ReplayBuffer_episode(object):
-	def __init__(self, state_dim, action_dim, episode_step, expert_episode_num, max_episode=10000):
+	def __init__(self, state_dim, action_dim, episode_step, expert_episode_num, max_episode=10100):
 		self.max_episode = max_episode
 		self.max_size = max_episode * episode_step
 		self.ptr = 0
@@ -53,9 +53,9 @@ class ReplayBuffer_episode(object):
 		else:
 		# sample agent episode
 			random_episode = np.random.randint(self.expert_episode + 1, self.agent_episode + 1, size = 1)
-			if random_episode[0] > 10000:
-				print("random_episode is out of bound:", random_episode[0], self.expert_episode, self.agent_episode)
-				raise ValueError 
+			# if random_episode[0] > 10000:
+			# 	print("random_episode is out of bound:", random_episode[0], self.expert_episode, self.agent_episode)
+			# 	raise ValueError 
 
 		# sample episode 
 		ind = np.arange((random_episode[0] - 1)*self.episode_step, random_episode[0]*self.episode_step) 

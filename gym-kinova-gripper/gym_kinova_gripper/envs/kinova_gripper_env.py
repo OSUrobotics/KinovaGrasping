@@ -27,7 +27,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import xml.etree.ElementTree as ET
-
+import copy
 # resolve cv2 issue 
 # sys.path.remove('/opt/ros/kinetic/lib/python2.7/dist-packages')
 # frame skip = 20
@@ -45,7 +45,7 @@ class KinovaGripper_Env(gym.Env):
 			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300.xml")
 			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml")
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
 			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
@@ -74,7 +74,8 @@ class KinovaGripper_Env(gym.Env):
 		self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
 		self.frame_skip = frame_skip
 		self.all_states = None
-		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32)
+		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
+		# self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0, 0.0]), high=np.array([2.0, 2.0, 2.0, 2.0]), dtype=np.float32) # Position action space
 		self.state_rep = "global" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
@@ -209,6 +210,7 @@ class KinovaGripper_Env(gym.Env):
 		elif state_rep == "joint_states":
 			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [dot_prod] 
 
+		# print(joint_states[0:4])
 		return fingers_6D_pose 
 
 	def _get_finger_obj_dist(self):
@@ -299,9 +301,9 @@ class KinovaGripper_Env(gym.Env):
 		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
 			if outputs == 1.0:
-				grasp_reward = 5.0
+				grasp_reward = 10.0
 			else:
-				grasp_reward = 0.0
+				grasp_reward = 10.0
 			# grasp_reward = outputs
 		
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
@@ -423,7 +425,8 @@ class KinovaGripper_Env(gym.Env):
 
 
 	def randomize_initial_pose(self):
-		geom_type, geom_dim, geom_size = self.gen_new_obj()
+		# geom_type, geom_dim, geom_size = self.gen_new_obj()
+		geom_size = "s"
 		# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
 		# self._sim = MjSim(self._model)
 
@@ -457,7 +460,9 @@ class KinovaGripper_Env(gym.Env):
 				rand_y = 0.0
 			elif rand_x == 0.02 or rand_x == -0.02:
 				rand_y = random.uniform(0.0, 0.02)
-		return rand_x, rand_y, geom_dim[-1]
+		# return rand_x, rand_y, geom_dim[-1]
+		return rand_x, rand_y
+
 
 		# medium x = [0.04, 0.03, 0.02]
 		# med y = [0.0, 0.02, 0.03]
@@ -501,9 +506,9 @@ class KinovaGripper_Env(gym.Env):
 		return rand_x, rand_y, z	
 
 	def reset(self):
-		# x, y, z = self.randomize_initial_pose()
-		x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
+		x, y = self.randomize_initial_pose()
+		# x, y, z = self.randomize_initial_pos_data_collection()
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
@@ -517,6 +522,7 @@ class KinovaGripper_Env(gym.Env):
 
 		self.prev_fr = 0.0
 		self.prev_r = 0.0
+		self.prev_action = np.array([0.0, 0.0, 0.0, 0.0])
 		return states
 
 	def render(self, mode='human'):
@@ -532,30 +538,80 @@ class KinovaGripper_Env(gym.Env):
 		self.np_random, seed = seeding.np_random(seed)
 		return [seed]
 
+	###################################################
+	##### ---- Action space : Joint Velocity ---- #####
+	###################################################
+	# def step(self, action):
+	# 	total_reward = 0
+	# 	for _ in range(self.frame_skip):
+	# 		if action[0] < 0.0:
+	# 			self._sim.data.ctrl[0] = 0.0
+	# 		else:	
+	# 			self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
+	# 		for i in range(3):
+	# 			# vel = action[i]
+	# 			if action[i+1] < 0.0:
+	# 				self._sim.data.ctrl[i+1] = 0.0
+	# 			else:	
+	# 				self._sim.data.ctrl[i+1] = action[i+1]
+	# 		self._sim.step()
+	# 	obs = self._get_obs()
+	# 	total_reward, info, done = self._get_reward()
+	# 	return obs, total_reward, done, info
+	#####################################################
+
+	###################################################
+	##### ---- Action space : Joint Angle ---- ########
+	###################################################
 	def step(self, action):
 		total_reward = 0
-
 		for _ in range(self.frame_skip):
-			# self._sim.data.ctrl[0] = 0.0
-			# f_action = np.array([0.4, 0.2, 0.2])
-			if action[0] < 0.0:
-				self._sim.data.ctrl[0] = 0.0
-			else:	
-				self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
-			
-			for i in range(3):
-				# vel = action[i]
-				if action[i] < 0.0:
-					self._sim.data.ctrl[i+1] = 0.0
-				else:	
-					self._sim.data.ctrl[i+1] = action[i+1]
-
+			self.pos_control(action)
 			self._sim.step()
 
 		obs = self._get_obs()
 		total_reward, info, done = self._get_reward()
-
+		print(self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5])
 		return obs, total_reward, done, info
+
+	def pos_control(self, action):
+		# position 
+		# print(action)
+
+		self._sim.data.ctrl[0] = action[0]
+		self._sim.data.ctrl[1] = action[1]
+		self._sim.data.ctrl[2] = action[2]
+		self._sim.data.ctrl[3] = action[3]
+		# velocity 
+		if abs(action[0] - 0.0) < 0.001:
+			self._sim.data.ctrl[4] = 0.0
+		else:
+			self._sim.data.ctrl[4] = 0.1
+			# self._sim.data.ctrl[4] = (action[0] - self.prev_action[0] / 25)		
+
+		if abs(action[1] - 0.0) < 0.001:
+			self._sim.data.ctrl[5] = 0.0
+		else:
+			self._sim.data.ctrl[5] = 0.004
+			# self._sim.data.ctrl[5] = (action[1] - self.prev_action[1] / 25)	
+
+		if abs(action[2] - 0.0) < 0.001:
+			self._sim.data.ctrl[6] = 0.0
+		else:
+			self._sim.data.ctrl[6] = 0.004
+			# self._sim.data.ctrl[6] = (action[2] - self.prev_action[2] / 25)	
+
+		if abs(action[3] - 0.0) < 0.001:
+			self._sim.data.ctrl[7] = 0.0						
+		else:
+			self._sim.data.ctrl[7] = 0.004
+			# self._sim.data.ctrl[7] = (action[3] - self.prev_action[3] / 25)	
+	
+		self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
+		# self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
+
+	#####################################################
+
 
 class GraspValid_net(nn.Module):
 	def __init__(self, state_dim):
