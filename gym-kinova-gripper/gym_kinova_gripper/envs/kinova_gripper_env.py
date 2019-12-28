@@ -74,8 +74,8 @@ class KinovaGripper_Env(gym.Env):
 		self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
 		self.frame_skip = frame_skip
 		self.all_states = None
-		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
-		# self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0, 0.0]), high=np.array([2.0, 2.0, 2.0, 2.0]), dtype=np.float32) # Position action space
+		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
+		self.action_space = spaces.Box(low=np.array([-1.5, -1.5, -1.5, -1.5]), high=np.array([1.5, 1.5, 1.5, 1.5]), dtype=np.float32) # Position action space
 		self.state_rep = "global" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
@@ -292,6 +292,13 @@ class KinovaGripper_Env(gym.Env):
 	'''
 	def _get_reward(self):
 
+		# if self.t_vel <= 5:
+		# 	grasp_reward = 0.0
+		# else:
+			# Nigel's network goes here
+			# extract previous obs, 5 steps before 
+			# put it into network
+
 		# object height target
 		obj_target = 0.2
 
@@ -301,9 +308,9 @@ class KinovaGripper_Env(gym.Env):
 		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
 			if outputs == 1.0:
-				grasp_reward = 10.0
+				grasp_reward = 5.0
 			else:
-				grasp_reward = 10.0
+				grasp_reward = 5.0
 			# grasp_reward = outputs
 		
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
@@ -520,9 +527,10 @@ class KinovaGripper_Env(gym.Env):
 
 		states = self._get_obs()
 
-		self.prev_fr = 0.0
-		self.prev_r = 0.0
-		self.prev_action = np.array([0.0, 0.0, 0.0, 0.0])
+		# self.prev_fr = 0.0
+		# self.prev_r = 0.0
+		self.t_vel = 0
+		self.prev_obs = []
 		return states
 
 	def render(self, mode='human'):
@@ -541,73 +549,75 @@ class KinovaGripper_Env(gym.Env):
 	###################################################
 	##### ---- Action space : Joint Velocity ---- #####
 	###################################################
-	# def step(self, action):
-	# 	total_reward = 0
-	# 	for _ in range(self.frame_skip):
-	# 		if action[0] < 0.0:
-	# 			self._sim.data.ctrl[0] = 0.0
-	# 		else:	
-	# 			self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
-	# 		for i in range(3):
-	# 			# vel = action[i]
-	# 			if action[i+1] < 0.0:
-	# 				self._sim.data.ctrl[i+1] = 0.0
-	# 			else:	
-	# 				self._sim.data.ctrl[i+1] = action[i+1]
-	# 		self._sim.step()
-	# 	obs = self._get_obs()
-	# 	total_reward, info, done = self._get_reward()
-	# 	return obs, total_reward, done, info
+	def step(self, action):
+		total_reward = 0
+		for _ in range(self.frame_skip):
+			if action[0] < 0.0:
+				self._sim.data.ctrl[0] = 0.0
+			else:	
+				self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
+			for i in range(3):
+				# vel = action[i]
+				if action[i+1] < 0.0:
+					self._sim.data.ctrl[i+1] = 0.0
+				else:	
+					self._sim.data.ctrl[i+1] = action[i+1]
+			self._sim.step()
+		obs = self._get_obs()
+		total_reward, info, done = self._get_reward()
+		return obs, total_reward, done, info
 	#####################################################
 
 	###################################################
 	##### ---- Action space : Joint Angle ---- ########
 	###################################################
-	def step(self, action):
-		total_reward = 0
-		for _ in range(self.frame_skip):
-			self.pos_control(action)
-			self._sim.step()
+	# def step(self, action):
+	# 	total_reward = 0
+	# 	for _ in range(self.frame_skip):
+	# 		self.pos_control(action)
+	# 		self._sim.step()
 
-		obs = self._get_obs()
-		total_reward, info, done = self._get_reward()
-		print(self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5])
-		return obs, total_reward, done, info
+	# 	obs = self._get_obs()
+	# 	total_reward, info, done = self._get_reward()
+	# 	self.t_vel += 1
+	# 	self.prev_obs.append(obs)
+	# 	# print(self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5])
+	# 	return obs, total_reward, done, info
 
-	def pos_control(self, action):
-		# position 
-		# print(action)
+	# def pos_control(self, action):
+	# 	# position 
+	# 	# print(action)
 
-		self._sim.data.ctrl[0] = action[0]
-		self._sim.data.ctrl[1] = action[1]
-		self._sim.data.ctrl[2] = action[2]
-		self._sim.data.ctrl[3] = action[3]
-		# velocity 
-		if abs(action[0] - 0.0) < 0.001:
-			self._sim.data.ctrl[4] = 0.0
-		else:
-			self._sim.data.ctrl[4] = 0.1
-			# self._sim.data.ctrl[4] = (action[0] - self.prev_action[0] / 25)		
+	# 	self._sim.data.ctrl[0] = (action[0] / 1.5) * 0.2
+	# 	self._sim.data.ctrl[1] = action[1]
+	# 	self._sim.data.ctrl[2] = action[2]
+	# 	self._sim.data.ctrl[3] = action[3]
+	# 	# velocity 
+	# 	if abs(action[0] - 0.0) < 0.0001:
+	# 		self._sim.data.ctrl[4] = 0.0
+	# 	else:
+	# 		self._sim.data.ctrl[4] = 0.1
+	# 		# self._sim.data.ctrl[4] = (action[0] - self.prev_action[0] / 25)		
 
-		if abs(action[1] - 0.0) < 0.001:
-			self._sim.data.ctrl[5] = 0.0
-		else:
-			self._sim.data.ctrl[5] = 0.004
-			# self._sim.data.ctrl[5] = (action[1] - self.prev_action[1] / 25)	
+	# 	if abs(action[1] - 0.0) < 0.001:
+	# 		self._sim.data.ctrl[5] = 0.0
+	# 	else:
+	# 		self._sim.data.ctrl[5] = 0.01069
+	# 		# self._sim.data.ctrl[5] = (action[1] - self.prev_action[1] / 25)	
 
-		if abs(action[2] - 0.0) < 0.001:
-			self._sim.data.ctrl[6] = 0.0
-		else:
-			self._sim.data.ctrl[6] = 0.004
-			# self._sim.data.ctrl[6] = (action[2] - self.prev_action[2] / 25)	
+	# 	if abs(action[2] - 0.0) < 0.001:
+	# 		self._sim.data.ctrl[6] = 0.0
+	# 	else:
+	# 		self._sim.data.ctrl[6] = 0.01069
+	# 		# self._sim.data.ctrl[6] = (action[2] - self.prev_action[2] / 25)	
 
-		if abs(action[3] - 0.0) < 0.001:
-			self._sim.data.ctrl[7] = 0.0						
-		else:
-			self._sim.data.ctrl[7] = 0.004
-			# self._sim.data.ctrl[7] = (action[3] - self.prev_action[3] / 25)	
+	# 	if abs(action[3] - 0.0) < 0.001:
+	# 		self._sim.data.ctrl[7] = 0.0						
+	# 	else:
+	# 		self._sim.data.ctrl[7] = 0.01069
+	# 		# self._sim.data.ctrl[7] = (action[3] - self.prev_action[3] / 25)	
 	
-		self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
+		# self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
 		# self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
 
 	#####################################################

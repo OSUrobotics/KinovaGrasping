@@ -213,13 +213,15 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
 			# pdb.set_trace()
 			next_obs, reward, done, _ = env.step(action)
-
-			action_each_episode.append(next_obs[24:28]) # get joint angle as action
+			jA_action = next_obs[24:28][:]
+			jA_action[0] = (jA_action[0] / 0.2) * 1.5
+			action_each_episode.append(jA_action) # get joint angle as action
 			nextobs_each_episode.append(next_obs)
 			reward_each_episode.append(reward)
 			done_each_episode.append(done)
 
 			# env.render()
+			# print(action)
 			# store data into replay buffer 
 			replay_buffer.add(obs, action, next_obs, reward, done)
 			# replay_buffer.add(obs, obs[24:28], next_obs, reward, done) # store joint angles as actions
@@ -256,8 +258,8 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 				label_when_closing.append(action)
 			t += 1
 			# print(next_obs[24:31])
+		# pdb.set_trace()
 		states_all_episode.append(states_each_episode)
-
 		obs_all_episode.append(obs_each_episode)
 		action_all_episode.append(action_each_episode)
 		nextobs_all_episode.append(nextobs_each_episode)
@@ -295,7 +297,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
 
 def store_saved_data_into_replay(replay_buffer, num_episode):
-	filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/collect_jA_12_24_19_1150"
+	filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/collect_jA_12_27_19_1458"
 	file = open(filename + ".pkl", "rb")
 	data = pickle.load(file)
 	obs = data["obs"]
@@ -306,14 +308,25 @@ def store_saved_data_into_replay(replay_buffer, num_episode):
 	file.close()	
 	# pdb.set_trace()
 
+	# env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+
+
 	for i in range(num_episode):
 		obs_episode = obs[i][:]
 		action_episode = action[i][:]
 		next_obs_episode = next_obs[i][:]
 		reward_episode = reward[i][:]
 		done_episode = done[i][:]
+		# env.reset()
+		# t_r = 0.0
 		for j in range(100):
+			# ob, re, do, _ = env.step(action_episode[j])
+			# env.render()
 			replay_buffer.add(obs_episode[j], action_episode[j], next_obs_episode[j], reward_episode[j], done_episode[j]) # store joint angles as actions
+			# t_r += re
+			# print(action_episode[j])
+		# print(t_r)
+		# pdb.set_trace()
 
 	return replay_buffer
 

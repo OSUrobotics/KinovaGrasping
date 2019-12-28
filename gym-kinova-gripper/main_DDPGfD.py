@@ -24,21 +24,22 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 	eval_env.seed(seed + 100)
 	# print("been here", eval_env.seed(seed + 100))
 
-	avg_reward = 0.
+	avg_reward = 0.0
 	# step = 0
 	for i in range(eval_episodes):
 		state, done = eval_env.reset(), False
-		# cumulative_reward = 0
+		cumulative_reward = 0
 
 		while not done:
 			action = policy.select_action(np.array(state))
 			# print(action)
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
-			# cumulative_reward += reward
-			# eval_env.render()
+			cumulative_reward += reward
+			eval_env.render()
+			# print(reward)
 		# pdb.set_trace()
-		# print(cumulative_reward)
+		print(cumulative_reward)
 	avg_reward /= eval_episodes
 
 	print("---------------------------------------")
@@ -126,7 +127,7 @@ if __name__ == "__main__":
 	# replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
 	# replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
 	replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
-	
+
 	# Evaluate untrained policy
 	# evaluations = [eval_policy(policy, args.env_name, args.seed)] 
 	evaluations = []
