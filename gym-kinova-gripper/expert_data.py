@@ -296,6 +296,135 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	return replay_buffer
 
 
+class PID(object):
+	def __init__(self, action_space, states):
+		self.kp = 1
+		self.kd = 1
+		self.ki = 1
+		self.prev_err = 0.0
+		self.sampling_time = 4
+		self.action_range = [action_space.low, action_space.high]
+		self.init_finger_pose = np.array([states[0], states[1], states[2]])
+		self.init_obj_pose = np.array([states[3], states[4], states[5]])
+		
+	def velocity(self, dot_prod):
+		err = 1 - dot_prod
+		diff = (err) / self.sampling_time
+		vel = err * self.kp + diff * self.kd
+		action = (vel / 1.25) * 0.3
+		return action
+
+	def joint(self, dot_prod):
+		err = 1 - dot_prod 
+		diff = (err) / self.sampling_time
+		joint = err * self.kp + diff * self.kd
+		action = (joint / 1.25) * 2
+		return action
+
+	def touch_vel(self, obj_dotprod, finger_dotprod):
+		err = obj_dotprod - finger_dotprod
+		diff = err / self.sampling_time
+		vel = err * self.kp + diff * self.kd
+		action = (vel) * 0.3
+		return action
+
+
+### PID nudge controller ###
+# 1. Obtain (noisy) initial position of an object
+# 2. move fingers that closer to the object
+# 3. Move the other when the object is almost at the center of the hand 
+# 4. Close grasp
+############################
+def PIDNudgeController(states, init_dot_prod, action_space):
+	# Define pid controller
+	pid = PID(action_space)
+
+	# obtain robot and object state
+	robot_pose = np.array([states[0], states[1], states[2]])
+	obj_pose = np.array([states[3], states[4], states[5]])
+	obj_dot_prod = states[-7]
+
+
+	# Define target region
+	x = 0.0
+	y = -0.01
+	target_region = [x, y]
+	max_vel = 0.3
+
+	# define finger action
+	f1 = 0.0
+	f2 = 0.0
+	f3 = 0.0
+
+	# object on right hand side, move 2-fingered side
+	if obj_pose[0] < 0.0:
+		# Pre-contact
+		if abs(obj_dot_prod - init_dot_prod) < 0.001:
+			f2 = pid.touch_vel(obj_dot_prod, states[-5])
+			f3 = f2
+			f1 = 0.0
+		# Post-contact	
+		else:
+			if abs(1 - obj_dot_prod) > 0.00001:
+				f2 = pid.velocity(obj_dot_prod)
+				f3 = f2
+				f1 = 0.0
+			else:
+				f1 = pid.touch_vel(obj_dot_prod, states[-6])
+				f2 = 0.0
+				f3 = 0.0
+	# object on left hand side, move 1-fingered side
+	else:
+		# Pre-contact
+		if abs(obj_dot_prod - init_dot_prod) < 0.001:
+			f1 = pid.touch_vel(obj_dot_prod, states[-6])
+			f2 = 0.0
+			f3 = 0.0
+		# Post-contact	
+		else:
+			if abs(1 - obj_dot_prod) > 0.00001:
+				f1 = pid.velocity(obj_dot_prod)
+				f2 = 0.0
+				f3 = 0.0
+			else:
+				f2 = pid.touch_vel(obj_dot_prod, states[-5])
+				f3 = f2
+				f1 = 0.0
+
+	return np.array([f1, f2, f3])
+
+
+### PID nudge controller ###
+# 1. Obtain (noisy) initial position of an object
+# 2. Move fingers that further away to the object 
+# 3. Close the other finger (nearer one) and make contact "simultaneously"
+# 4. Close fingers to secure grasp
+############################
+# def PIDPreshapeController():
+
+def GenerateExpertPID_JointVel():
+	env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+	episode_num = 10
+
+	for _ in range(episode_num):
+		obs, done = env.reset(), False
+		init_dot_prod = obs[-1][:]
+		# action = PIDNudgeController(obs, init_dot_prod, env.action_space)
+		for i in range(100): 
+			obs, reward, done, _ = env.step(action)
+			# action = PIDNudgeController(obs, init_dot_prod, env.action_space)
+			env.render()
+
+
+
+
+
+
+
+# def GenerateExpertPID_JointAngle():
+	
+
+
 def store_saved_data_into_replay(replay_buffer, num_episode):
 	filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/collect_jA_12_27_19_1458"
 	file = open(filename + ".pkl", "rb")
@@ -343,3 +472,6 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 # Training
 LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_validation 1 --filename data_cube_5_10_07_19_1612 --trained_model data_cube_5_trained_model --num_episode 5000
 '''
+
+# testing #
+GenerateExpertPID_JointVel()

@@ -11,7 +11,7 @@ env.reset()
 # setup serial
 # ser = serial.Serial("/dev/ttyACM0", 9600)
 # prev_action = [0.0,0.0,0.0,0.0]
-action = np.array([0.0, 0.5, 0.5, 0.5])
+action = np.array([0.0, 0.0, 0.0, 0.0])
 t = 0
 for i in range(50):
 	# read action from pyserial
@@ -33,7 +33,7 @@ for i in range(50):
 	# action[2] += 0.2
 	# action[3] += 0.7
 	env.render()
-	if t > 25:
-		action = np.array([0.1, 0.8, 0.8, 0.8])
-	# print()
-	t += 1
+	# if t > 25:
+	# 	action = np.array([0.1, 0.8, 0.8, 0.8])
+	# # print()
+	# t += 1

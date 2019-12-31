@@ -86,6 +86,7 @@ class KinovaGripper_Env(gym.Env):
 		min_obj_size = [0.0, 0.0, 0.0]
 		min_finger_obj_dist = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 		min_dot_prod = [0.0]
+		min_f_dot_prod = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 		max_hand_xyz = [0.1, 0.1, 0.5, 0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5]
 		max_obj_xyz = [0.1, 0.7, 0.5]
@@ -93,15 +94,17 @@ class KinovaGripper_Env(gym.Env):
 		max_obj_size = [0.5, 0.5, 0.5]
 		max_finger_obj_dist = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]	
 		max_dot_prod = [1.0]
+		max_f_dot_prod = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
 
 		# print()
 		if self.state_rep == "global" or self.state_rep == "local":
 
-			obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_dot_prod
+			obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod + min_f_dot_prod
 			obs_min = np.array(obs_min)
 			# print(len(obs_min))
 
-			obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_dot_prod
+			obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_dot_prod + max_f_dot_prod 
 			obs_max = np.array(obs_max)
 			# print(len(obs_max))
 
@@ -172,7 +175,7 @@ class KinovaGripper_Env(gym.Env):
 
 		# states rep
 		obj_pose = self._get_obj_pose()
-		dot_prod = self._get_dot_product()
+		obj_dot_prod = self._get_dot_product(obj_pose)
 		wrist_pose  = self._sim.data.get_geom_xpos("palm")
 		joint_states = self._get_joint_states()
 		obj_size = self._sim.model.geom_size[-1] 
@@ -191,7 +194,8 @@ class KinovaGripper_Env(gym.Env):
 				# trans += list(euler_vec)
 				for i in range(3):
 					fingers_6D_pose.append(trans[i])
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [dot_prod]
+			fingers_dot_prod = self._get_fingers_dot_product(fingers_6D_pose)
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + [fingers_dot_prod]
 
 		elif state_rep == "local":
 			finger_joints_local = []
@@ -201,14 +205,14 @@ class KinovaGripper_Env(gym.Env):
 				pose = self._get_local_pose(joint_in_local_frame)
 				for i in range(3):
 					fingers_6D_pose.append(pose[i])
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [dot_prod]
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + [fingers_dot_prod]
 
 		elif state_rep == "metric":
 			fingers_6D_pose = self._get_rangefinder_data()
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [dot_prod]
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + [fingers_dot_prod]
 
 		elif state_rep == "joint_states":
-			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [dot_prod] 
+			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [obj_dot_prod] + [fingers_dot_prod]
 
 		# print(joint_states[0:4])
 		return fingers_6D_pose 
@@ -242,10 +246,15 @@ class KinovaGripper_Env(gym.Env):
 		arr = self._sim.data.get_geom_xpos("object")
 		return arr
 
+	def _get_fingers_dot_product(self, fingers_6D_pose):
+		fingers_dot_product = []
+		for i in range(6):
+			fingers_dot_product.append(self._get_dot_product(fingers_6D_pose[3*i:3*i+3]))
+		return fingers_dot_product
 
 	# Function to return dot product based on object location
-	def _get_dot_product(self):
-		obj_state = self._get_obj_pose()
+	def _get_dot_product(self, obj_state):
+		# obj_state = self._get_obj_pose()
 		hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
 		obj_state_x = abs(obj_state[0] - hand_pose[0])
 		obj_state_y = abs(obj_state[1] - hand_pose[1])
@@ -259,7 +268,6 @@ class KinovaGripper_Env(gym.Env):
 		center_vec_norm = np.linalg.norm(center_vec)
 		center_unit_vec = center_vec / center_vec_norm
 		dot_prod = np.dot(obj_unit_vec, center_unit_vec)
-
 		return dot_prod**20 # cuspy to get distinct reward
 
 	'''
@@ -515,15 +523,15 @@ class KinovaGripper_Env(gym.Env):
 	def reset(self):
 		x, y = self.randomize_initial_pose()
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -0.01, 0.05])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
 
 		self.obj_original_state = np.array([0.05, 0.0])
 		self._set_state(self.all_states[0])
-		self.init_dotprod = self._get_dot_product()
-		self.init_pose = np.array([x, y, 0.05])
+		# self.init_dotprod = self._get_dot_product()
+		# self.init_pose = np.array([x, y, 0.05])
 
 		states = self._get_obs()
 
@@ -563,8 +571,12 @@ class KinovaGripper_Env(gym.Env):
 				else:	
 					self._sim.data.ctrl[i+1] = action[i+1]
 			self._sim.step()
+
 		obs = self._get_obs()
 		total_reward, info, done = self._get_reward()
+		print(obs[15:18], self._get_dot_product(obs[15:18]))
+
+		# print(self._get_dot_product)
 		return obs, total_reward, done, info
 	#####################################################
 
