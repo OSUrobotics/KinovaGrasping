@@ -74,8 +74,8 @@ class KinovaGripper_Env(gym.Env):
 		self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
 		self.frame_skip = frame_skip
 		self.all_states = None
-		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
-		self.action_space = spaces.Box(low=np.array([-1.5, -1.5, -1.5, -1.5]), high=np.array([1.5, 1.5, 1.5, 1.5]), dtype=np.float32) # Position action space
+		self.action_space = spaces.Box(low=np.array([-0.3, -0.3, -0.3, -0.3]), high=np.array([0.3, 0.3, 0.3, 0.3]), dtype=np.float32) # Velocity action space
+		# self.action_space = spaces.Box(low=np.array([-1.5, -1.5, -1.5, -1.5]), high=np.array([1.5, 1.5, 1.5, 1.5]), dtype=np.float32) # Position action space
 		self.state_rep = "global" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
 		# self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32)
@@ -85,7 +85,7 @@ class KinovaGripper_Env(gym.Env):
 		min_joint_states = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 		min_obj_size = [0.0, 0.0, 0.0]
 		min_finger_obj_dist = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-		min_dot_prod = [0.0]
+		min_obj_dot_prod = [0.0]
 		min_f_dot_prod = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
 
 		max_hand_xyz = [0.1, 0.1, 0.5, 0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5]
@@ -93,7 +93,7 @@ class KinovaGripper_Env(gym.Env):
 		max_joint_states = [0.2, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
 		max_obj_size = [0.5, 0.5, 0.5]
 		max_finger_obj_dist = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]	
-		max_dot_prod = [1.0]
+		max_obj_dot_prod = [1.0]
 		max_f_dot_prod = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 
 
@@ -104,7 +104,7 @@ class KinovaGripper_Env(gym.Env):
 			obs_min = np.array(obs_min)
 			# print(len(obs_min))
 
-			obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_dot_prod + max_f_dot_prod 
+			obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod + max_f_dot_prod 
 			obs_max = np.array(obs_max)
 			# print(len(obs_max))
 
@@ -195,7 +195,8 @@ class KinovaGripper_Env(gym.Env):
 				for i in range(3):
 					fingers_6D_pose.append(trans[i])
 			fingers_dot_prod = self._get_fingers_dot_product(fingers_6D_pose)
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + [fingers_dot_prod]
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod
+			# pdb.set_trace()
 
 		elif state_rep == "local":
 			finger_joints_local = []
@@ -205,14 +206,14 @@ class KinovaGripper_Env(gym.Env):
 				pose = self._get_local_pose(joint_in_local_frame)
 				for i in range(3):
 					fingers_6D_pose.append(pose[i])
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + [fingers_dot_prod]
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod
 
 		elif state_rep == "metric":
 			fingers_6D_pose = self._get_rangefinder_data()
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + [fingers_dot_prod]
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod
 
 		elif state_rep == "joint_states":
-			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [obj_dot_prod] + [fingers_dot_prod]
+			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [obj_dot_prod] + fingers_dot_prod
 
 		# print(joint_states[0:4])
 		return fingers_6D_pose 
@@ -312,7 +313,7 @@ class KinovaGripper_Env(gym.Env):
 
 		grasp_reward = 0.0
 		obs = self._get_obs(state_rep="global") 
-		inputs = torch.FloatTensor(np.array(obs)).to(device)
+		inputs = torch.FloatTensor(np.array(obs[0:48])).to(device)
 		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
 			if outputs == 1.0:
@@ -320,7 +321,6 @@ class KinovaGripper_Env(gym.Env):
 			else:
 				grasp_reward = 5.0
 			# grasp_reward = outputs
-		
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
 			lift_reward = 50.0
 			done = True
@@ -330,15 +330,10 @@ class KinovaGripper_Env(gym.Env):
 
 		finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
 
-		# if finger_reward < self.prev_fr:
-		# 	# pdb.set_trace()
-		# 	finger_reward = self.prev_fr
+		print(grasp_reward)
 
-		# print(np.array(obs[41:47]), np.array(obs[35:41]))
 		reward = 0.2*finger_reward + lift_reward + grasp_reward
-		# print(0.2*finger_reward, reward)
-		# self.prev_fr = finger_reward
-		# print(0.2*finger_reward, grasp_reward, lift_reward)
+
 		return reward, {}, done
 
 	# only set proximal joints, cuz this is an underactuated hand
@@ -523,7 +518,7 @@ class KinovaGripper_Env(gym.Env):
 	def reset(self):
 		x, y = self.randomize_initial_pose()
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, 0.0, -0.01, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
@@ -563,7 +558,8 @@ class KinovaGripper_Env(gym.Env):
 			if action[0] < 0.0:
 				self._sim.data.ctrl[0] = 0.0
 			else:	
-				self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
+				self._sim.data.ctrl[0] = action[0]
+
 			for i in range(3):
 				# vel = action[i]
 				if action[i+1] < 0.0:
@@ -574,7 +570,7 @@ class KinovaGripper_Env(gym.Env):
 
 		obs = self._get_obs()
 		total_reward, info, done = self._get_reward()
-		print(obs[15:18], self._get_dot_product(obs[15:18]))
+		# print(obs[15:18], self._get_dot_product(obs[15:18]))
 
 		# print(self._get_dot_product)
 		return obs, total_reward, done, info
