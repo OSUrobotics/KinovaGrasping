@@ -21,7 +21,7 @@ import pdb
 import pickle
 import datetime
 import NCS_nn
-import expert_data
+# import expert_data
 import random
 import pandas 
 from ounoise import OUNoise
@@ -64,22 +64,26 @@ def train_network(data_filename, max_action, num_epoch, total_steps, batch_size,
 	file.close()
 
 	##### Training Action Net ######
-	state_input = data["states"]
-	actions = data["label"]
-	actor_net = NCS_nn.NCS_net(len(state_input[0]), len(actions[0]), max_action).to(device)
-	criterion = nn.MSELoss()
-	optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
+	# state_input = data["states"]
+	# actions = data["label"]
+	# actor_net = NCS_nn.NCS_net(len(state_input[0]), len(actions[0]), max_action).to(device)
+	# criterion = nn.MSELoss()
+	# optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
 
 	##### Training Grasp Classifier ######
 	# state_input = data[:, 0:-1]
+	state_input = data["states"]
+	actions = data["grasp_success"]
+	total_steps = data["total_steps"]
 	# actions = data[:, -1]
-	# actor_net = NCS_nn.GraspValid_net(len(state_input[0])).to(device)
-	# criterion = nn.BCELoss()
-	# optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
+	# pdb.set_trace()
+	actor_net = NCS_nn.GraspValid_net(len(state_input[0])).to(device)
+	criterion = nn.BCELoss()
+	optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
 
 	num_update = total_steps / batch_size
 
-	print(num_update, len(state_input[0]), len(actions[0]))
+	# print(num_update, len(state_input[0]), len(actions))
 
 	for epoch in range(num_epoch):
 			# actions_all_loc = np.random.randint(0,total_steps, size=total_steps)
@@ -97,8 +101,8 @@ def train_network(data_filename, max_action, num_epoch, total_steps, batch_size,
 				start_batch += batch_size
 				end_batch += batch_size
 				states = torch.FloatTensor(np.array(state_input)[ind]).to(device)
-				# labels = torch.FloatTensor(np.array(actions)[ind].reshape(-1, 1)).to(device)
-				labels = torch.FloatTensor(np.array(actions)[ind]).to(device)
+				labels = torch.FloatTensor(np.array(actions)[ind].reshape(-1, 1)).to(device)
+				# labels = torch.FloatTensor(np.array(actions)[ind]).to(device)
 
 				output = actor_net(states)
 				# pdb.set_trace()
@@ -119,46 +123,51 @@ def train_network(data_filename, max_action, num_epoch, total_steps, batch_size,
 
 if __name__ == '__main__':
 
-	parser = argparse.ArgumentParser()
-	parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")	# OpenAI gym environment name
+	# parser = argparse.ArgumentParser()
+	# parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")	# OpenAI gym environment name
 
-	parser.add_argument("--num_episode", default=1e4, type=int)							# Sets Gym, PyTorch and Numpy seeds
-	parser.add_argument("--batch_size", default=250, type=int)							# Batch size for updating network
-	parser.add_argument("--epoch", default=20, type=int)									# number of epoch
+	# parser.add_argument("--num_episode", default=1e4, type=int)							# Sets Gym, PyTorch and Numpy seeds
+	# parser.add_argument("--batch_size", default=250, type=int)							# Batch size for updating network
+	# parser.add_argument("--epoch", default=20, type=int)									# number of epoch
 
-	parser.add_argument("--data_gen", default=0, type=int)								# bool for whether or not to generate data
-	parser.add_argument("--data", default="data" )										# filename of dataset (the entire traj)
-	parser.add_argument("--grasp_success_data", default="grasp_success_data" )			# filename of grasp success dataset	
-	parser.add_argument("--train", default=1, type=int)									# bool for whether or not to train data
-	parser.add_argument("--model", default="model" )									# filename of model for training	
-	parser.add_argument("--trained_model", default="trained_model" )					# filename of saved model for testing
-	parser.add_argument("--collect_grasp", default=0, type=int )						# check to collect either lift data or grasp data
-	parser.add_argument("--grasp_total_steps", default=100000, type=int )				# number of steps that need to collect grasp data
+	# parser.add_argument("--data_gen", default=0, type=int)								# bool for whether or not to generate data
+	# parser.add_argument("--data", default="data" )										# filename of dataset (the entire traj)
+	# parser.add_argument("--grasp_success_data", default="grasp_success_data" )			# filename of grasp success dataset	
+	# parser.add_argument("--train", default=1, type=int)									# bool for whether or not to train data
+	# parser.add_argument("--model", default="model" )									# filename of model for training	
+	# parser.add_argument("--trained_model", default="trained_model" )					# filename of saved model for testing
+	# parser.add_argument("--collect_grasp", default=0, type=int )						# check to collect either lift data or grasp data
+	# parser.add_argument("--grasp_total_steps", default=100000, type=int )				# number of steps that need to collect grasp data
 
-	# dataset_cube_2_grasp_10_04_19_1237
-	args = parser.parse_args()
+	# # dataset_cube_2_grasp_10_04_19_1237
+	# args = parser.parse_args()
 
-	if args.data_gen:
-		env = gym.make(args.env_name)
-		state_dim = env.observation_space.shape[0]
-		action_dim = env.action_space.shape[0] 
-		max_action = env.action_space.high # action needs to be symmetric
-		max_steps = 100 # changes with env
-		if args.collect_grasp == 0:
-			data = expert_data.generate_Data(env, args.num_episode, args.data)
-		else:
-			# print("Here")
-			data = expert_data.generate_lifting_data(env, args.grasp_total_steps, args.data, args.grasp_success_data)
-	else:
+	# if args.data_gen:
+	# 	env = gym.make(args.env_name)
+	# 	state_dim = env.observation_space.shape[0]
+	# 	action_dim = env.action_space.shape[0] 
+	# 	max_action = env.action_space.high # action needs to be symmetric
+	# 	max_steps = 100 # changes with env
+	# 	if args.collect_grasp == 0:
+	# 		data = expert_data.generate_Data(env, args.num_episode, args.data)
+	# 	else:
+	# 		# print("Here")
+	# 		data = expert_data.generate_lifting_data(env, args.grasp_total_steps, args.data, args.grasp_success_data)
+	# else:
 
-		if args.train:
-			assert os.path.exists(args.data + ".pkl"), "Dataset file does not exist"
-			# actor_net = train_network(args.data, actor_net, args.epoch, args.num_episode*max_steps, args.batch_size, args.model)
-			actor_net = train_network(args.data, 0.8, args.epoch, 400000, args.batch_size, args.model)
+	# 	if args.train:
+	# 		assert os.path.exists(args.data + ".pkl"), "Dataset file does not exist"
+	# 		# actor_net = train_network(args.data, actor_net, args.epoch, args.num_episode*max_steps, args.batch_size, args.model)
+	# 		actor_net = train_network(args.data, 0.8, args.epoch, 400000, args.batch_size, args.model)
 		
-		else:
-			# assert os.path.exists(args.data + ".pkl"), "Dataset file does not exist"
-			env = gym.make(args.env_name)
-			test(env, args.trained_model)
+	# 	else:
+	# 		# assert os.path.exists(args.data + ".pkl"), "Dataset file does not exist"
+	# 		env = gym.make(args.env_name)
+	# 		test(env, args.trained_model)
 
-	
+	data_filename = "/home/graspinglab/NCS_data/expertdata_01_02_20_1206"
+	num_epoch = 20
+	total_steps = 10000 # not used in the function
+	batch_size = 250
+	model_path = "/home/graspinglab/NCS_data/ExpertTrainedNet"
+	train_network(data_filename, 0.3, 5, total_steps, batch_size, model_path)

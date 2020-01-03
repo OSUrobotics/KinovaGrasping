@@ -330,7 +330,7 @@ class KinovaGripper_Env(gym.Env):
 
 		finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
 
-		print(grasp_reward)
+		# print(grasp_reward)
 
 		reward = 0.2*finger_reward + lift_reward + grasp_reward
 
@@ -518,7 +518,7 @@ class KinovaGripper_Env(gym.Env):
 	def reset(self):
 		x, y = self.randomize_initial_pose()
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, 0.03, 0.0, 0.05])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)

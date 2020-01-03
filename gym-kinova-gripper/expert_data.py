@@ -20,8 +20,11 @@ from copy import deepcopy
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+#################################################################################################
 
-
+###########################################
+# Previous PID Nudge Controller w/ 0.8 rad/s joint velocity
+###########################################
 class expert_PID():
 	def __init__(self, action_space):
 		self.kp = 1
@@ -296,6 +299,9 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
 	return replay_buffer
 
+#################################################################################################
+
+
 
 class PID(object):
 	def __init__(self, action_space):
@@ -356,7 +362,7 @@ class ExpertPIDController(object):
 	def _count(self):
 		self.step += 1
 
-	def NudgeController(self, states, action_space):
+	def NudgeController(self, states, action_space, label):
 		# Define pid controller
 		pid = PID(action_space)
 
@@ -380,12 +386,10 @@ class ExpertPIDController(object):
 
 		if abs(self.init_obj_pose) <= 0.03:
 			f1, f2, f3 = 0.2, 0.2, 0.2
-			# print(abs(obj_dot_prod - self.init_dot_prod))
-
 			if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
 				f1, f2, f3 = 0.2, 0.1, 0.1
 				if self.step > 200:
-					wrist = 0.3		
+					wrist = 0.3	
 		else:	
 			# object on right hand side, move 2-fingered side
 			if self.init_obj_pose < 0.0:
@@ -400,7 +404,7 @@ class ExpertPIDController(object):
 					if abs(1 - obj_dot_prod) > 0.01:
 						f2 = pid.velocity(obj_dot_prod)
 						f3 = f2
-						f1 = 0.0
+						f1 = 0.05
 						wrist = 0.0
 					else:
 						f1 = pid.touch_vel(obj_dot_prod, states[-6])
@@ -408,7 +412,7 @@ class ExpertPIDController(object):
 						f3 = 0.0
 						wrist = 0.0
 					# Hand tune lift time
-					if self.step > 450:
+					if self.step > 400:
 						f1, f2, f3 = 0.3, 0.15, 0.15
 						wrist = 0.3
 			# object on left hand side, move 1-fingered side
@@ -423,8 +427,8 @@ class ExpertPIDController(object):
 				else:
 					if abs(1 - obj_dot_prod) > 0.01:
 						f1 = pid.velocity(obj_dot_prod)
-						f2 = 0.0
-						f3 = 0.0
+						f2 = 0.05
+						f3 = 0.05
 						wrist = 0.0
 					else:
 						f2 = pid.touch_vel(obj_dot_prod, states[-5])
@@ -432,26 +436,56 @@ class ExpertPIDController(object):
 						f1 = 0.0
 						wrist = 0.0
 					# Hand tune lift time
-					if self.step > 450:
+					if self.step > 400:
 						f1, f2, f3 = 0.3, 0.15, 0.15
 						wrist = 0.3
 
+		if self.step <= 400:
+			label.append(0)
+		else:
+			label.append(1)
 		self._count()
-		return np.array([wrist, f1, f2, f3])
+		# print(self.step)
+
+		return np.array([wrist, f1, f2, f3]), label
 
 
-def GenerateExpertPID_JointVel(replay_buffer):
+def GenerateExpertPID_JointVel(episode_num, replay_buffer, save=True):
 	env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-	episode_num = 10
-	for _ in range(episode_num):
+	# episode_num = 10
+	obs_label = []
+	grasp_label = []
+	action_label = []
+	total_steps = 0
+	for i in range(episode_num):
 		obs, done = env.reset(), False
 		controller = ExpertPIDController(obs)
-		action = controller.NudgeController(obs, env.action_space)
+		replay_buffer.add_episode(1)
 		while not done:
-			obs, reward, done, _ = env.step(action)
-			action = controller.NudgeController(obs, env.action_space)
-			env.render()
+			obs_label.append(obs)
+			action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
+			action_label.append(action)
+			next_obs, reward, done, _ = env.step(action)
+			replay_buffer.add(obs, action, next_obs, reward, float(done))
+			obs = next_obs
+			total_steps += 1
 
+		replay_buffer.add_episode(0)
+		# print(i)
+	if save:
+		filename = "expertdata"
+		print("Saving...")
+		data = {}
+		data["states"] = obs_label
+		data["grasp_success"] = grasp_label
+		data["action"] = action_label
+		data["total_steps"] = total_steps
+		file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+		pickle.dump(data, file)
+		file.close()
+
+	return replay_buffer
+	
 # def GenerateExpertPID_JointAngle():
 
 def store_saved_data_into_replay(replay_buffer, num_episode):
@@ -503,4 +537,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-GenerateExpertPID_JointVel()
+# GenerateExpertPID_JointVel(4000)
