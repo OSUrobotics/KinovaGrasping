@@ -46,6 +46,12 @@ class KinovaGripper_Env(gym.Env):
 			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
 			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml")
+
 			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
@@ -296,6 +302,17 @@ class KinovaGripper_Env(gym.Env):
 	# def _expertvelocity_reward(self, action):
 		# input 
 
+	def _get_reward_DataCollection(self):
+		obj_target = 0.2
+		obs = self._get_obs(state_rep="global") 
+		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
+			lift_reward = 1
+			done = True
+		else:
+			lift_reward = 0
+			done = False		
+		return lift_reward, {}, done
+
 	'''
 	Reward function (Actual)
 	'''
@@ -434,28 +451,43 @@ class KinovaGripper_Env(gym.Env):
 		return geom_type, geom_dim, geom_size
 
 
-	def randomize_initial_pose(self):
+	def randomize_initial_pose(self, collect_data):
 		# geom_type, geom_dim, geom_size = self.gen_new_obj()
 		geom_size = "s"
 		# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
 		# self._sim = MjSim(self._model)
 
 		if geom_size == "s":
-			x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
-			y = [0.0, 0.02, 0.03, 0.04]
-			rand_x = random.choice(x)
-			if rand_x == 0.05 or rand_x == -0.05:
-				rand_y = 0.0
-			elif rand_x == 0.04 or rand_x == -0.04:
-				rand_y = random.uniform(0.0, 0.02)
-			elif rand_x == 0.03 or rand_x == -0.03:
-				rand_y = random.uniform(0.0, 0.03)
-			elif rand_x == 0.02 or rand_x == -0.02:
-				rand_y = random.uniform(0.0, 0.04)
+
+			if not collect_data:
+				x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
+				y = [0.0, 0.02, 0.03, 0.04]
+				rand_x = random.choice(x)
+				rand_y = 0.0				
+				if rand_x == 0.05 or rand_x == -0.05:
+					rand_y = 0.0
+				elif rand_x == 0.04 or rand_x == -0.04:
+					rand_y = random.uniform(0.0, 0.02)
+				elif rand_x == 0.03 or rand_x == -0.03:
+					rand_y = random.uniform(0.0, 0.03)
+				elif rand_x == 0.02 or rand_x == -0.02:
+					rand_y = random.uniform(0.0, 0.04)
+			else:
+				x = [0.04, 0.03, 0.02, -0.04, -0.03, -0.02]
+				y = [0.0, 0.02, 0.03, 0.04]
+				rand_x = random.choice(x)
+				rand_y = 0.0					
+				if rand_x == 0.04 or rand_x == -0.04:
+					rand_y = random.uniform(0.0, 0.02)
+				elif rand_x == 0.03 or rand_x == -0.03:
+					rand_y = random.uniform(0.0, 0.03)
+				elif rand_x == 0.02 or rand_x == -0.02:
+					rand_y = random.uniform(0.0, 0.04)				
 		if geom_size == "m":
 			x = [0.04, 0.03, 0.02, -0.04, -0.03, -0.02]
 			y = [0.0, 0.02, 0.03]
 			rand_x = random.choice(x)
+			rand_y = 0.0
 			if rand_x == 0.04 or rand_x == -0.04:
 				rand_y = 0.0
 			elif rand_x == 0.03 or rand_x == -0.03:
@@ -466,11 +498,13 @@ class KinovaGripper_Env(gym.Env):
 			x = [0.03, 0.02, -0.03, -0.02]
 			y = [0.0, 0.02]
 			rand_x = random.choice(x)
+			rand_y = 0.0
 			if rand_x == 0.03 or rand_x == -0.03:
 				rand_y = 0.0
 			elif rand_x == 0.02 or rand_x == -0.02:
 				rand_y = random.uniform(0.0, 0.02)
 		# return rand_x, rand_y, geom_dim[-1]
+		# print(rand_x, rand_y)
 		return rand_x, rand_y
 
 
@@ -516,9 +550,9 @@ class KinovaGripper_Env(gym.Env):
 		return rand_x, rand_y, z	
 
 	def reset(self):
-		x, y = self.randomize_initial_pose()
+		x, y = self.randomize_initial_pose(True)
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, 0.03, 0.0, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
@@ -569,7 +603,13 @@ class KinovaGripper_Env(gym.Env):
 			self._sim.step()
 
 		obs = self._get_obs()
-		total_reward, info, done = self._get_reward()
+
+		### Get this reward for RL training ###
+		# total_reward, info, done = self._get_reward()
+
+		### Get this reward for data collection ###
+		total_reward, info, done = self._get_reward_DataCollection()
+
 		# print(obs[15:18], self._get_dot_product(obs[15:18]))
 
 		# print(self._get_dot_product)
