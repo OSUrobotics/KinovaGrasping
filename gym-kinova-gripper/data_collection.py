@@ -14,6 +14,8 @@ import gym
 import numpy as np
 import pdb
 import time
+import datetime
+import pickle
 
 def PID(target, current):
 	err = target - current
@@ -210,7 +212,7 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
 		filename = "Data" + "_{}".format(obj_shape) + "_{}".format(obj_size)
 		print("Saving...")
 		data = {}
-		data["states"] = obs_arr
+		data["states"] = obs_label
 		data["grasp_success"] = graspSuccess_label
 		# data["action"] = action_label
 		# data["total_steps"] = total_steps
