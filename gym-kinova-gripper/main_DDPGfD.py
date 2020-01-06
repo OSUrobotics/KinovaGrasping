@@ -36,10 +36,10 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 			state, reward, done, _ = eval_env.step(action)
 			avg_reward += reward
 			cumulative_reward += reward
-			eval_env.render()
+			# eval_env.render()
 			# print(reward)
 		# pdb.set_trace()
-		print(cumulative_reward)
+		# print(cumulative_reward)
 	avg_reward /= eval_episodes
 
 	print("---------------------------------------")
@@ -120,13 +120,16 @@ if __name__ == "__main__":
 
 	# Initialize replay buffer with expert demo
 	print("----Generating {} expert episodes----".format(args.pre_replay_episode))
-	from expert_data import generate_Data, store_saved_data_into_replay
+	from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
 	# from pretrain_from_RL import pretrain_from_agent
 	expert_policy = DDPGfD.DDPGfD(**kwargs)
-	replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode)
+	# replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode)
+	replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
 	# replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
 	# replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
-	replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
+	# replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
+	replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+
 
 	# Evaluate untrained policy
 	# evaluations = [eval_policy(policy, args.env_name, args.seed)] 
@@ -167,6 +170,7 @@ if __name__ == "__main__":
 		expl_noise.reset()
 		episode_reward = 0
 		# for one episode
+		replay_buffer.add_episode(1)
 		while not done:
 			# if t < args.start_timesteps:
 			# 	action = env.action_space.sample()
@@ -200,6 +204,7 @@ if __name__ == "__main__":
 		writer.add_scalar("Critic loss", critic_loss, episode_num)		
 		writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
 		writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
+		replay_buffer.add_episode(0)
 
 		# print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
 		# Evaluate episode

@@ -45,11 +45,11 @@ class KinovaGripper_Env(gym.Env):
 			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300.xml")
 			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
-			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml")
-			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml")
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml")
 
 			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
@@ -125,10 +125,9 @@ class KinovaGripper_Env(gym.Env):
 			obs_max = max_joint_states + max_obj_xyz + max_obj_size + max_dot_prod
 			self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
 
-		self.Grasp_net = GraspValid_net(48).to(device) 
-		trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
-		# trained_model = "/home/graspinglab/NCSGen/gym-kinova_gripper/data_cube_9_grasp_classifier_10_17_19_1734.pt"
-
+		self.Grasp_net = GraspValid_net(54).to(device) 
+		# trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
+		trained_model = "/home/graspinglab/NCS_data/ExpertTrainedNet_01_04_20_0250.pt"
 		model = torch.load(trained_model)
 		self.Grasp_net.load_state_dict(model)
 		self.Grasp_net.eval()
@@ -330,7 +329,7 @@ class KinovaGripper_Env(gym.Env):
 
 		grasp_reward = 0.0
 		obs = self._get_obs(state_rep="global") 
-		inputs = torch.FloatTensor(np.array(obs[0:48])).to(device)
+		inputs = torch.FloatTensor(np.array(obs[0:54])).to(device)
 		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
 			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
 			if outputs == 1.0:
@@ -453,7 +452,7 @@ class KinovaGripper_Env(gym.Env):
 
 	def randomize_initial_pose(self, collect_data):
 		# geom_type, geom_dim, geom_size = self.gen_new_obj()
-		geom_size = "s"
+		geom_size = "b"
 		# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
 		# self._sim = MjSim(self._model)
 
@@ -550,9 +549,11 @@ class KinovaGripper_Env(gym.Env):
 		return rand_x, rand_y, z	
 
 	def reset(self):
-		x, y = self.randomize_initial_pose(True)
+		# x, y = self.randomize_initial_pose(False) # for RL training
+		x, y = self.randomize_initial_pose(True) # for data collection
+
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.06])
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)

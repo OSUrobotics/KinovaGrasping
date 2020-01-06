@@ -70,6 +70,8 @@ class DDPGfD(object):
 
 		# Sample replay buffer 
 		state, action, next_state, reward, not_done = replay_buffer.sample()
+		episode_step = len(state)
+		# pdb.set_trace()
 		# Compute the target Q value
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
 		target_Q = reward + (self.discount * target_Q).detach() #bellman equation

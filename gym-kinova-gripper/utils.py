@@ -4,14 +4,14 @@ import pdb
 
 # A buffer that stores and sample based on episodes that have different step size
 class ReplayBuffer_VarStepsEpisode(object):
-	def __init__(self, state_dim, action_dim, episode_step, expert_episode_num, max_episode=10100):
+	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100):
 		self.max_episode = max_episode
-		self.max_size = max_episode * episode_step
+		self.max_size = max_episode * 500
 		self.ptr = 0
 		self.size = 0
 		self.expert_episode = 0
 		self.agent_episode = expert_episode_num
-		self.episode_step = episode_step
+		# self.episode_step = episode_step
 		self.expert_episode_num = expert_episode_num
 
 		self.episodes = np.zeros((self.max_episode, 2)) # keep track each episode index
@@ -34,19 +34,21 @@ class ReplayBuffer_VarStepsEpisode(object):
 
 		self.ptr += 1
 		self.size += 1 
+		# pdb.set_trace()	
 	
 	def add_episode(self, start):
 		# call it when each episode starts
 		if start:
-			self.episodes[episodes_count, 0] = self.ptr
+			self.episodes[self.episodes_count, 0] = int(self.ptr)
 		# call it when each episode ends
 		else:
-			self.episodes[episodes_count, 1] = self.ptr			
+			self.episodes[self.episodes_count, 1] = int(self.ptr)			
 			self.episodes_count += 1
 
 	def sample(self):
-		if episodes_count > self.expert_episode_num:
-			expert_or_random = np.random.choice(np.array(["expert", "agent"], p = [0.7, 0.3]))
+		if self.episodes_count > self.expert_episode_num:
+			
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
 		else:
 			expert_or_random = "expert"
 		
@@ -56,13 +58,16 @@ class ReplayBuffer_VarStepsEpisode(object):
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size = 1)
 		
 		# sample episode 
-		ind = np.arange(self.episodes[self.episodes_count, 0], self.episodes[self.episodes_count, 1] + 1)
+		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1] + 1)
+		
+		# if self.episodes_count > 10:
+		# 	pdb.set_trace()
 		return (
-			torch.FloatTensor(self.state[ind]).to(self.device),
-			torch.FloatTensor(self.action[ind]).to(self.device),
-			torch.FloatTensor(self.next_state[ind]).to(self.device),
-			torch.FloatTensor(self.reward[ind]).to(self.device),
-			torch.FloatTensor(self.not_done[ind]).to(self.device)
+			torch.FloatTensor(self.state[ind.astype(int)]).to(self.device),
+			torch.FloatTensor(self.action[ind.astype(int)]).to(self.device),
+			torch.FloatTensor(self.next_state[ind.astype(int)]).to(self.device),
+			torch.FloatTensor(self.reward[ind.astype(int)]).to(self.device),
+			torch.FloatTensor(self.not_done[ind.astype(int)]).to(self.device)
 		)		
 
 
@@ -107,7 +112,7 @@ class ReplayBuffer_episode(object):
 		# ind = np.random.randint(0, self.size, size=batch_size)
 		if self.agent_episode > self.expert_episode_num:
 			# pdb.set_trace()
-			prob = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
+			prob = ccccccccccccccccccc
 		else:
 			prob = "expert"
 

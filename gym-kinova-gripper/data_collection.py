@@ -33,7 +33,7 @@ def PID(target, current):
 # Large object -> 0.02: [0.2, 0.4], 0.03: [0.1,0.3], 0.04: [0.0, 0.1]
 def getRandomJoint(obj_size, obj_pose):
 	# print(obj_pose)
-	if obj_size == "s":
+	if obj_size == "S":
 		# Two fingered side
 		if obj_pose == -0.02:
 			f2 = np.random.uniform(0.4, 0.61)
@@ -68,7 +68,7 @@ def getRandomJoint(obj_size, obj_pose):
 			f3 = np.random.uniform(0.6, 0.81)
 			f1 = np.random.uniform(0.6, 0.81)
 
-	if obj_size == "m":
+	if obj_size == "M":
 		# Two fingered side
 		if obj_pose == -0.02:
 			f2 = np.random.uniform(0.3, 0.51)
@@ -103,7 +103,7 @@ def getRandomJoint(obj_size, obj_pose):
 			f3 = np.random.uniform(0.5, 0.71)
 			f1 = np.random.uniform(0.5, 0.71)
 
-	if obj_size == "b":
+	if obj_size == "B":
 		# Two fingered side
 		if obj_pose == -0.02:
 			f2 = np.random.uniform(0.2, 0.41)
@@ -163,7 +163,7 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
 	for episode in range(episode_num):
 		obs, done = env.reset(), False
 		reward = 0
-		target_joint_config = getRandomJoint("s", obs[21])
+		target_joint_config = getRandomJoint(obj_size, obs[21])
 		step = 0
 		reach = False
 		episode_obs_label = []
@@ -222,10 +222,10 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
 
 		
 
-DataCollection_GraspClassifier(5000, "Box", "S", True)
-# DataCollection_GraspClassifier(10000, "Box", "M", True)
-# DataCollection_GraspClassifier(10000, "Box", "B", True)
-# DataCollection_GraspClassifier(10000, "Cylinder", "S", True)
-# DataCollection_GraspClassifier(10000, "Cylinder", "M", True)
+# DataCollection_GraspClassifier(5000, "Box", "S", True)
+# DataCollection_GraspClassifier(5000, "Box", "M", True)
+DataCollection_GraspClassifier(10000, "Box", "B", True)
+# DataCollection_GraspClassifier(5000, "Cylinder", "S", True)
+# DataCollection_GraspClassifier(5000, "Cylinder", "M", True)
 # DataCollection_GraspClassifier(10000, "Cylinder", "B", True)
 
