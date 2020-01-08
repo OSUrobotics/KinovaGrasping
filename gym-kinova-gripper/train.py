@@ -57,11 +57,12 @@ def test(env, trained_model):
 			obs, reward, done, _ = env.step(action)
 			# print(reward)
 
-def train_network(data_filename, max_action, num_epoch, total_steps, batch_size, model_path="trained_model"):
+# def train_network(data_filename, max_action, num_epoch, total_steps, batch_size, model_path="trained_model"):
+def train_network(training_set, training_label, num_epoch, total_steps, batch_size, model_path="trained_model"):
 	# import data
-	file = open(data_filename + ".pkl", "rb")
-	data = pickle.load(file)
-	file.close()
+	# file = open(data_filename + ".pkl", "rb")
+	# data = pickle.load(file)
+	# file.close()
 
 	##### Training Action Net ######
 	# state_input = data["states"]
@@ -72,15 +73,15 @@ def train_network(data_filename, max_action, num_epoch, total_steps, batch_size,
 
 	##### Training Grasp Classifier ######
 	# state_input = data[:, 0:-1]
-	state_input = data["states"]
-	actions = data["grasp_success"]
+	# state_input = data["states"]
+	# actions = data["grasp_success"]
 	# total_steps = data["total_steps"]
 	# actions = data[:, -1]
-	pdb.set_trace()
+	# pdb.set_trace()
 	actor_net = NCS_nn.GraspValid_net(len(state_input[0])).to(device)
 	criterion = nn.BCELoss()
 	optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
-
+ 
 	num_update = total_steps / batch_size
 
 	# print(num_update, len(state_input[0]), len(actions))
@@ -100,8 +101,11 @@ def train_network(data_filename, max_action, num_epoch, total_steps, batch_size,
 				ind = np.arange(start_batch, end_batch)
 				start_batch += batch_size
 				end_batch += batch_size
-				states = torch.FloatTensor(np.array(state_input)[ind]).to(device)
-				labels = torch.FloatTensor(np.array(actions)[ind].reshape(-1, 1)).to(device)
+				# states = torch.FloatTensor(np.array(state_input)[ind]).to(device)
+				# labels = torch.FloatTensor(np.array(actions)[ind].reshape(-1, 1)).to(device)
+
+				states = torch.FloatTensor(np.array(training_set)[ind]).to(device)
+				labels = torch.FloatTensor(np.array(training_label)[ind].reshape(-1, 1)).to(device)				
 				# labels = torch.FloatTensor(np.array(actions)[ind]).to(device)
 
 				output = actor_net(states)
@@ -179,8 +183,10 @@ if __name__ == '__main__':
 	# model_path = "/home/graspinglab/NCS_data/ExpertTrainedNet"
 	# train_network(data_filename, 0.3, 5, total_steps, batch_size, model_path)
 
-
-	files = ["/home/graspinglab/NCS_data/Data_Box_B_01_06_20_1532", "/home/graspinglab/NCS_data/Data_Box_M_01_05_20_1705", "/home/graspinglab/NCS_data/Data_Box_S_01_03_20_2309", "/home/graspinglab/NCS_data/Data_Cylinder_B_01_06_20_1922",  "/home/graspinglab/NCS_data/Data_Cylinder_M_01_06_20_0013", "/home/graspinglab/NCS_data/Data_Cylinder_S_01_04_20_1701"]
+	num_epoch = 10
+	batch_size = 250
+	files_dir = "/home/graspinglab/NCS_data/"
+	files = [files_dir + "Data_Box_B_01_06_20_1532", files_dir + "Data_Box_M_01_05_20_1705", files_dir + "Data_Box_S_01_03_20_2309", files_dir + "Data_Cylinder_B_01_06_20_1922",  files_dir + "Data_Cylinder_M_01_06_20_0013", "/home/graspinglab/NCS_data/Data_Cylinder_S_01_04_20_1701"]
 
 	all_training_set = []
 	all_training_label = []
@@ -207,5 +213,6 @@ if __name__ == '__main__':
 		all_testing_set = all_testing_set + list(testing_set)
 		all_training_label = all_training_label + list(training_label)
 		all_testing_label = all_testing_label + list(testing_label)
-
-		# pdb.set_trace()
+		print("label: ", i, len(training_set), len(training_label), len(testing_set), len(testing_label))
+	# pdb.set_trace()
+	train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size)
