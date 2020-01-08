@@ -13,7 +13,12 @@ env.reset()
 # prev_action = [0.0,0.0,0.0,0.0]
 action = np.array([0.0, 0.0, 0.0, 0.0])
 t = 0
-for i in range(50):
+while True:
+	env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+	env.reset()
+
+	for i in range(10):
+
 	# read action from pyserial
 	# curr_action = ser.readline().decode('utf8').strip().split(",")
 	# for i in range(4):
@@ -28,11 +33,11 @@ for i in range(50):
 
 	# print((curr_action))
 	# prev_action = curr_action
-	obs, reward, done, _ = env.step(action)
+		obs, reward, done, _ = env.step(action)
 	# action[1] += 0.5
 	# action[2] += 0.2
 	# action[3] += 0.7
-	env.render()
+		# env.render()
 	# if t > 25:
 	# 	action = np.array([0.1, 0.8, 0.8, 0.8])
 	# # print()

@@ -47,7 +47,6 @@ class ReplayBuffer_VarStepsEpisode(object):
 
 	def sample(self):
 		if self.episodes_count > self.expert_episode_num:
-			
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
 		else:
 			expert_or_random = "expert"
@@ -60,8 +59,8 @@ class ReplayBuffer_VarStepsEpisode(object):
 		# sample episode 
 		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1] + 1)
 		
-		# if self.episodes_count > 10:
-		# 	pdb.set_trace()
+		if self.episodes_count > 10:
+			pdb.set_trace()
 		return (
 			torch.FloatTensor(self.state[ind.astype(int)]).to(self.device),
 			torch.FloatTensor(self.action[ind.astype(int)]).to(self.device),
@@ -81,6 +80,7 @@ class ReplayBuffer_episode(object):
 		self.agent_episode = expert_episode_num
 		self.episode_step = episode_step
 		self.expert_episode_num = expert_episode_num
+		self.episode = 0
 
 		self.state = np.zeros((self.max_size, state_dim))
 		self.action = np.zeros((self.max_size, action_dim))
@@ -112,7 +112,7 @@ class ReplayBuffer_episode(object):
 		# ind = np.random.randint(0, self.size, size=batch_size)
 		if self.agent_episode > self.expert_episode_num:
 			# pdb.set_trace()
-			prob = ccccccccccccccccccc
+			prob = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
 		else:
 			prob = "expert"
 
@@ -122,13 +122,36 @@ class ReplayBuffer_episode(object):
 		else:
 		# sample agent episode
 			random_episode = np.random.randint(self.expert_episode + 1, self.agent_episode + 1, size = 1)
-			# if random_episode[0] > 10000:
-			# 	print("random_episode is out of bound:", random_episode[0], self.expert_episode, self.agent_episode)
-			# 	raise ValueError 
 
 		# sample episode 
 		ind = np.arange((random_episode[0] - 1)*self.episode_step, random_episode[0]*self.episode_step) 
-		# pdb.set_trace()
+
+		return (
+			torch.FloatTensor(self.state[ind]).to(self.device),
+			torch.FloatTensor(self.action[ind]).to(self.device),
+			torch.FloatTensor(self.next_state[ind]).to(self.device),
+			torch.FloatTensor(self.reward[ind]).to(self.device),
+			torch.FloatTensor(self.not_done[ind]).to(self.device)
+		)
+
+	def add_wo_expert(self, state, action, next_state, reward, done):
+		self.state[self.ptr] = state
+		self.action[self.ptr] = action
+		self.next_state[self.ptr] = next_state
+		self.reward[self.ptr] = reward
+		self.not_done[self.ptr] = 1. - done
+
+		self.ptr = (self.ptr + 1) % self.max_size
+
+		self.size = min(self.size + 1, self.max_size)
+
+		if self.size % self.episode_step == 0:
+			self.episode += 1
+
+	def sample_wo_expert(self):
+		# sample episode 
+		random_episode = np.random.randint(0, self.episode, size=1)
+		ind = np.arange(random_episode[0]*self.episode_step, (random_episode[0]*self.episode_step) + 100) 
 
 		return (
 			torch.FloatTensor(self.state[ind]).to(self.device),

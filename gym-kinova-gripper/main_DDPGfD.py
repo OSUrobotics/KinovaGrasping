@@ -27,6 +27,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=10):
 	avg_reward = 0.0
 	# step = 0
 	for i in range(eval_episodes):
+		eval_env = gym.make(env_name)
 		state, done = eval_env.reset(), False
 		cumulative_reward = 0
 
@@ -58,7 +59,7 @@ if __name__ == "__main__":
 	parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
 	parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
 	parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
-	parser.add_argument("--max_episode", default=10000, type=int)		# Max time steps to run environment for
+	parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
 	parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
 	parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
 	parser.add_argument("--batch_size", default=250, type=int)			# Batch size for both actor and critic
@@ -67,7 +68,7 @@ if __name__ == "__main__":
 	parser.add_argument("--policy_noise", default=0.01, type=float)		# Noise added to target policy during critic update
 	parser.add_argument("--noise_clip", default=0.05, type=float)		# Range to clip target policy noise
 	parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
-	parser.add_argument("--tensorboardindex", default=0, type=int)	# tensorboard log index
+	parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
 	parser.add_argument("--model", default=1, type=int)	# save model index
 	parser.add_argument("--pre_replay_episode", default=100, type=int)	# Number of episode for loading expert trajectories
 	parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
@@ -122,14 +123,20 @@ if __name__ == "__main__":
 	print("----Generating {} expert episodes----".format(args.pre_replay_episode))
 	from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
 	# from pretrain_from_RL import pretrain_from_agent
-	expert_policy = DDPGfD.DDPGfD(**kwargs)
-	# replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode)
-	replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+	# expert_policy = DDPGfD.DDPGfD(**kwargs)
 	# replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
+
+	# trained policy
+	policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
+
+	# old pid control
+	replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
 	# replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
 	# replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
-	replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
 
+	# new pid control
+	# replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+	# replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
 
 	# Evaluate untrained policy
 	# evaluations = [eval_policy(policy, args.env_name, args.seed)] 
@@ -155,22 +162,22 @@ if __name__ == "__main__":
 	# Initialize SummaryWriter 
 	writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
 
-	# Pretrain 
-	print("---- Pretraining ----")
-	num_updates = 1000
-	for k in range(int(num_updates)):
-		policy.train(replay_buffer, env._max_episode_steps)
+	# Pretrain (No pretraining without imitation learning)
+	# print("---- Pretraining ----")
+	# num_updates = 1000
+	# for k in range(int(num_updates)):
+	# 	policy.train(replay_buffer, env._max_episode_steps)
 
 	print("---- RL training in process ----")
 	for t in range(int(args.max_episode)):
-		
+		env = gym.make(args.env_name)	
 		episode_num += 1
 		state, done = env.reset(), False
 		noise.reset()
 		expl_noise.reset()
 		episode_reward = 0
 		# for one episode
-		replay_buffer.add_episode(1)
+		# replay_buffer.add_episode(1)
 		while not done:
 			# if t < args.start_timesteps:
 			# 	action = env.action_space.sample()
@@ -188,23 +195,26 @@ if __name__ == "__main__":
 			done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
 			# Store data in replay buffer
-			replay_buffer.add(state, action, next_state, reward, done_bool)
+			# replay_buffer.add(state, action, next_state, reward, done_bool)
+			replay_buffer.add_wo_expert(state, action, next_state, reward, done_bool)
+
 
 			state = next_state
 			episode_reward += reward
 
-		writer.add_scalar("Episode reward", episode_reward, episode_num)
 
 		# Train agent after collecting sufficient data:
-		for learning in range(100):
-			actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
+		if episode_num > 10:
+			for learning in range(100):
+				actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
 
 		# Publishing loss
-		writer.add_scalar("Actor loss", actor_loss, episode_num)
-		writer.add_scalar("Critic loss", critic_loss, episode_num)		
-		writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
-		writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
-		replay_buffer.add_episode(0)
+			writer.add_scalar("Episode reward", episode_reward, episode_num)
+			writer.add_scalar("Actor loss", actor_loss, episode_num)
+			writer.add_scalar("Critic loss", critic_loss, episode_num)		
+			writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
+			writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
+		# replay_buffer.add_episode(0)
 
 		# print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
 		# Evaluate episode

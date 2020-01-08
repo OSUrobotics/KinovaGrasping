@@ -192,8 +192,8 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	for episode in range(num_episode):
 		# env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 		obs, done = env.reset(), False
-		ini_dot_prod = env.env._get_dot_product() # 
 		dom_finger = env.env._get_obj_pose()[0] # obj's position in x
+		ini_dot_prod = env.env._get_dot_product(env.env._get_obj_pose()) # 
 		action = expert.get_expert_move_to_touch(ini_dot_prod, dom_finger)
 		touch = 0
 		not_close = 1
@@ -234,7 +234,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 			# print(next_obs[0:7])
 			obs = next_obs
 			# dot_prod = obs[-1]
-			dot_prod = env.env._get_dot_product()			
+			dot_prod = env.env._get_dot_product(env.env._get_obj_pose())			
 			# move closer towards object
 			if touch == 0:
 				action = expert.get_expert_move_to_touch(dot_prod, dom_finger)
@@ -272,8 +272,8 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
 		# print("Collecting.., num_episode:{}".format(episode))
 		# pdb.set_trace()
-	print("saving...")
-	data = {}
+	# print("saving...")
+	# data = {}
 	# data["states_all_episode"] = states_all_episode
 	# pdb.set_trace()
 
@@ -287,14 +287,14 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 	# data["label_ready_grasp"] = label_ready_grasp
 
 	### Data collection for joint angle action space ###
-	data["obs"] = obs_all_episode
-	data["action"] = action_all_episode
-	data["next_obs"] = nextobs_all_episode
-	data["reward"] = reward_all_episode
-	data["done"] = done_all_episode
-	file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
-	pickle.dump(data, file)
-	file.close()
+	# data["obs"] = obs_all_episode
+	# data["action"] = action_all_episode
+	# data["next_obs"] = nextobs_all_episode
+	# data["reward"] = reward_all_episode
+	# data["done"] = done_all_episode
+	# file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+	# pickle.dump(data, file)
+	# file.close()
 	# return data
 
 	return replay_buffer

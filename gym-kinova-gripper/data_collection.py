@@ -209,7 +209,7 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
 	# pdb.set_trace()
 
 	if save:
-		filename = "Data" + "_{}".format(obj_shape) + "_{}".format(obj_size)
+		filename = "/home/graspinglab/NCS_data/Data" + "_{}".format(obj_shape) + "_{}".format(obj_size)
 		print("Saving...")
 		data = {}
 		data["states"] = obs_label
@@ -220,12 +220,13 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
 		pickle.dump(data, file)
 		file.close()	
 
-		
+
 
 # DataCollection_GraspClassifier(5000, "Box", "S", True)
 # DataCollection_GraspClassifier(5000, "Box", "M", True)
-DataCollection_GraspClassifier(10000, "Box", "B", True)
+# DataCollection_GraspClassifier(5000, "Box", "B", True)
 # DataCollection_GraspClassifier(5000, "Cylinder", "S", True)
 # DataCollection_GraspClassifier(5000, "Cylinder", "M", True)
-# DataCollection_GraspClassifier(10000, "Cylinder", "B", True)
+# DataCollection_GraspClassifier(5000, "Cylinder", "B", True)
+
 

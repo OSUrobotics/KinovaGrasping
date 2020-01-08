@@ -74,9 +74,9 @@ def train_network(data_filename, max_action, num_epoch, total_steps, batch_size,
 	# state_input = data[:, 0:-1]
 	state_input = data["states"]
 	actions = data["grasp_success"]
-	total_steps = data["total_steps"]
+	# total_steps = data["total_steps"]
 	# actions = data[:, -1]
-	# pdb.set_trace()
+	pdb.set_trace()
 	actor_net = NCS_nn.GraspValid_net(len(state_input[0])).to(device)
 	criterion = nn.BCELoss()
 	optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
@@ -165,9 +165,47 @@ if __name__ == '__main__':
 	# 		env = gym.make(args.env_name)
 	# 		test(env, args.trained_model)
 
-	data_filename = "/home/graspinglab/NCS_data/expertdata_01_02_20_1206"
-	num_epoch = 20
-	total_steps = 10000 # not used in the function
-	batch_size = 250
-	model_path = "/home/graspinglab/NCS_data/ExpertTrainedNet"
-	train_network(data_filename, 0.3, 5, total_steps, batch_size, model_path)
+	# data_filename = "/home/graspinglab/NCS_data/expertdata_01_02_20_1206"
+	# data_filename = "/home/graspinglab/NCS_data/Data_Box_S_01_03_20_2309"	
+	# data_filename = "/home/graspinglab/NCS_data/Data_Box_M_01_05_20_1705"	
+	# data_filename = "/home/graspinglab/NCS_data/Data_Box_B_01_06_20_1532"	
+	# data_filename = "/home/graspinglab/NCS_data/Data_Cylinder_S_01_04_20_1701"	
+	# data_filename = "/home/graspinglab/NCS_data/Data_Cylinder_M_01_06_20_0013"	
+	# data_filename = "/home/graspinglab/NCS_data/Data_Cylinder_B_01_06_20_1922"	
+
+	# num_epoch = 20
+	# total_steps = 10000 # not used in the function
+	# batch_size = 250
+	# model_path = "/home/graspinglab/NCS_data/ExpertTrainedNet"
+	# train_network(data_filename, 0.3, 5, total_steps, batch_size, model_path)
+
+
+	files = ["/home/graspinglab/NCS_data/Data_Box_B_01_06_20_1532", "/home/graspinglab/NCS_data/Data_Box_M_01_05_20_1705", "/home/graspinglab/NCS_data/Data_Box_S_01_03_20_2309", "/home/graspinglab/NCS_data/Data_Cylinder_B_01_06_20_1922",  "/home/graspinglab/NCS_data/Data_Cylinder_M_01_06_20_0013", "/home/graspinglab/NCS_data/Data_Cylinder_S_01_04_20_1701"]
+
+	all_training_set = []
+	all_training_label = []
+	all_testing_set = []
+	all_testing_label = []
+
+	for i in range(6):
+		file = open(files[i] + ".pkl", "rb")
+		data = pickle.load(file)
+		file.close()
+		state_input = np.array(data["states"])
+		grasp_label = np.array(data["grasp_success"])
+		
+		# extract training set
+		training_len = len(state_input) * 0.8
+		training_set = state_input[0:int(training_len)]
+		training_label = grasp_label[0:int(training_len)]
+
+		# extract testing set
+		testing_set = state_input[int(training_len):]
+		testing_label = grasp_label[int(training_len):]
+
+		all_training_set = all_training_set + list(training_set)
+		all_testing_set = all_testing_set + list(testing_set)
+		all_training_label = all_training_label + list(training_label)
+		all_testing_label = all_testing_label + list(testing_label)
+
+		# pdb.set_trace()

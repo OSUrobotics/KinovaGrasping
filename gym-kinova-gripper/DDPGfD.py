@@ -69,8 +69,12 @@ class DDPGfD(object):
 		self.total_it += 1
 
 		# Sample replay buffer 
-		state, action, next_state, reward, not_done = replay_buffer.sample()
-		episode_step = len(state)
+		# state, action, next_state, reward, not_done = replay_buffer.sample()
+		state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
+
+		
+		# episode_step = len(state) # for varying episode sets
+
 		# pdb.set_trace()
 		# Compute the target Q value
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))

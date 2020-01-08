@@ -26,5 +26,6 @@ state_dim = env.observation_space.shape[0]
 action_dim = env.action_space.shape[0] 
 max_action = float(env.action_space.high[0])
 policy = DDPGfD.DDPGfD(state_dim, action_dim, max_action)
-policy.load("./policies/jA_action/DDPGfD_kinovaGrip_12_27_19_1501")
+# policy.load("./policies/new_expert_action/DDPGfD_kinovaGrip_01_06_20_0819")
+policy.load("./policies/all_objs_wo_graspclassifier/DDPGfD_kinovaGrip_01_07_20_2100")
 main_DDPGfD.eval_policy(policy, "gym_kinova_gripper:kinovagripper-v0", 2)

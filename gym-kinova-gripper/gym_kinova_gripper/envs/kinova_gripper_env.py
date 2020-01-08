@@ -45,11 +45,12 @@ class KinovaGripper_Env(gym.Env):
 			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300.xml")
 			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
-			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
+			pass
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml")
-			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml")
 
 			# full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
@@ -80,7 +81,8 @@ class KinovaGripper_Env(gym.Env):
 		self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
 		self.frame_skip = frame_skip
 		self.all_states = None
-		self.action_space = spaces.Box(low=np.array([-0.3, -0.3, -0.3, -0.3]), high=np.array([0.3, 0.3, 0.3, 0.3]), dtype=np.float32) # Velocity action space
+		self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
+		# self.action_space = spaces.Box(low=np.array([-0.3, -0.3, -0.3, -0.3]), high=np.array([0.3, 0.3, 0.3, 0.3]), dtype=np.float32) # Velocity action space
 		# self.action_space = spaces.Box(low=np.array([-1.5, -1.5, -1.5, -1.5]), high=np.array([1.5, 1.5, 1.5, 1.5]), dtype=np.float32) # Position action space
 		self.state_rep = "global" # change accordingly
 		# self.action_space = spaces.Box(low=np.array([-0.2]), high=np.array([0.2]), dtype=np.float32)
@@ -106,11 +108,11 @@ class KinovaGripper_Env(gym.Env):
 		# print()
 		if self.state_rep == "global" or self.state_rep == "local":
 
-			obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod + min_f_dot_prod
+			obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod #+ min_f_dot_prod
 			obs_min = np.array(obs_min)
 			# print(len(obs_min))
 
-			obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod + max_f_dot_prod 
+			obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod #+ max_f_dot_prod 
 			obs_max = np.array(obs_max)
 			# print(len(obs_max))
 
@@ -125,9 +127,11 @@ class KinovaGripper_Env(gym.Env):
 			obs_max = max_joint_states + max_obj_xyz + max_obj_size + max_dot_prod
 			self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
 
-		self.Grasp_net = GraspValid_net(54).to(device) 
-		# trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
-		trained_model = "/home/graspinglab/NCS_data/ExpertTrainedNet_01_04_20_0250.pt"
+		self.Grasp_net = GraspValid_net(48).to(device) 
+		trained_model = "/home/graspinglab/NCS_data/data_cube_9_grasp_classifier_10_17_19_1734.pt"
+
+		# self.Grasp_net = GraspValid_net(54).to(device) 
+		# trained_model = "/home/graspinglab/NCS_data/ExpertTrainedNet_01_04_20_0250.pt"
 		model = torch.load(trained_model)
 		self.Grasp_net.load_state_dict(model)
 		self.Grasp_net.eval()
@@ -200,7 +204,7 @@ class KinovaGripper_Env(gym.Env):
 				for i in range(3):
 					fingers_6D_pose.append(trans[i])
 			fingers_dot_prod = self._get_fingers_dot_product(fingers_6D_pose)
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] #+ fingers_dot_prod
 			# pdb.set_trace()
 
 		elif state_rep == "local":
@@ -211,14 +215,14 @@ class KinovaGripper_Env(gym.Env):
 				pose = self._get_local_pose(joint_in_local_frame)
 				for i in range(3):
 					fingers_6D_pose.append(pose[i])
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] #+ fingers_dot_prod
 
 		elif state_rep == "metric":
 			fingers_6D_pose = self._get_rangefinder_data()
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] #+ fingers_dot_prod
 
 		elif state_rep == "joint_states":
-			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [obj_dot_prod] + fingers_dot_prod
+			fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [obj_dot_prod] #+ fingers_dot_prod
 
 		# print(joint_states[0:4])
 		return fingers_6D_pose 
@@ -317,26 +321,21 @@ class KinovaGripper_Env(gym.Env):
 	'''
 	def _get_reward(self):
 
-		# if self.t_vel <= 5:
-		# 	grasp_reward = 0.0
-		# else:
-			# Nigel's network goes here
-			# extract previous obs, 5 steps before 
-			# put it into network
-
 		# object height target
 		obj_target = 0.2
 
-		grasp_reward = 0.0
+		# Grasp reward
+		# grasp_reward = 0.0
 		obs = self._get_obs(state_rep="global") 
-		inputs = torch.FloatTensor(np.array(obs[0:54])).to(device)
-		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
-			outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-			if outputs == 1.0:
-				grasp_reward = 5.0
-			else:
-				grasp_reward = 5.0
+		# inputs = torch.FloatTensor(np.array(obs[0:48])).to(device)
+		# if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015: 
+		# 	outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
+		# 	if outputs == 1.0:
+		# 		grasp_reward = 5.0
+		# 	else:
+		# 		grasp_reward = 5.0
 			# grasp_reward = outputs
+		
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
 			lift_reward = 50.0
 			done = True
@@ -346,9 +345,7 @@ class KinovaGripper_Env(gym.Env):
 
 		finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
 
-		# print(grasp_reward)
-
-		reward = 0.2*finger_reward + lift_reward + grasp_reward
+		reward = 0.2*finger_reward + lift_reward #+ grasp_reward
 
 		return reward, {}, done
 
@@ -393,10 +390,10 @@ class KinovaGripper_Env(gym.Env):
 		height_choice = np.array([height_min, height_mid, height_max])
 
 		# Sphere
-		radius_max = hand_param["span"] * 0.
-		radius_mid = hand_param["span"] * 0.2833 
-		radius_min = hand_param["span"] * 0.2333
-		radius_choice = np.array([radius_min, radius_mid, radius_max])
+		# radius_max = hand_param["span"] * 0.
+		# radius_mid = hand_param["span"] * 0.2833 
+		# radius_min = hand_param["span"] * 0.2333
+		# radius_choice = np.array([radius_min, radius_mid, radius_max])
 
 		if default:
 			# print("here")
@@ -450,14 +447,15 @@ class KinovaGripper_Env(gym.Env):
 		return geom_type, geom_dim, geom_size
 
 
-	def randomize_initial_pose(self, collect_data):
+	def randomize_initial_pose(self, collect_data, size):
 		# geom_type, geom_dim, geom_size = self.gen_new_obj()
-		geom_size = "b"
+		# geom_size = "s"
+		geom_size = size
+
 		# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml")
 		# self._sim = MjSim(self._model)
 
 		if geom_size == "s":
-
 			if not collect_data:
 				x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
 				y = [0.0, 0.02, 0.03, 0.04]
@@ -512,6 +510,92 @@ class KinovaGripper_Env(gym.Env):
 		# large x = [0.03, 0.02] 
 		# large y = [0.0, 0.02]
 
+	def experiment(self, exp_num, stage_num):
+		objects = {}
+
+		# ------ Experiment 1 ------- #
+		elif exp_num == 1:
+				
+			# Exp 1 Stage 1: Change size ---> 
+			if stage_num == 1:
+				objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+				objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+
+				# Testing Exp 1 Stage 1
+				# objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
+
+			# Exp 1 Stage 2: Change shape
+			if stage_num == 2:
+				objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+				objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+
+				# Testing Exp 1 Stage 2
+				# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+		
+		# ------ Experiment 2 ------- #
+		elif exp_num == 2:
+			# Exp 2 Stage 1: Change shape
+			if stage_num == 1:
+				objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+				objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+
+			# Exp 2 Stage 2: Change size
+			if stage_num == 2:
+				objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+				objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+
+			# Testing Exp 2
+			# objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
+			# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+
+		# ------ Experiment 3 ------ #
+		elif exp_num == 3:
+			# Mix all
+			objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+			objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+			objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+			objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+			
+			# Testing Exp 3
+			# objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
+			# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+
+		else:
+			print("Enter Valid Experiment Number")
+			raise ValueError
+
+		return objects
+
+	def randomize_all(self):
+		# objects = {}
+		# objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+		# objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
+		# objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+		# objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+		# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+		# objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+
+		objects = self.experiment(1, 1)
+
+		random_shape = np.random.choice(list(objects.keys()))
+		self._model = load_model_from_path(self.file_dir + objects[random_shape])
+		self._sim = MjSim(self._model)
+		# print (random_shape)
+		if random_shape == "sbox" or random_shape == "scyl":
+			x, y = self.randomize_initial_pose(False, "s")
+			z = 0.05
+		elif random_shape == "mbox" or random_shape == "mcyl":
+			x, y = self.randomize_initial_pose(False, "m")
+			z = 0.055
+		elif random_shape == "bbox" or random_shape == "bcyl":
+			x, y = self.randomize_initial_pose(False, "b")
+			z = 0.06			
+		else:
+			print("size and shape are incorrect")
+			raise ValueError
+
+		return x, y, z
+
 	def randomize_initial_pos_data_collection(self):
 		# print(self._sim.model.geom_size[-1])
 		if self.obj_size == "s":
@@ -549,11 +633,13 @@ class KinovaGripper_Env(gym.Env):
 		return rand_x, rand_y, z	
 
 	def reset(self):
-		# x, y = self.randomize_initial_pose(False) # for RL training
-		x, y = self.randomize_initial_pose(True) # for data collection
-
+		# x, y = self.randomize_initial_pose(False, "s") # for RL training
+		# x, y = self.randomize_initial_pose(True) # for data collection
+		x, y, z = self.randomize_all() # for RL training all objects
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.06])
+		# self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
+		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
+
 		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
 		self.all_states = [self.all_states_1 , self.all_states_2] 
 		random_start = np.random.randint(2)
@@ -593,7 +679,8 @@ class KinovaGripper_Env(gym.Env):
 			if action[0] < 0.0:
 				self._sim.data.ctrl[0] = 0.0
 			else:	
-				self._sim.data.ctrl[0] = action[0]
+				self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
+				# self._sim.data.ctrl[0] = action[0]
 
 			for i in range(3):
 				# vel = action[i]
@@ -606,10 +693,10 @@ class KinovaGripper_Env(gym.Env):
 		obs = self._get_obs()
 
 		### Get this reward for RL training ###
-		# total_reward, info, done = self._get_reward()
+		total_reward, info, done = self._get_reward()
 
 		### Get this reward for data collection ###
-		total_reward, info, done = self._get_reward_DataCollection()
+		# total_reward, info, done = self._get_reward_DataCollection()
 
 		# print(obs[15:18], self._get_dot_product(obs[15:18]))
 
