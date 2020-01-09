@@ -46,7 +46,8 @@ class KinovaGripper_Env(gym.Env):
 			full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
 		elif arm_or_end_effector == "hand":
 			pass
-			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
+			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector.xml")
+			self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bhg.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml")
 			# self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml")
@@ -514,7 +515,7 @@ class KinovaGripper_Env(gym.Env):
 		objects = {}
 
 		# ------ Experiment 1 ------- #
-		elif exp_num == 1:
+		if exp_num == 1:
 				
 			# Exp 1 Stage 1: Change size ---> 
 			if stage_num == 1:
@@ -575,7 +576,7 @@ class KinovaGripper_Env(gym.Env):
 		# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
 		# objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
 
-		objects = self.experiment(1, 1)
+		objects = self.experiment(1, 1) 
 
 		random_shape = np.random.choice(list(objects.keys()))
 		self._model = load_model_from_path(self.file_dir + objects[random_shape])
@@ -637,22 +638,10 @@ class KinovaGripper_Env(gym.Env):
 		# x, y = self.randomize_initial_pose(True) # for data collection
 		x, y, z = self.randomize_all() # for RL training all objects
 		# x, y, z = self.randomize_initial_pos_data_collection()
-		# self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, 0.05])
-		self.all_states_1 = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
-
-		self.all_states_2 = np.array([0.0, 0.9, 0.9, 0.9, 0.0, -0.01, 0.05])
-		self.all_states = [self.all_states_1 , self.all_states_2] 
-		random_start = np.random.randint(2)
-
-		self.obj_original_state = np.array([0.05, 0.0])
-		self._set_state(self.all_states[0])
-		# self.init_dotprod = self._get_dot_product()
-		# self.init_pose = np.array([x, y, 0.05])
-
+		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
+		# self.obj_original_state = np.array([0.05, 0.0])
+		self._set_state(self.all_states)
 		states = self._get_obs()
-
-		# self.prev_fr = 0.0
-		# self.prev_r = 0.0
 		self.t_vel = 0
 		self.prev_obs = []
 		return states
@@ -694,7 +683,6 @@ class KinovaGripper_Env(gym.Env):
 
 		### Get this reward for RL training ###
 		total_reward, info, done = self._get_reward()
-
 		### Get this reward for data collection ###
 		# total_reward, info, done = self._get_reward_DataCollection()
 
