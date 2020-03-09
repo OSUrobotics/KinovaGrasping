@@ -14,27 +14,38 @@ from tensorboardX import SummaryWriter
 from ounoise import OUNoise
 import pickle
 import datetime
+import time
 # 'gym_kinova_gripper:kinovagripper-v0'
 # from pretrain import Pretrain
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+# New evaluations for running policy for X episodes
+# def eval_policy_new(policy, env_name, seed, eval_episodes=10):
+# 	eval_env = gym.make(env_name)
+# 	eval_env.seed(seed + 100)
+
+# 	avg_reward = 0.0
+
+# 	for i in range(eval_episodes):
+
+
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, eval_episodes=10):
+def eval_policy(policy, env_name, seed, eval_episodes=50):
 	eval_env = gym.make(env_name)
 	eval_env.seed(seed + 100)
-	# print("been here", eval_env.seed(seed + 100))
 
 	avg_reward = 0.0
 	# step = 0
 	for i in range(eval_episodes):
-		eval_env = gym.make(env_name)
+		#eval_env = gym.make(env_name)
 		state, done = eval_env.reset(), False
 		cumulative_reward = 0
-
+		
 		while not done:
-			action = policy.select_action(np.array(state))
+			action = policy.select_action(np.array(state[0:48]))
 			# print(action)
 			state, reward, done, _ = eval_env.step(action)
+			
 			avg_reward += reward
 			cumulative_reward += reward
 			# eval_env.render()
@@ -89,7 +100,8 @@ if __name__ == "__main__":
 	torch.manual_seed(args.seed)
 	np.random.seed(args.seed)
 	
-	state_dim = env.observation_space.shape[0]
+	state_dim = env.observation_space.shape[0] 
+	#print ("STATE DIM ---------", state_dim)
 	action_dim = env.action_space.shape[0] 
 	max_action = float(env.action_space.high[0])
 	max_action_trained = env.action_space.high # a vector of max actions
@@ -128,6 +140,9 @@ if __name__ == "__main__":
 
 	# trained policy
 	policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
+	# policy.load("./policies/exp1s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_09_20_1126")
+	# policy.load("./policies/exp1s1_wgc_evalavg100/DDPGfD_kinovaGrip_03_07_20_1852")
+
 
 	# old pid control
 	replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
@@ -143,6 +158,7 @@ if __name__ == "__main__":
 	evaluations = []
 
 	state, done = env.reset(), False
+	#state = state[0:48]
 	episode_reward = 0
 	episode_timesteps = 0
 	episode_num = 0
@@ -173,6 +189,7 @@ if __name__ == "__main__":
 		env = gym.make(args.env_name)	
 		episode_num += 1
 		state, done = env.reset(), False
+		#state = state[0:48]
 		noise.reset()
 		expl_noise.reset()
 		episode_reward = 0
@@ -183,7 +200,7 @@ if __name__ == "__main__":
 			# 	action = env.action_space.sample()
 			# else:
 			action = (
-				policy.select_action(np.array(state))
+				policy.select_action(np.array(state[0:48]))
 				+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
 			).clip(-max_action, max_action)
 
@@ -192,11 +209,12 @@ if __name__ == "__main__":
 
 			# Perform action
 			next_state, reward, done, _ = env.step(action) 
+			#next_state = next_state[0:48]
 			done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
 			# Store data in replay buffer
 			# replay_buffer.add(state, action, next_state, reward, done_bool)
-			replay_buffer.add_wo_expert(state, action, next_state, reward, done_bool)
+			replay_buffer.add_wo_expert(state[0:48], action, next_state[0:48], reward, done_bool)
 
 
 			state = next_state
@@ -208,18 +226,22 @@ if __name__ == "__main__":
 			for learning in range(100):
 				actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
 
-		# Publishing loss
-			writer.add_scalar("Episode reward", episode_reward, episode_num)
-			writer.add_scalar("Actor loss", actor_loss, episode_num)
-			writer.add_scalar("Critic loss", critic_loss, episode_num)		
-			writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
-			writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
-		# replay_buffer.add_episode(0)
+			# Publishing loss
+			# writer.add_scalar("Actor loss", actor_loss, episode_num)
+			# writer.add_scalar("Critic loss", critic_loss, episode_num)		
+			# writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
+			# writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
 
 		# print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
 		# Evaluate episode
 		if (t + 1) % args.eval_freq == 0:
-			evaluations.append(eval_policy(policy, args.env_name, args.seed))
+			eval_reward = eval_policy(policy, args.env_name, args.seed, 50)
+			evaluations.append(eval_reward)
+			writer.add_scalar("Episode reward", eval_reward, episode_num)
+			writer.add_scalar("Actor loss", actor_loss, episode_num)
+			writer.add_scalar("Critic loss", critic_loss, episode_num)		
+			writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
+			writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)	
 			np.save("./results/%s" % (file_name), evaluations)
 			print()
 

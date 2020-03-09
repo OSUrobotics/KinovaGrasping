@@ -50,7 +50,9 @@ Purpose: XML model of j2s7s300 kinova jaco arm
     	<body name="root" pos="0 0 0">
     		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
 
-            <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
+            <camera name="camera" mode = "fixed" pos = "0 0 0.1" euler = "0 0 0"/>
+            <camera name="camera_1" mode = "fixed" pos = "0 0.1 0.1" euler = "0 0 0"/>
+
 <!--             <camera name="camera" mode = "fixed" pos = "0 0 0.1" quat = "0 -90 0 0"/>
             <camera name="camera" mode = "fixed" pos = "0 0.1 0.1" quat = "0 -90 0 0"/> -->
 
