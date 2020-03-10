@@ -8,8 +8,8 @@ Requirements: [Pytorch 1.2.0](https://pytorch.org/) and Python 3.7
 
 ## Instructions
 There are three experiments to run for two conditions: with and without grasp classifier, in this case we are using state space in global coordinate system. 
-At **kinova_env_gripper.py**, look at *def randomize_all* function. 
 
+At **kinova_env_gripper.py**, look at *def randomize_all* function. 
 Change the argument below to the corresponding experiment number and stage number.
 For example, to run experiment 1 stage 1,
 At line 581, objects = self.experiment(1, 1)  → the first number is experiment number while the second is stage number. 
@@ -18,11 +18,11 @@ Run the commands on terminal below for corresponding experiment.
 ## Commands on terminal
 ### Experiments without grasp classifier
 Experiment 1 stage 1 (varying sizes) 
-'''
+```
 {
 	python main_DDPGfD.py --tensorboardindex exp1s1_wo_graspclassifier --saving_dir exp1s1_wo_graspclassifier
 }
-'''
+```
 
 Experiment 1 stage 2 (varying shapes)
 '''
