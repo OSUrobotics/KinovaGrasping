@@ -19,53 +19,50 @@ Run the commands on terminal below for corresponding experiment.
 ### Experiments without grasp classifier
 Experiment 1 stage 1 (varying sizes) 
 ```
-{
 	python main_DDPGfD.py --tensorboardindex exp1s1_wo_graspclassifier --saving_dir exp1s1_wo_graspclassifier
-}
 ```
 
 Experiment 1 stage 2 (varying shapes)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp1s2_wo_graspclassifier --saving_dir exp1s2_wo_graspclassifier
-'''
+```
 
 Experiment 2 stage 1 (varying shapes)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp2s1_wo_graspclassifier --saving_dir exp2s1_wo_graspclassifier
-'''
+```
 
 Experiment 2 stage 2 (varying sizes)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp2s2_wo_graspclassifier --saving_dir exp2s2_wo_graspclassifier
-'''
+```
 
 Experiment 3 (all objects) 
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp3_wo_graspclassifier --saving_dir exp3_wo_graspclassifier
-'''
+```
 
 ### Experiments with grasp classifier
 Experiment 1 stage 1 (varying sizes) 
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp1s1_w_graspclassifier --saving_dir exp1s1_w_graspclassifier
-'''
+```
 
 Experiment 1 stage 2 (varying shapes)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp1s2_w_graspclassifier --saving_dir exp1s2_w_graspclassifier
-'''
-
+```
 Experiment 2 stage 1 (varying shapes)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp2s1_w_graspclassifier --saving_dir exp2s1_w_graspclassifier
-'''
+```
 
 Experiment 2 stage 2 (varying sizes)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp2s2_w_graspclassifier --saving_dir exp2s2_w_graspclassifier
-'''
+```
 
 Experiment 3 (all objects)
-'''
+```
 python main_DDPGfD.py --tensorboardindex exp3_w_graspclassifier --saving_dir exp3_w_graspclassifier
-'''
+```
