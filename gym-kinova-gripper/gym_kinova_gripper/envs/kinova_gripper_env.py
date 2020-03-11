@@ -162,8 +162,8 @@ class KinovaGripper_Env(gym.Env):
 				elif j == 3:
 					trans.append(mat[i][j])
 			rot_mat.append(orient_temp)
-		pose = list(trans) # + list(euler_vec)
-
+		pose = list(trans) 
+		# pdb.set_trace()
 		return pose
 
 	def _get_joint_states(self):
@@ -188,21 +188,19 @@ class KinovaGripper_Env(gym.Env):
 		finger_obj_dist = self._get_finger_obj_dist()
 
 		palm = self._get_trans_mat(["palm"])[0]
+		# for global
 		finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
+		# for inverse
 		finger_joints_transmat = self._get_trans_mat(["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"])
 		fingers_6D_pose = []
 		if state_rep == "global":			
 			for joint in finger_joints:
-				# rot_mat = R.from_dcm(self._sim.data.get_geom_xmat(joint))
-				# euler_vec = rot_mat.as_euler('zyx', degrees=True)
 				trans = self._sim.data.get_geom_xpos(joint)
 				trans = list(trans)
-				# trans += list(euler_vec)
 				for i in range(3):
 					fingers_6D_pose.append(trans[i])
 			fingers_dot_prod = self._get_fingers_dot_product(fingers_6D_pose)
-			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod + range_data #+ [self.obj_shape]
-			# pdb.set_trace()
+			fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [obj_dot_prod] + fingers_dot_prod + range_data
 
 		elif state_rep == "local":
 			finger_joints_local = []
@@ -240,7 +238,6 @@ class KinovaGripper_Env(gym.Env):
 			# pdb.set_trace()
 		return dists
 
-
 	# get range data from 1 step of time 
 	# Uncertainty: rangefinder could only detect distance to the nearest geom, therefore it could detect geom that is not object
 	def _get_rangefinder_data(self):
@@ -277,29 +274,6 @@ class KinovaGripper_Env(gym.Env):
 		center_unit_vec = center_vec / center_vec_norm
 		dot_prod = np.dot(obj_unit_vec, center_unit_vec)
 		return dot_prod**20 # cuspy to get distinct reward
-
-	'''
-	Testing reward function (not useful, saved it for testing purposes)
-	'''
-	def _get_dist_reward(self, state, action):
-		
-		f1 = self._sim.data.get_geom_xpos("f1_dist")
-
-		target_pos = np.array([0.05813983, 0.01458329])
-		target_vel = np.array([0.0])
-
-		f1_pos_err = (target_pos[0] - state[0])**2 + (target_pos[1] - state[1])**2
-		# f1_curr = math.sqrt((0.05813983 - state[0])**2 + (0.01458329 - state[1])**2)
-		# f1_curr = (0.058 - state[0])**2 + (0.014 - state[1])**2
-		f1_vel_err = (target_vel[0] - action)**2
-
-		f1_pos_reward = 12*(math.exp(-100*f1_pos_err) - 1)
-		f1_vel_reward = 4.5*(math.exp(-f1_vel_err) - 1)
-
-		reward = f1_pos_reward 
-
-		return reward
-
 
 	def _get_reward_DataCollection(self):
 		obj_target = 0.2
@@ -414,13 +388,6 @@ class KinovaGripper_Env(gym.Env):
 					geom_dim = np.array([width_choice[1] / 2.0, height_choice[1] / 2.0])
 				if geom_size == "b":
 					geom_dim = np.array([width_choice[2] / 2.0, height_choice[2] / 2.0])
-			# if geom_type == "sphere":
-			# 	if geom_size == "s":
-			# 		geom_dim = np.array([radius_choice[0]])
-			# 	if geom_size == "m":
-			# 		geom_dim = np.array([radius_choice[1]])
-			# 	if geom_size == "b":
-			# 		geom_dim = np.array([radius_choice[2]])
 
 			return geom_type, geom_dim, geom_size
 							
@@ -446,6 +413,68 @@ class KinovaGripper_Env(gym.Env):
 
 		return geom_type, geom_dim, geom_size
 
+
+	# 80 - 20 % 
+	def sampling_pose_edge_normal(self, size, shape):
+		if shape == "box":
+			if size == "s" or size == "m": # now we assume medium and small objects can run the same poses.
+				all_x_pose = [i*0.005-0.055 for i in range(23)] # 22 poses
+				edge_x = all_x_pose[:3] + all_x_pose[-3:]
+				normal_x = all_x_pose[3:-3]
+				edge_or_normal = np.random.choice(np.array(["normal", "edge"]), p = [0.8, 0.2])
+				if edge_or_normal == "normal":
+					rand_x = random.choice(normal_x)
+					rand_y = random.uniform(0.0, min(0.04, 0.02 + (0.04 - abs(rand_x)))) # random y position from 0.0 to corresponding newly calculated max y
+				elif edge_or_normal == "edge":
+					rand_x = random.choice(edge_x)
+					rand_y = 0.0
+			elif size == "b":
+				all_x_pose = [i*0.005-0.03 for i in range(13)] # 12 poses
+				edge_x = all_x_pose[:2] + all_x_pose[-2:]
+				normal_x = all_x_pose[2:-2]
+				edge_or_normal = np.random.choice(np.array(["normal", "edge"]), p = [0.8, 0.2])
+				if edge_or_normal == "normal":
+					rand_x = random.choice(normal_x)
+					rand_y = random.uniform(0.0, min(0.02, 0.02 - abs(rand_x))) # random y position from 0.0 to corresponding newly calculated max y
+				elif edge_or_normal == "edge":
+					rand_x = random.choice(edge_x)
+					rand_y = 0.0
+		elif shape == "cyl":
+			if size == "s":
+				all_x_pose = [i*0.005-0.05 for i in range(21)] # 22 poses
+				edge_x = all_x_pose[:2] + all_x_pose[-2:]
+				normal_x = all_x_pose[2:-2]
+				edge_or_normal = np.random.choice(np.array(["normal", "edge"]), p = [0.8, 0.2])
+				if edge_or_normal == "normal":
+					rand_x = random.choice(normal_x)
+					rand_y = random.uniform(0.0, min(0.04, 0.02 + (0.04 - abs(rand_x)))) # random y position from 0.0 to corresponding newly calculated max y
+				elif edge_or_normal == "edge":
+					rand_x = random.choice(edge_x)
+					rand_y = 0.0
+			if size == "m":
+				all_x_pose = [i*0.005-0.04 for i in range(17)] # 22 poses
+				edge_x = all_x_pose[:2] + all_x_pose[-2:]
+				normal_x = all_x_pose[2:-2]
+				edge_or_normal = np.random.choice(np.array(["normal", "edge"]), p = [0.8, 0.2])
+				if edge_or_normal == "normal":
+					rand_x = random.choice(normal_x)
+					rand_y = random.uniform(0.0, min(0.03, 0.02 + (0.03 - abs(rand_x)))) # random y position from 0.0 to corresponding newly calculated max y
+				elif edge_or_normal == "edge":
+					rand_x = random.choice(edge_x)
+					rand_y = 0.0
+			elif size == "b":
+				all_x_pose = [i*0.005-0.03 for i in range(13)] # 12 poses
+				edge_x = all_x_pose[:2] + all_x_pose[-2:]
+				normal_x = all_x_pose[2:-2]
+				edge_or_normal = np.random.choice(np.array(["normal", "edge"]), p = [0.8, 0.2])
+				if edge_or_normal == "normal":
+					rand_x = random.choice(normal_x)
+					rand_y = random.uniform(0.0, min(0.02, 0.02 - abs(rand_x))) # random y position from 0.0 to corresponding newly calculated max y
+				elif edge_or_normal == "edge":
+					rand_x = random.choice(edge_x)
+					rand_y = 0.0 				
+
+		return rand_x, rand_y
 
 	def randomize_initial_pose(self, collect_data, size):
 		# geom_type, geom_dim, geom_size = self.gen_new_obj()
@@ -510,75 +539,73 @@ class KinovaGripper_Env(gym.Env):
 		# large x = [0.03, 0.02] 
 		# large y = [0.0, 0.02]
 
-	def experiment(self, exp_num, stage_num):
+	def experiment(self, exp_num, stage_num, test=False):
 		objects = {}
 
-		# ------ Experiment 1 ------- #
-		if exp_num == 1:
+		if not test:
+
+			# ------ Experiment 1 ------- #
+			if exp_num == 1:
+					
+				# Exp 1 Stage 1: Change size ---> 
+				if stage_num == 1:
+					objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+					objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+
+					# Testing Exp 1 Stage 1
+
+				# Exp 1 Stage 2: Change shape
+				if stage_num == 2:
+					objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+					objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"				
+					objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+					objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"	
+
+			# ------ Experiment 2 ------- #
+			elif exp_num == 2:
 				
-			# Exp 1 Stage 1: Change size ---> 
-			if stage_num == 1:
+				# Exp 2 Stage 1: Change shape
+				if stage_num == 1:
+					objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+					objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+
+				# Exp 2 Stage 2: Change size
+				if stage_num == 2:
+					objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+					objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+					objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+					objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+				
+				# Testing Exp 2
+				# objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
+				# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+				# objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+				# objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+				# objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
+				# objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+			# ------ Experiment 3 ------ #
+			elif exp_num == 3:
+				# Mix all
 				objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
 				objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
-
-				# Testing Exp 1 Stage 1
-				#objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
-
-			# Exp 1 Stage 2: Change shape
-			if stage_num == 2:
-				objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
-				objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"				
 				objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
 				objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
+				
 
-				# Testing Exp 1 Stage 2
-				#objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
-		
-		# ------ Experiment 2 ------- #
-		elif exp_num == 2:
-			
-			# Exp 2 Stage 1: Change shape
-			if stage_num == 1:
-				objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
-				objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
-
-			# Exp 2 Stage 2: Change size
-			if stage_num == 2:
-				objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
-				objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
-				objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
-				objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
-			
-			
-			# Testing Exp 2
-			# objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
-			# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
-			# objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
-			# objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
-			# objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
-			# objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
-		# ------ Experiment 3 ------ #
-		elif exp_num == 3:
-			# Mix all
-			objects["sbox"] = "/kinova_description/j2s7s300_end_effector.xml"
-			objects["bbox"] = "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
-			objects["scyl"] = "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
-			objects["bcyl"] = "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
-			
-			# Testing Exp 3
-			#objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
-			# objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
-
+			else:
+				print("Enter Valid Experiment Number")
+				raise ValueError
 		else:
-			print("Enter Valid Experiment Number")
-			raise ValueError
+			# Test objects:
+			objects["mcyl"] = "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+			objects["mbox"] = "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"	
 
 		return objects
 
-	def randomize_all(self):
+	def randomize_all(self, test):
 
-		# Choose an experiment S1
-		objects = self.experiment(1, 1) 
+		### Choose an experiment ###
+		objects = self.experiment(3, 1, test) 
 
 		# Get random shape
 		random_shape = np.random.choice(list(objects.keys()))
@@ -591,24 +618,26 @@ class KinovaGripper_Env(gym.Env):
 			self.obj_shape=1
 		elif (random_shape=="scyl")|(random_shape=="mcyl")|(random_shape=="bcyl"):
 			self.obj_shape=0
-		global anj
-		if (anj == False):
-			self._sim = MjSim(self._model)
-			anj = True
-		# print (random_shape)
-		random_shape = "mbox"
-		if random_shape == "sbox" or random_shape == "scyl":
-			x, y = self.randomize_initial_pose(False, "s")
-			z = 0.05
-		elif random_shape == "mbox" or random_shape == "mcyl":
-			x, y = self.randomize_initial_pose(False, "m")
-			z = 0.055
-		elif random_shape == "bbox" or random_shape == "bcyl":
-			x, y = self.randomize_initial_pose(False, "b")
-			z = 0.06			
-		else:
-			print("size and shape are incorrect")
-			raise ValueError
+		# global anj
+		# if (anj == False):
+		# 	self._sim = MjSim(self._model)
+		# 	anj = True
+		self._sim = MjSim(self._model)
+
+		# if random_shape == "sbox" or random_shape == "scyl":
+		# 	x, y = self.randomize_initial_pose(False, "s")
+		# 	z = 0.05
+		# elif random_shape == "mbox" or random_shape == "mcyl":
+		# 	x, y = self.randomize_initial_pose(False, "m")
+		# 	z = 0.055
+		# elif random_shape == "bbox" or random_shape == "bcyl":
+		# 	x, y = self.randomize_initial_pose(False, "b")
+		# 	z = 0.06			
+		# else:
+		# 	print("size and shape are incorrect")
+		# 	raise ValueError
+		x, y = self.sampling_pose_edge_normal(random_shape[0], random_shape[1:])
+		z = self._get_obj_size()[-1]
 
 		return x, y, z
 
@@ -649,10 +678,9 @@ class KinovaGripper_Env(gym.Env):
 		return rand_x, rand_y, z	
 
 	def reset(self):
-		# x, y = self.randomize_initial_pose(False, "s") # for RL training only one object 
-		# x, y = self.randomize_initial_pose(True) # for data collection
-		x, y, z = self.randomize_all() # for RL training all objects
-		# x, y, z = self.randomize_initial_pos_data_collection()
+		x, y, z = self.randomize_all(False) # for RL training
+		# x, y, z = self.randomize_all(True) # For testing policy
+		
 		self.all_states = np.array([0.0, 0.0, 0.0, 0.0, x, y, z])
 		self._set_state(self.all_states)
 		states = self._get_obs()
@@ -664,7 +692,7 @@ class KinovaGripper_Env(gym.Env):
 	def render(self, mode='human'):
 		if self._viewer is None:
 			self._viewer = MjViewer(self._sim)
-		self._viewer.render()
+			self._viewer.render()
 
 	def close(self):
 		if self._viewer is not None:

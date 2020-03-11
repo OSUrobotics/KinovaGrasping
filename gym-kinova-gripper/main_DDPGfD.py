@@ -43,9 +43,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=50):
 		
 		while not done:
 			action = policy.select_action(np.array(state[0:48]))
-			# print(action)
 			state, reward, done, _ = eval_env.step(action)
-			
 			avg_reward += reward
 			cumulative_reward += reward
 			# eval_env.render()
@@ -140,8 +138,7 @@ if __name__ == "__main__":
 
 	# trained policy
 	policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
-	# policy.load("./policies/exp1s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_09_20_1126")
-	# policy.load("./policies/exp1s1_wgc_evalavg100/DDPGfD_kinovaGrip_03_07_20_1852")
+	# policy.load("./policies/exp2s1_local_wgc_evalavg50/DDPGfD_kinovaGrip_03_09_20_2008")
 
 
 	# old pid control
