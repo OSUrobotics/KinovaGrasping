@@ -1,0 +1,54 @@
+Bigger Object
+		<body name="object" pos="0.1 0.1 0.05">
+			<joint name="object" type="free"/>
+			<geom name="object" mass="0.1" size="0.04 0.013333" euler="0 1.5708 0" pos = "0 0.005 0.15" rgba="1 0 0 1" type="capsule"/>
+		</body>
+		<body name="stand" pos="0 0 0.015">
+			<geom name="stand" mass="0.1" size="0.01 0.01 0.02" euler="0 0 0" rgba="1 0 0 1" type="box"/>
+			
+		</body>
+
+
+Big Object
+
+		<body name="object" pos="0.1 0.1 0.05">
+			<joint name="object" type="free"/>
+			<geom name="object" mass="0.1" size="0.03 0.01" euler="0 1.5708 0" pos = "0 0.005 0.15" rgba="1 0 0 1" type="capsule"/>
+		</body>
+		<body name="stand" pos="0 0 0.015">
+			<geom name="stand" mass="0.1" size="0.03 0.03 0.02" euler="0 0 0" rgba="1 0 0 1" type="box"/>
+			
+		</body>
+
+
+Medium Object
+
+		<body name="object" pos="0.1 0.1 0.05">
+			<joint name="object" type="free"/>
+			<geom name="object" mass="0.1" size="0.0225 0.0075" euler="0 1.5708 0" pos = "0 0.005 0.15" rgba="1 0 0 1" type="capsule"/>
+		</body>
+		<body name="stand" pos="0 0 0.015">
+			<geom name="stand" mass="0.1" size="0.01 0.01 0.02" euler="0 0 0" rgba="1 0 0 1" type="box"/>
+			
+		</body>
+
+
+Small Object
+
+		<body name="object" pos="0.1 0.1 0.05">
+			<joint name="object" type="free"/>
+			<geom name="object" mass="0.1" size="0.0225 0.0075" euler="0 1.5708 0" pos = "0 0.005 0.15" rgba="1 0 0 1" type="capsule"/>
+		</body>
+		<body name="stand" pos="0 0 0.015">
+			<geom name="stand" mass="0.1" size="0.01 0.01 0.02" euler="0 0 0" rgba="1 0 0 1" type="box"/>
+			
+		</body>
+
+
+
+
+
+
+
+
+

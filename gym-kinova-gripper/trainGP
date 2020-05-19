@@ -1,0 +1,62 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jan 13 09:36:32 2020
+
+@author: orochi
+"""
+
+import numpy as np
+import climin
+import GPy
+from ipywidgets import Text
+from IPython.display import display
+import sys
+import torch
+import datetime
+    
+def trainGP(all_training_set,all_training_label,all_testing_set,all_testing_label):
+    t = Text(align='right')
+    display(t)
+    batchsize = 10
+    Z = np.random.rand(54,1)
+    m = GPy.core.SVGP(all_training_set, all_training_label, Z, GPy.kern.RBF(54) + GPy.kern.White(54), GPy.likelihoods.Gaussian(), batchsize=batchsize)
+    m.kern.white.variance = 1e-5
+    m.kern.white.fix()
+    
+    opt = climin.Adadelta(m.optimizer_array, m.stochastic_grad, step_rate=0.2, momentum=0.9)
+    def callback(i):
+        t.value = str(m.log_likelihood())
+        #Stop after 288615 iterations
+        if i['n_iter'] > 288615:
+            return True
+        return False
+    
+    info = opt.minimize_until(callback)
+    all_answers=m.predict(all_testing_set)
+    answer_shape=np.shape(all_answers)
+    percent_right=np.zeros(answer_shape[1])
+    for i in range(answer_shape[1]):
+        if all_answers[0][i]>0.5:
+            percent_right[i]=1
+        else:
+            percent_right[i]=0
+    final_percent=np.sum(abs(all_testing_label-percent_right))/answer_shape[1]
+    print('classifier got ', final_percent*100, '% correct on the test set')
+    print("Finish training, saving...")
+    
+
+    # 1: Saving a model:
+    np.save('model_save.npy', m.param_array)
+    # 2: loading a model
+    # Model creation, without initialization:
+    #m_load = GPy.models.GPRegression(X, Y, initialize=False)
+    #m_load.update_model(False) # do not call the underlying expensive algebra on load
+    #m_load.initialize_parameter() # Initialize the parameters (connect the parameters up)
+    #m_load[:] = np.load('model_save.npy') # Load the parameters
+    #m_load.update_model(True) # Call the algebra only once
+    #print(m_load)
+    model_path="trained_model"
+    np.save(model_path + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".npy",m.param_array)  
+    return 
+

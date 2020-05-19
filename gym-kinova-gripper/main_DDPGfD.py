@@ -131,14 +131,14 @@ if __name__ == "__main__":
 
 	# Initialize replay buffer with expert demo
 	print("----Generating {} expert episodes----".format(args.pre_replay_episode))
-	from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
+	# from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
 	# from pretrain_from_RL import pretrain_from_agent
 	# expert_policy = DDPGfD.DDPGfD(**kwargs)
 	# replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
 
 	# trained policy
-	policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
-	# policy.load("./policies/exp2s1_local_wgc_evalavg50/DDPGfD_kinovaGrip_03_09_20_2008")
+	# policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
+	policy.load("./policies/exp2s1_local_wgc_evalagv50/DDPGfD_kinovaGrip_03_15_20_1238")
 
 
 	# old pid control
@@ -206,7 +206,7 @@ if __name__ == "__main__":
 
 			# Perform action
 			next_state, reward, done, _ = env.step(action) 
-			#next_state = next_state[0:48]
+
 			done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
 			# Store data in replay buffer
@@ -223,11 +223,7 @@ if __name__ == "__main__":
 			for learning in range(100):
 				actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
 
-			# Publishing loss
-			# writer.add_scalar("Actor loss", actor_loss, episode_num)
-			# writer.add_scalar("Critic loss", critic_loss, episode_num)		
-			# writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)		
-			# writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)		
+	
 
 		# print(f"Episode Num: {episode_num} Reward: {episode_reward:.3f}")			
 		# Evaluate episode

@@ -12,19 +12,18 @@ import torch.nn.functional as F
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-'''import gpytorch
+import gpytorch
 from gpytorch.models import ApproximateGP
 from gpytorch.variational import CholeskyVariationalDistribution
 from gpytorch.variational import VariationalStrategy
-from gpytorch.mlls.variational_elbo import VariationalELBO'''
+from gpytorch.mlls.variational_elbo import VariationalELBO
 import math
 
 class LinearNetwork(nn.Module):
 
     def __init__(self):
         super(LinearNetwork, self).__init__()
-#        self.fc1 = nn.Linear(104, 40)
-        self.fc1 = nn.Linear(69, 40) #nice
+        self.fc1 = nn.Linear(69, 40)
         self.fc2 = nn.Linear(40, 20)
         self.fc3 = nn.Linear(20, 10)
         self.fc4 = nn.Linear(10, 1)
@@ -39,7 +38,7 @@ class LinearNetwork(nn.Module):
 class ReducedLinearNetwork(nn.Module):
     def __init__(self):
         super(ReducedLinearNetwork, self).__init__()
-        self.fc1 = nn.Linear(68, 40)
+        self.fc1 = nn.Linear(66, 40)
         self.fc2 = nn.Linear(40, 20)
         self.fc3 = nn.Linear(20, 10)
         self.fc4 = nn.Linear(10, 1)

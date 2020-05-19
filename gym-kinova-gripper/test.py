@@ -12,39 +12,46 @@ from ounoise import OUNoise
 from expert_data import generate_Data, store_saved_data_into_replay
 env.reset()
 
-reward_total = 0
 
-step = 0
-# file_name = open("data_cube_5_10_07_19_1612.pkl", "rb")
-# data = pickle.load(file_name)
-# states = np.array(data["states"])
-# random_states_index = np.random.randint(0, len(states), size = len(states))
-# global local = 48 , metric 47
-num_episode = 5000
-filename = "data_cube_9"
-replay_buffer = utils.ReplayBuffer_episode(48, 4, 100, 100)
-# replay_buffer = generate_Data(env, 100, "collect_jA", replay_buffer)
-replay_buffer = store_saved_data_into_replay(replay_buffer, 10)
-'''
-for _ in range(3):
-	# noise.reset()
+# setup serial
+# ser = serial.Serial("/dev/ttyACM0", 9600)
+# prev_action = [0.0,0.0,0.0,0.0]
+action = np.array([0, 0.3, 0.3, 0.3])
+t = 0
+while True:
+	#env = gym.make('gym_kinova_gripper:kinovagripper-v0')
 	env.reset()
-	# state = env.env.intermediate_state_reset(states[np.random.choice(random_states_index, 1)[0]])
 
-	done = False
-	finger = np.array([0.0, 0.5, 0.5, 0.5])
-	i = 0
-	while not done:
+	for i in range(150):
 
-		i += 1
-		obs, reward, done, _ = env.step(finger)
+	# read action from pyserial
+	# curr_action = ser.readline().decode('utf8').strip().split(",")
+	# for i in range(4):
+	# 	curr_action[i] = float(curr_action[i])
 
-		reward_total += reward 
+	# if np.max(np.array(prev_action) - np.array(curr_action)) < 0.01:
+	# 	# keep going
+	# 	obs, reward, done, _ = env.step(prev_action)
+	# else:
+	# 	# update action
+	# 	obs, reward, done, _ = env.step(curr_action)
 
-		# print(reward)
-		if i > 20:
-			finger = np.array([0.0, 0.5,0.5, 0.5])
-		if i > 60:
-			finger = np.array([2.0, 0.5,0.5, 0.5])
-
-'''
+	# print((curr_action))
+	# prev_action = curr_action
+		obs, reward, done, _ = env.step(action)
+	# action[1] += 0.5
+	# action[2] += 0.2
+	# action[3] += 0.7
+		env.render()
+	# if t > 25:
+	# 	action = np.array([0.1, 0.8, 0.8, 0.8])
+	# # print()
+	# t += 1
+    finger=[0.3,0.1,0.1,0.1]
+    for i in range(50):
+        obs, reward, done, _ = env.step(action)
+	# action[1] += 0.5
+	# action[2] += 0.2
+	# action[3] += 0.7
+		env.render()
+        
