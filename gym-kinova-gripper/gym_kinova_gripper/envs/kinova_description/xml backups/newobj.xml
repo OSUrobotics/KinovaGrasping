@@ -1,0 +1,4 @@
+<body name="cube" pos="0.1 0.1 0.05">
+	<joint name="cube" type="free" />
+	<geom mass="0.1" name="cube" rgba="1 0 0 1" size="1 2 3" type="sphere" />
+</body>

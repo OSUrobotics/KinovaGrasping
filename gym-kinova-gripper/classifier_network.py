@@ -38,7 +38,7 @@ class LinearNetwork(nn.Module):
 class ReducedLinearNetwork(nn.Module):
     def __init__(self):
         super(ReducedLinearNetwork, self).__init__()
-        self.fc1 = nn.Linear(66, 40)
+        self.fc1 = nn.Linear(14, 40)
         self.fc2 = nn.Linear(40, 20)
         self.fc3 = nn.Linear(20, 10)
         self.fc4 = nn.Linear(10, 1)

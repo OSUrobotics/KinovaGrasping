@@ -25,9 +25,12 @@ import NCS_nn
 import random
 import pandas 
 from ounoise import OUNoise
-from classifier_network import LinearNetwork
+from classifier_network import LinearNetwork, ReducedLinearNetwork
 from trainGP import trainGP
 import matplotlib.pyplot as plt
+import csv
+
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -121,7 +124,7 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
     # total_steps = data["total_steps"]
     # actions = data[:, -1]
     # pdb.set_trace()
-    classifier_net = LinearNetwork()
+    classifier_net = ReducedLinearNetwork()
     classifier_net=classifier_net.float()
     
     '''
@@ -156,10 +159,10 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
             #print(random_indicies)
             training_set=training_set[random_indicies,:]
             training_label=training_label[random_indicies]
-            network_feed=training_set[:,0:5]
+            network_feed=training_set[:,21:24]
             #print(np.shape(network_feed))
-            network_feed=np.append(network_feed,training_set[:,6:23], axis=1)
-            network_feed=np.append(network_feed,training_set[:,24:], axis=1)
+            network_feed=np.append(network_feed,training_set[:,27:36], axis=1)
+            network_feed=np.append(network_feed,training_set[:,49:51], axis=1)
             #print(np.shape(network_feed))
             running_loss = 0.0
             start_batch = 0
@@ -219,10 +222,17 @@ def test_network(test_in,test_out,classifier_net,output_threshold=0.8):
     false_neg_indicies=[]
     #for i in range(6):
     i=0
+    '''
     network_feed=test_in[:,0:5]
     #print(np.shape(network_feed))
     network_feed=np.append(network_feed,test_in[:,6:23], axis=1)
     network_feed=np.append(network_feed,test_in[:,24:], axis=1)
+    '''
+    
+    network_feed=test_in[:,21:24]
+            #print(np.shape(network_feed))
+    network_feed=np.append(network_feed,test_in[:,27:36], axis=1)
+    network_feed=np.append(network_feed,test_in[:,49:51], axis=1)
     for j in range(num_tests[0]):
         #print(test_out[j+past_vals])
         #states=torch.tensor(test_in[j+past_vals])
@@ -278,8 +288,8 @@ def get_false_grasps(false_pos_indicies, false_neg_indicies, dataset):
     print(np.shape(dataset))
     num_pos=len(false_pos_indicies)
     num_neg=len(false_neg_indicies)
-    neg_ones=np.zeros([num_neg,71])
-    pos_ones=np.zeros([num_pos,71])
+    neg_ones=np.zeros([num_neg,66])
+    pos_ones=np.zeros([num_pos,66])
     for i in range(num_pos):
         pos_ones[i] = dataset[false_pos_indicies[i]]
     for i in range(num_neg):
@@ -499,8 +509,8 @@ if __name__ == '__main__':
     num_epoch = 10000
     batch_size = 25
     files_dir = "/home/orochi/NCS_data/"
-    files = [files_dir + "Data_Box_B_01_16_20_1728", files_dir + "Data_Box_B_01_21_20_1951", files_dir + "Data_Box_M_01_16_20_1826", files_dir + "Data_Box_M_01_21_20_2005", files_dir + "Data_Box_S_01_16_20_2335", files_dir + "Data_Box_S_01_21_20_2106",files_dir + "Data_Cylinder_B_01_16_20_1405", files_dir + "Data_Cylinder_B_01_21_20_1956", files_dir + "Data_Cylinder_M_01_16_20_1505", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_S_01_17_20_0009", files_dir + "Data_Cylinder_S_01_21_20_2118", files_dir + "Data_Hour_B_03_31_20_0348", files_dir + "Data_Hour_M_03_30_20_1756", files_dir + "Data_Hour_S_03_30_20_1743"]
-
+    #files = [files_dir + "Data_Box_B_01_16_20_1728", files_dir + "Data_Box_B_01_21_20_1951", files_dir + "Data_Box_M_01_16_20_1826", files_dir + "Data_Box_M_01_21_20_2005", files_dir + "Data_Box_S_01_16_20_2335", files_dir + "Data_Box_S_01_21_20_2106",files_dir + "Data_Cylinder_B_01_16_20_1405", files_dir + "Data_Cylinder_B_01_21_20_1956", files_dir + "Data_Cylinder_M_01_16_20_1505", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_S_01_17_20_0009", files_dir + "Data_Cylinder_S_01_21_20_2118", files_dir + "Data_Hour_B_03_31_20_0348", files_dir + "Data_Hour_M_03_30_20_1756", files_dir + "Data_Hour_S_03_30_20_1743"]
+    files = [files_dir + "Data_Hour_B_05_14_20_0750", files_dir + "Data_Hour_M_05_14_20_0652", files_dir +"Data_Hour_S_05_14_20_0557", files_dir +"Data_Cylinder_B_05_14_20_0453", files_dir +"Data_Cylinder_M_05_14_20_0407", files_dir +"Data_Cylinder_S_05_14_20_0319",files_dir +"Data_Box_B_05_14_20_0216", files_dir +"Data_Box_M_05_14_20_0131", files_dir +"Data_Box_S_05_14_20_0044"]
     all_training_set = []
     all_training_label = []
     all_testing_set = []
@@ -511,7 +521,10 @@ if __name__ == '__main__':
         data = pickle.load(file)
         file.close()
         state_input = np.array(data["states"])
-        #print(state_input[:])
+        #print(np.shape(state_input))
+        temp = state_input[:,0:49]
+        state_input=np.append(temp,state_input[:,55:],axis=1)
+        
         SI_size=np.shape(state_input)
         #print(data)
         grasp_label = np.array(data["grasp_success"])   
@@ -531,10 +544,12 @@ if __name__ == '__main__':
         num_inputs=np.shape(state_input)
         shape_type=np.zeros([num_inputs[0],1])
         #print(num_inputs)
-        si=np.zeros([num_inputs[0],71])
+        si=np.zeros([num_inputs[0],66])
+        #print(np.shape(si))
         for j in range(num_inputs[0]):
             temp=state_input[j]
-            si[j]=temp[0:71]
+            #print(temp)
+            si[j]=temp[0:66]
         #if i<6:
         #    shape_type[:]=1
         state_input=si
@@ -564,23 +579,23 @@ if __name__ == '__main__':
     all_testing_set=np.array(all_testing_set)
     all_training_label=np.array(all_training_label)
     all_testing_label=np.array(all_testing_label)
-    
+    print(np.shape(all_testing_set))
     #GP_net=trainGP(all_training_set,all_training_label,all_testing_set,all_testing_label)
     #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label)    
-    model = LinearNetwork()
-    model.load_state_dict(torch.load('trained_model_04_22_20_1727.pt'))
+    model = ReducedLinearNetwork()
+    model.load_state_dict(torch.load('trained_model_05_14_20_1349local.pt'))
     model.eval()
     print('model loaded')
     #output = 0.25
     
-    total_percent=np.zeros(100)
-    false_pos=np.zeros([100,6])
-    true_pos=np.zeros([100,6])
+    total_percent=np.zeros(10)
+    false_pos=np.zeros([10,6])
+    true_pos=np.zeros([10,6])
     print(testing_len)
     for i in range(10):
-        total_percent[i],true_pos[i,:],false_pos[i,:],false_pos_indicies,false_neg_indicies=test_network(all_testing_set[0:testing_len], all_testing_label[0:testing_len],model,0.2+0.0)    
-        p_show, f_show = get_false_grasps(false_pos_indicies,false_neg_indicies, all_testing_set[0:testing_len])
-        show_false_grasps(p_show,f_show,"Box","B")
+        total_percent[i],true_pos[i,:],false_pos[i,:],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model,0.1*i+0.0)    
+        #p_show, f_show = get_false_grasps(false_pos_indicies,false_neg_indicies, all_testing_set[0:testing_len])
+        #show_false_grasps(p_show,f_show,"Box","B")
     for j in range(1):
         print(true_pos[:,j],false_pos[:,j])
         plt.plot(false_pos[:,j],true_pos[:,j])
