@@ -10,6 +10,19 @@ import torch.nn.functional as F
 from scipy.stats import triang
 #import serial
 import matplotlib.pyplot as plt
+<<<<<<< HEAD
+#import optimizer
+import csv
+import time
+env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
+print('action space',env.action_space.low, env.action_space.high)
+#env.reset()
+# setup serial
+# ser = serial.Serial("/dev/ttyACM0", 9600)
+# prev_action = [0.0,0.0,0.0,0.0]
+action = np.array([0.0, 0.0, 0.0, 0.1, 0.0, 0.0])
+
+=======
 import optimizer
 import csv
 import time
@@ -19,6 +32,7 @@ env.reset()
 # ser = serial.Serial("/dev/ttyACM0", 9600)
 # prev_action = [0.0,0.0,0.0,0.0]
 action = np.array([0.0, -0.1, 0.0, 0.0, 0.0, 0.0])
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
 t = 0
 '''
 size=[0.0175,0.02125,0.025]
@@ -51,10 +65,19 @@ plt.show()
 '''
 model = ReducedLinearNetwork()
 model=model.float()
+<<<<<<< HEAD
+model.load_state_dict(torch.load('trained_model_05_30_20_1119local.pt'))
+model=model.float()
+model.eval()
+print('model loaded')
+coords='local'
+
+=======
 model.load_state_dict(torch.load('trained_model_05_14_20_1349local.pt'))
 model=model.float()
 model.eval()
 print('model loaded')
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
 episode_obs=[]
 #t=time.time()
 #ttot=np.array([])
@@ -64,13 +87,28 @@ for k in range(20):
     x_move = np.random.rand()/10
     y_move = np.random.rand()/10
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
+<<<<<<< HEAD
+    #action= np.array([1, 1, 1, 0.3, 0.3, 0.3,0.1,0.1,0.1,0.1])
+    #action= np.array([0, 0, 0.3,0.1,0.1,0.1])
+
+=======
     action= np.array([0, 0, 0.0, 0.0, 0.0, 0.0])
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
     #print(0.5-x_move, -y_move)
     #env.randomize_initial_pos_data_collection()
     #env.save_vid()
     #print('reset')
     #t3=time.time()
+<<<<<<< HEAD
+    action=np.array([0,0,0,0.3, 0.3, 0.3])
+    print('reset')
+    for i in range(2500):
+        
+        #print(action)
+
+=======
     for i in range(250):
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
     # read action from pyserial
     # curr_action = ser.readline().decode('utf8').strip().split(",")
     # for i in range(4):
@@ -83,6 +121,18 @@ for k in range(20):
     #     # update action
     #     obs, reward, done, _ = env.step(curr_action)
         
+<<<<<<< HEAD
+        #if i == 70:
+        #    print('move in x')
+        #    action=np.array([0,0,0,0.3, 0.3, 0.3])
+        #if i == 80:
+        #    print('move in y')
+        #    action=np.array([0,-0.1,0,0.0, 0.0, 0.0])
+        if i == 170:
+            print('move in z')
+            action=np.array([0,0,0.1,0.05, 0.05, 0.05])
+
+=======
         if i == 70:
             print('move in x')
             action=np.array([0.1,0,0,0.0, 0.0, 0.0])
@@ -93,6 +143,7 @@ for k in range(20):
             print('move in z')
             action=np.array([0,0,0.1,0, 0.0, 0.0])
         
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         '''
         if i ==10:
             action = np.array([0,0,0,0.3,0.3,0.3])
@@ -102,6 +153,32 @@ for k in range(20):
         '''
     # print((curr_action))
     # prev_action = curr_action
+<<<<<<< HEAD
+        if coords=='global':
+            temp=np.array([action[0],action[1],action[2],1])
+            #print(env.Twf,temp)
+            action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
+            #action[3:6]=np.matmul(env.Twf[0:3,0:3],action[3:6])
+        #print(action)
+        obs, reward, done, _ = env.step(action)
+        #print(optimizer.optimize_grasp(obs,reward))
+        #print('reward',reward,'done',done)
+        #obs=np.copy(obs)
+        network_feed=obs[21:24]
+            #print(np.shape(network_feed))
+        network_feed=np.append(network_feed,obs[27:36])
+        network_feed=np.append(network_feed,obs[49:51])
+        
+        
+        #network_feed=np.copy(obs[0:61])
+        #print('network feed', network_feed)
+        states=torch.zeros(1,14, dtype=torch.float)
+        #print(len(network_feed))
+        for j in range(len(network_feed)):
+            states[0][j]= network_feed[j]
+            #print(j)
+
+=======
         obs, reward, done, _ = env.step(action)
         #print(optimizer.optimize_grasp(obs,reward))
         #print(obs)
@@ -114,18 +191,27 @@ for k in range(20):
         states=torch.zeros(1,14, dtype=torch.float)
         for j in range(len(network_feed)):
             states[0][j]= network_feed[j]
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         #print(states)
         #input_stuff=torch.tensor(network_feed,dtype=torch.float)
         
         states=states.float()
+<<<<<<< HEAD
+        #env.render()
+
+=======
         env.render()
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         #t3=time.time()
         #np.random.rand(14)
         output = model(states)
         #t4=time.time()
         
         #ttot=np.append(ttot,t4-t3)
+<<<<<<< HEAD
+=======
         #print(output)
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         #if output >0.2:
         #    if k ==0:
         #        episode_obs=np.copy(network_feed)
@@ -147,7 +233,12 @@ for k in range(20):
     # action[1] += 0.5
     # action[2] += 0.2
     # action[3] += 0.7
+<<<<<<< HEAD
+        env.render()
+
+=======
         #env.render()
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
     # if t > 25:
     #     action = np.array([0.1, 0.8, 0.8, 0.8])
     # # print()
