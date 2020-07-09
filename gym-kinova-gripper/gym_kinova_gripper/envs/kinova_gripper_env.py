@@ -147,6 +147,14 @@ class KinovaGripper_Env(gym.Env):
     # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
     def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
         self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
+<<<<<<< HEAD
+        Rfa=self._sim.data.get_geom_xmat('palm')
+        temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
+        temp=np.transpose(temp)
+        temp=np.matmul(temp,np.array([[1,0,0],[0,1,0],[0,0,1]]))
+        Tfa=np.zeros([4,4])
+        Twf=np.zeros([4,4])
+=======
         Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
         #print('xmat',Rfa)
         temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
@@ -154,6 +162,7 @@ class KinovaGripper_Env(gym.Env):
         #print('xmat times const matrix',temp)
 #        temp=np.matmul(temp,np.array([[1,0,0],[0,1,0],[0,0,1]]))
         Tfa=np.zeros([4,4])
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         Tfa[0:3,0:3]=temp
         Tfa[3,3]=1       
         Tfw=np.zeros([4,4])
@@ -162,9 +171,16 @@ class KinovaGripper_Env(gym.Env):
         self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[0.0,0.06,0.0])
         Tfw[0:3,3]=np.matmul(-np.transpose(Tfw[0:3,0:3]),self.wrist_pose)
         self.Tfw=Tfw 
+<<<<<<< HEAD
+        Twf[0:3,0:3]=np.transpose(Tfw[0:3,0:3])
+        Twf[3,3]=1
+        Twf[0:3,3]=-np.matmul(Twf[0:3,0:3],Tfw[0:3,3])
+        self.Twf=np.linalg.inv(Twf)
+=======
         self.Twf=np.linalg.inv(Tfw)
         #print('Tfw', self.Tfw)
         #print('Twf',self.Twf)
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         
     def _get_jacobian(self): #(Currently Broken and Not Used)
         pi=np.pi
@@ -246,7 +262,11 @@ class KinovaGripper_Env(gym.Env):
         elif state_rep == "local":
             
             for joint in finger_joints:
+<<<<<<< HEAD
+                trans = self._sim.data.get_geom_xpos(joint)
+=======
                 trans = np.copy(self._sim.data.get_geom_xpos(joint))
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
                 trans_for_roation=np.append(trans,1)
                 trans_for_roation=np.matmul(self.Tfw,trans_for_roation)
                 trans = trans_for_roation[0:3]
@@ -261,7 +281,11 @@ class KinovaGripper_Env(gym.Env):
             obj_pose = obj_for_roation[0:3]
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data #+ [self.obj_shape]
             #print('finger object distance',finger_obj_dist)
+<<<<<<< HEAD
+            print('distal joint states',joint_states[-3:])
+=======
             #print('distal joint states',joint_states[-3:])
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         elif state_rep == "joint_states":
             fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [x_angle, z_angle] #+ fingers_dot_prod
         return fingers_6D_pose 
@@ -300,7 +324,10 @@ class KinovaGripper_Env(gym.Env):
     
     # Function to return the angles between the palm normal and the object location
     def _get_angles(self):
+<<<<<<< HEAD
+=======
         #t=time.time()
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         obj_pose = self._get_obj_pose()
         self._get_trans_mat_wrist_pose()
         local_obj_pos=np.copy(obj_pose)
@@ -312,7 +339,10 @@ class KinovaGripper_Env(gym.Env):
         z_angle = np.arccos(z_dot/np.linalg.norm(obj_wrist[0:2]))
         x_dot = np.dot(obj_wrist[1:3],center_line[1:3])
         x_angle = np.arccos(x_dot/np.linalg.norm(obj_wrist[1:3]))
+<<<<<<< HEAD
+=======
         #print('angle calc took', t-time.time(), 'seconds')
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
         return x_angle,z_angle
 
     # Function to get rewards based only on the lift reward. This is primarily used to generate data for the grasp classifier
@@ -377,7 +407,10 @@ class KinovaGripper_Env(gym.Env):
         self._sim.data.qpos[5] = states[3]
         self._sim.data.set_joint_qpos("object", [states[4], states[5], states[6], 1.0, 0.0, 0.0, 0.0])
         self._sim.forward()
+<<<<<<< HEAD
+=======
         
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
     # Function to get the dimensions of the object
     def _get_obj_size(self): #TODO: tweak this so that it doesn't get fucked by a shape with only two dimensions (eg. cylinder)
         size=self._sim.model.geom_size[-1]
@@ -721,17 +754,28 @@ class KinovaGripper_Env(gym.Env):
         
         
         for _ in range(self.frame_skip): #TODO: Fix this for local coordinates
+<<<<<<< HEAD
+            slide_vector=np.array([action[0],action[1],action[2]])
+=======
             slide_vector=np.array([-action[0],-action[1],action[2]])
             #print(slide_vector)
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
             #print("slide vector", slide_vector)
             #print('pre',slide_vector)
             #slide_2=np.matmul(self.Twf[0:3,0:3],slide_vector)
             #slide_vector=np.matmul(self.Twf[0:3,0:3],slide_vector)
+<<<<<<< HEAD
+=======
             #print('slide_vector',slide_vector)
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
             #print('TFW',self.Tfw)
             #print('TWF', self.Twf)
             #print('TFW slide',slide_vector)
             #print('TWF slide', slide_2)
+<<<<<<< HEAD
+            #print('post',slide_vector)
+=======
+>>>>>>> 38e1e2f0ef791a285691a13b0a5816ff9ae64f47
             '''
             if action[0] < 0.0:
                 self._sim.data.ctrl[0] = 0.0
