@@ -449,6 +449,11 @@ class ExpertPIDController(object):
 
 		return np.array([wrist, f1, f2, f3]), label
 
+def GenerateTestPID_JointVel(obs,env):
+    grasp_label=[]
+    controller = ExpertPIDController(obs)
+    action,grasp_label=controller.NudgeController(obs, env.action_space,grasp_label)
+    return action
 
 def GenerateExpertPID_JointVel(episode_num, replay_buffer, save=True):
 	env = gym.make('gym_kinova_gripper:kinovagripper-v0')

@@ -6,6 +6,8 @@ import main_DDPGfD
 import gym
 import pandas as pd
 import matplotlib.pyplot as plt
+from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
+
 
 def pretrain_from_agent(policy, env, replay_buffer, episode_num):
 	policy.load("DDPGfD_kinovaGrip_10_21_19_1801")
@@ -41,7 +43,8 @@ for i in range(7):
     if i==0:
         policy.load(filepath+addons[0])
         print(addons[0])
-        _ ,tot_rewards[i]= main_DDPGfD.eval_policy(policy, "gym_kinova_gripper:kinovagripper-v0", 2,eval_episodes=40)
+        _ ,num_succeses= main_DDPGfD.eval_policy(policy, "gym_kinova_gripper:kinovagripper-v0", 2,eval_episodes=40)
+        print(num_succeses)
         #print('calculated avg rewards',np.average(tot_rewards[i]))
         #print('calculated std dev', np.std(tot_rewards[i]))
     

@@ -186,12 +186,14 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
     start = time.time()
     graspSuccess_label = []
     obs_label = []
+
     print('AWOOOOOOOOOGA')
+    #t=time.time()
     for episode in range(episode_num):
         obs, done = env.reset(start_pos=None, obj_params=[obj_shape,obj_size]), False
         #print(obs[21:24])
         reward = 0
-        target_joint_config = getRandomJoint(obj_size, obs[21], obj_shape)
+        #target_joint_config = getRandomJoint(obj_size, obs[21], obj_shape)
         #print(target_joint_config)
         #print(obs[25:28])
         step = 0
@@ -199,29 +201,33 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
         reach = False
         episode_obs_label = []
         random_finger_action = getRandomVelocity()
+        prelim_finger_action = getRandomVelocity()
+        #random_hand_motion = np.random.rand(3)*0.3-0.15
         while not done:
             # finger action 
-            finger_action = []
+            #finger_action = []
             # First part : go to random joint config         
             # print((np.array(obs[25:28])))
-            if (np.max(np.abs((np.array(obs[25:28]) - target_joint_config))) > 0.1) and (reach == False) and prelim_step <200:
-                for finger in range(3):
+            
+            if prelim_step <=100:
+            #if (np.max(np.abs((np.array(obs[25:28]) - target_joint_config))) > 0.1) and (reach == False) and prelim_step <200:
+                #for finger in range(3):
                     # print(target_joint_config[i], obs[25+i])
-                    finger_action.append(PID(target_joint_config[finger], obs[25+finger]))
-                action = np.array([0.0, 0.0, 0.0, finger_action[0], finger_action[1], finger_action[2]])
+                #    finger_action.append(PID(target_joint_config[finger], obs[25+finger]))
+                action = np.array([0.0, 0.0, 0.0, prelim_finger_action[0], prelim_finger_action[1], prelim_finger_action[2]])
                 episode_obs_label=obs
                 prelim_step+=1
             # Second part : close fingers
             else:
                 reach = True # for not going back to the previous if loop
                 step += 1     
-                if step >= 25 and step < 75: # wait for one second
-                    if step >70:
+                if step >= 10 and step < 85: # wait for one second
+                    if step >80:
                         episode_obs_label=obs # collect observation data after reach random joint config
                     #print('closing')
                     # action = np.array([0.0, 0.2, 0.2, 0.2])
-                    action = np.array([0.0, 0.0, 0.0, random_finger_action[0], random_finger_action[1], random_finger_action[2]])
-                elif step > 75:
+                    action = np.array([0,0,0, random_finger_action[0], random_finger_action[1], random_finger_action[2]])
+                elif step > 85:
                     # finger_action = getRandomVelocity()
                     action = np.array([0.0, 0.0, 0.15, 0.05, 0.05, 0.05])
                     #print('lifting')
@@ -244,11 +250,14 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
         #print(obs_label)
         #Sprint(graspSuccess_label)
         #print(obs_label)
-        print(episode)
-        print(np.average(graspSuccess_label))
+        if episode%500==0:
+            #t2=time.time()
+            #print('time elapsed:', t2-t)
+            print(episode)
+            print(np.average(graspSuccess_label))
     # print(time.time() - start)
     # pdb.set_trace()
-
+    print('finished shape', obj_shape, 'with size', obj_size)
     if save:
         filename = "/home/orochi/NCS_data/Data" + "_{}".format(obj_shape) + "_{}".format(obj_size) + "LOCAL"
         print("Saving...")
@@ -260,22 +269,47 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
         # data["total_steps"] = total_steps
         file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
         pickle.dump(data, file)
-        file.close()    
+        file.close()
 
-DataCollection_GraspClassifier(1000, "Box", "S", True)
-DataCollection_GraspClassifier(1000, "Box", "M", True)
-DataCollection_GraspClassifier(1000, "Box", "B", True)
-       
-DataCollection_GraspClassifier(1000, "Cylinder", "S", True)
-DataCollection_GraspClassifier(1000, "Cylinder", "M", True)
-DataCollection_GraspClassifier(1000, "Cylinder", "B", True)
-        
-DataCollection_GraspClassifier(1000, "Hour", "S", True)
-DataCollection_GraspClassifier(1000, "Hour", "M", True)
-DataCollection_GraspClassifier(1000, "Hour", "B", True)
+'''
+DataCollection_GraspClassifier(5000, "Box", "S", True)
+DataCollection_GraspClassifier(5000, "Box", "M", True)
+DataCollection_GraspClassifier(5000, "Box", "B", True)
 
-#DataCollection_GraspClassifier(100, "Box", "S", True)
-#DataCollection_GraspClassifier(100, "Hour", "M", True)
-#DataCollection_GraspClassifier(100, "Hour", "B", True)
+DataCollection_GraspClassifier(5000, "Cylinder", "S", True)
+DataCollection_GraspClassifier(5000, "Cylinder", "M", True)
+DataCollection_GraspClassifier(5000, "Cylinder", "B", True)
+
+DataCollection_GraspClassifier(5000, "Bottle", "S", True)
+DataCollection_GraspClassifier(5000, "Bottle", "M", True)
+DataCollection_GraspClassifier(5000, "Bottle", "B", True)
+'''
+#DataCollection_GraspClassifier(5000, "Bowl", "S", True)
+#DataCollection_GraspClassifier(5000, "Bowl", "M", True)
+#DataCollection_GraspClassifier(5000, "Bowl", "B", True)
+
+DataCollection_GraspClassifier(5000, "TBottle", "S", True)
+DataCollection_GraspClassifier(5000, "TBottle", "M", True)
+DataCollection_GraspClassifier(5000, "TBottle", "B", True)
+
+#DataCollection_GraspClassifier(5000, "RBowl", "S", True)
+#DataCollection_GraspClassifier(5000, "RBowl", "M", True)
+#DataCollection_GraspClassifier(5000, "RBowl", "B", True)
+'''
+DataCollection_GraspClassifier(5000, "Lemon", "S", True)
+DataCollection_GraspClassifier(5000, "Lemon", "M", True)
+DataCollection_GraspClassifier(5000, "Lemon", "B", True)
 
 
+DataCollection_GraspClassifier(5000, "Vase", "S", True)
+DataCollection_GraspClassifier(5000, "Vase", "M", True)
+
+
+
+DataCollection_GraspClassifier(5000, "Vase", "B", True)
+
+DataCollection_GraspClassifier(5000, "Hour", "S", True)
+DataCollection_GraspClassifier(5000, "Hour", "M", True)
+DataCollection_GraspClassifier(5000, "Hour", "B", True)
+
+'''

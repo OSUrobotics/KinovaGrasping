@@ -20,7 +20,6 @@ print('action space',env.action_space.low, env.action_space.high)
 # ser = serial.Serial("/dev/ttyACM0", 9600)
 # prev_action = [0.0,0.0,0.0,0.0]
 action = np.array([0.0, 0.0, 0.0, 0.1, 0.0, 0.0])
-
 t = 0
 '''
 size=[0.0175,0.02125,0.025]
@@ -58,8 +57,6 @@ model=model.float()
 model.eval()
 print('model loaded')
 coords='local'
-
-
 episode_obs=[]
 #t=time.time()
 #ttot=np.array([])
@@ -71,7 +68,6 @@ for k in range(20):
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
     #action= np.array([1, 1, 1, 0.3, 0.3, 0.3,0.1,0.1,0.1,0.1])
     #action= np.array([0, 0, 0.3,0.1,0.1,0.1])
-
     #print(0.5-x_move, -y_move)
     #env.randomize_initial_pos_data_collection()
     #env.save_vid()
@@ -82,8 +78,6 @@ for k in range(20):
     for i in range(2500):
         
         #print(action)
-
-
     # read action from pyserial
     # curr_action = ser.readline().decode('utf8').strip().split(",")
     # for i in range(4):
@@ -105,8 +99,6 @@ for k in range(20):
         if i == 170:
             print('move in z')
             action=np.array([0,0,0.1,0.05, 0.05, 0.05])
-
-
         '''
         if i ==10:
             action = np.array([0,0,0,0.3,0.3,0.3])
@@ -139,8 +131,6 @@ for k in range(20):
         for j in range(len(network_feed)):
             states[0][j]= network_feed[j]
             #print(j)
-
-
         #print(states)
         #input_stuff=torch.tensor(network_feed,dtype=torch.float)
         
@@ -152,7 +142,6 @@ for k in range(20):
         #t4=time.time()
         
         #ttot=np.append(ttot,t4-t3)
-
         #if output >0.2:
         #    if k ==0:
         #        episode_obs=np.copy(network_feed)
@@ -175,7 +164,6 @@ for k in range(20):
     # action[2] += 0.2
     # action[3] += 0.7
         env.render()
-
     # if t > 25:
     #     action = np.array([0.1, 0.8, 0.8, 0.8])
     # # print()
