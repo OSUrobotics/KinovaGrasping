@@ -55,13 +55,11 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
     	<body name="root" pos="0 0 0">
     		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
-				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.57 0.0 -1.57">
+				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.24 -0.05 -0.21">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
-<!--
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" />
 					<joint name="j2s7s300_slide_y" type="slide" pos="0 0 0" axis="0 0 1" limited="true" range="-0.5 0.5" />
--->
 					<joint name="j2s7s300_slide_z" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="-0.5 0.5" />
 
 					<geom name="palm" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_7"/>
@@ -212,12 +210,11 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 	</actuator>  -->
 	<!-- ================== Velocity actuators ==========================-->
 	<actuator>
-<!--
+
 		<velocity joint="j2s7s300_slide_x" kv="150" ctrllimited="true" ctrlrange="-0.5 0.5"></velocity>	
 		<motor joint="j2s7s300_slide_x" gear="25"></motor>
 		<velocity joint="j2s7s300_slide_y" kv="150" ctrllimited="true" ctrlrange="-0.5 0.5"></velocity>
 		<motor joint="j2s7s300_slide_y" gear="25"></motor>
--->
 		<velocity joint="j2s7s300_slide_z" kv="150" ctrllimited="true" ctrlrange="-0.5 0.5"></velocity>	
 		<motor joint="j2s7s300_slide_z" gear="25"></motor>	
 
@@ -248,10 +245,9 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 	</actuator> -->
     <sensor>
     	<!-- Joint Angles -->
-<!--
+
 	<jointpos joint='j2s7s300_slide_x'/>
 	<jointpos joint='j2s7s300_slide_y'/>
--->
         <jointpos joint='j2s7s300_slide_z'/>
 
 <!--

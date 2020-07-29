@@ -283,19 +283,20 @@ DataCollection_GraspClassifier(5000, "Cylinder", "B", True)
 DataCollection_GraspClassifier(5000, "Bottle", "S", True)
 DataCollection_GraspClassifier(5000, "Bottle", "M", True)
 DataCollection_GraspClassifier(5000, "Bottle", "B", True)
-'''
-#DataCollection_GraspClassifier(5000, "Bowl", "S", True)
-#DataCollection_GraspClassifier(5000, "Bowl", "M", True)
-#DataCollection_GraspClassifier(5000, "Bowl", "B", True)
+
+DataCollection_GraspClassifier(5000, "Bowl", "S", True)
+DataCollection_GraspClassifier(5000, "Bowl", "M", True)
+DataCollection_GraspClassifier(5000, "Bowl", "B", True)
 
 DataCollection_GraspClassifier(5000, "TBottle", "S", True)
 DataCollection_GraspClassifier(5000, "TBottle", "M", True)
+'''
 DataCollection_GraspClassifier(5000, "TBottle", "B", True)
 
-#DataCollection_GraspClassifier(5000, "RBowl", "S", True)
-#DataCollection_GraspClassifier(5000, "RBowl", "M", True)
-#DataCollection_GraspClassifier(5000, "RBowl", "B", True)
-'''
+DataCollection_GraspClassifier(5000, "RBowl", "S", True)
+DataCollection_GraspClassifier(5000, "RBowl", "M", True)
+DataCollection_GraspClassifier(5000, "RBowl", "B", True)
+
 DataCollection_GraspClassifier(5000, "Lemon", "S", True)
 DataCollection_GraspClassifier(5000, "Lemon", "M", True)
 DataCollection_GraspClassifier(5000, "Lemon", "B", True)
@@ -303,13 +304,9 @@ DataCollection_GraspClassifier(5000, "Lemon", "B", True)
 
 DataCollection_GraspClassifier(5000, "Vase", "S", True)
 DataCollection_GraspClassifier(5000, "Vase", "M", True)
-
-
-
 DataCollection_GraspClassifier(5000, "Vase", "B", True)
 
 DataCollection_GraspClassifier(5000, "Hour", "S", True)
 DataCollection_GraspClassifier(5000, "Hour", "M", True)
 DataCollection_GraspClassifier(5000, "Hour", "B", True)
 
-'''

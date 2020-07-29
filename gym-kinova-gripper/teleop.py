@@ -50,12 +50,14 @@ plt.axis([-0.09,0.09,-0.01,0.08])
 plt.show()
 
 '''
+'''
 model = ReducedLinearNetwork()
 model=model.float()
 model.load_state_dict(torch.load('trained_model_05_30_20_1119local.pt'))
 model=model.float()
 model.eval()
 print('model loaded')
+'''
 coords='local'
 episode_obs=[]
 #t=time.time()
@@ -138,7 +140,7 @@ for k in range(20):
         #env.render()
         #t3=time.time()
         #np.random.rand(14)
-        output = model(states)
+        #output = model(states)
         #t4=time.time()
         
         #ttot=np.append(ttot,t4-t3)

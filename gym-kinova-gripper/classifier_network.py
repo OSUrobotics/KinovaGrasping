@@ -23,7 +23,48 @@ class LinearNetwork(nn.Module):
 
     def __init__(self):
         super(LinearNetwork, self).__init__()
-        self.fc1 = nn.Linear(69, 40)
+        self.fc1 = nn.Linear(72, 40)
+        self.fc2 = nn.Linear(40, 20)
+        self.fc3 = nn.Linear(20, 10)
+        self.fc4 = nn.Linear(10, 1)
+
+    def forward(self, x):
+        x = torch.sigmoid(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        x = torch.sigmoid(self.fc3(x))
+        x = torch.sigmoid(self.fc4(x))
+        return x
+
+class LinearNetwork3Layer(nn.Module):
+    
+    def __init__(self):
+        super(LinearNetwork3Layer, self).__init__()
+        self.fc1 = nn.Linear(72, 40)
+        self.fc2 = nn.Linear(40, 1)
+
+    def forward(self, x):
+        x = torch.sigmoid(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        return x
+
+class LinearNetwork4Layer(nn.Module):
+    
+    def __init__(self):
+        super(LinearNetwork4Layer, self).__init__()
+        self.fc1 = nn.Linear(72, 40)
+        self.fc2 = nn.Linear(40, 10)
+        self.fc3 = nn.Linear(10, 1)
+
+    def forward(self, x):
+        x = torch.sigmoid(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        x = torch.sigmoid(self.fc3(x))
+        return x
+
+class ReducedLinearNetwork(nn.Module):
+    def __init__(self):
+        super(ReducedLinearNetwork, self).__init__()
+        self.fc1 = nn.Linear(12, 40)
         self.fc2 = nn.Linear(40, 20)
         self.fc3 = nn.Linear(20, 10)
         self.fc4 = nn.Linear(10, 1)
@@ -35,17 +76,28 @@ class LinearNetwork(nn.Module):
         x = torch.sigmoid(self.fc4(x))
         return x
     
-class ReducedLinearNetwork(nn.Module):
+class ReducedLinearNetwork3Layer(nn.Module):
+    
     def __init__(self):
-        super(ReducedLinearNetwork, self).__init__()
-        self.fc1 = nn.Linear(14, 40)
-        self.fc2 = nn.Linear(40, 20)
-        self.fc3 = nn.Linear(20, 10)
-        self.fc4 = nn.Linear(10, 1)
+        super(ReducedLinearNetwork3Layer, self).__init__()
+        self.fc1 = nn.Linear(12, 40)
+        self.fc2 = nn.Linear(40, 1)
+
+    def forward(self, x):
+        x = torch.sigmoid(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        return x
+
+class ReducedLinearNetwork4Layer(nn.Module):
+    
+    def __init__(self):
+        super(ReducedLinearNetwork4Layer, self).__init__()
+        self.fc1 = nn.Linear(12, 40)
+        self.fc2 = nn.Linear(40, 10)
+        self.fc3 = nn.Linear(10, 1)
 
     def forward(self, x):
         x = torch.sigmoid(self.fc1(x))
         x = torch.sigmoid(self.fc2(x))
         x = torch.sigmoid(self.fc3(x))
-        x = torch.sigmoid(self.fc4(x))
         return x

@@ -66,7 +66,7 @@ class KinovaGripper_Env(gym.Env):
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
+            self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
@@ -79,7 +79,7 @@ class KinovaGripper_Env(gym.Env):
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_msphere.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_sphere.xml"
-            self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
+            #self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         else:
             print("CHOOSE EITHER HAND OR ARM")
             raise ValueError
@@ -193,7 +193,7 @@ class KinovaGripper_Env(gym.Env):
         Tfw[0:3,0:3]=temp
         Tfw[3,3]=1
         self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[0.0,0.06,0.0])
-        Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),self.wrist_pose)
+        Tfw[0:3,3]=np.matmul((Tfw[0:3,0:3]),self.wrist_pose)
         self.Tfw=Tfw 
         self.Twf=np.linalg.inv(Tfw)
         #print('Tfw', np.round(self.Tfw,decimals=2))
@@ -282,9 +282,9 @@ class KinovaGripper_Env(gym.Env):
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         if state_rep == None:
             state_rep = self.state_rep
-        print(self.Tfw)
-        print(self.Tfw[0:3,3])
-        print(self.Twf[0:3,3])
+        #print(self.Tfw)
+        #print(self.Tfw[0:3,3])
+        #print(self.Twf[0:3,3])
         # states rep
         obj_pose = self._get_obj_pose()
         obj_pose = np.copy(obj_pose)
@@ -312,7 +312,7 @@ class KinovaGripper_Env(gym.Env):
                 trans_for_roation=np.append(trans,1)
                 trans_for_roation=np.matmul(self.Tfw,trans_for_roation)
                 trans = trans_for_roation[0:3]
-                trans = list(trans)
+                trans = list(trans)                
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
             #print('world wrist pose',self.wrist_pose)
@@ -453,15 +453,22 @@ class KinovaGripper_Env(gym.Env):
         #TODO: fix this shit
         num_of_geoms=np.shape(self._sim.model.geom_size)
         final_size=[0,0,0]
+        #print(self._sim.model.geom_size)
+        #print(num_of_geoms[0]-8)
         for i in range(num_of_geoms[0]-8):
             size=np.copy(self._sim.model.geom_size[-1-i])
+            diffs=[0,0,0]
             if size[2]==0:
                 size[2]=size[1]
                 size[1]=size[0]
-            if ('lemon' in self.filename)|('Bowl' in self.filename):
+            diffs[0]=abs(size[0]-size[1])
+            diffs[1]=abs(size[1]-size[2])
+            diffs[2]=abs(size[0]-size[2])
+            if ('lemon' in self.filename)|(np.argmin(diffs)!=0):
                 temp=size[0]
                 size[0]=size[2]
                 size[2]=temp
+
             if 'Bowl' in self.filename:
                 if 'Rect' in self.filename:
                     final_size[0]=0.17
@@ -481,6 +488,7 @@ class KinovaGripper_Env(gym.Env):
                 final_size[0]=max(size[0],final_size[0])
                 final_size[1]=max(size[1],final_size[1])
                 final_size[2]+=size[2]
+        #print(final_size)
         return final_size
 
     # Function to place the object at a random position near the hand with a probability density designed to create more difficult grasps
@@ -653,7 +661,7 @@ class KinovaGripper_Env(gym.Env):
             r=np.random.uniform(low=0,high=size[0]/2)
             rand_x=np.sin(theta)*r
             rand_y=np.cos(theta)*r+0.02
-        z = size[-1]
+        z = size[-1]/2
         
         return rand_x, rand_y, z    
     
@@ -750,6 +758,7 @@ class KinovaGripper_Env(gym.Env):
         if self.filename=="/kinova_description/j2s7s300_end_effector.xml":
             new_rotation=np.array([0,0,0])+hand_rotation
             hand_orientation=np.random.rand()
+            #print(hand_orientation)
             if hand_orientation <0.333:
                 new_rotation=np.array([0,0,0])+hand_rotation
             elif hand_orientation >0.667:
@@ -758,6 +767,7 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation=np.array([1.2,0,0])+hand_rotation
         else:
             hand_orientation=np.random.rand()
+            #print(hand_orientation)
             if hand_orientation <0.333:
                 new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
             elif hand_orientation >0.667:
@@ -796,7 +806,7 @@ class KinovaGripper_Env(gym.Env):
             xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
         elif hand_orientation > 0.667:
             size=self._get_obj_size()
-            stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.14+size[-1]])
+            stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.1+size[-1]*1.8])
             xloc,yloc,zloc,f1prox,f2prox,f3prox=-stuff[0],-stuff[1],stuff[2],0,0,0
         else:
             temp=np.matmul(self.Tfw[0:3,0:3],np.array([0,0,-0.06]))
@@ -818,26 +828,26 @@ class KinovaGripper_Env(gym.Env):
 
             #all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,objx,objy,objz]
             self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, x, y, z])
-            if coords=='local':
-                world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
-                self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
+            #if coords=='local':
+            #    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
+            #    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
             self.Grasp_Reward=False
             self.all_states_2 = np.array([xloc+.2, yloc+2, zloc+0.03, f1prox, f2prox, f3prox, 0.05, 0.0, 0.055])
             self.all_states = [self.all_states_1 , self.all_states_2] 
     
-            self._set_state(self.all_states[1])
+            self._set_state(self.all_states[0])
         else:
             self.set_sim_state(qpos,start_pos)
             x, y, z = start_pos[0], start_pos[1], start_pos[2]
         states = self._get_obs()
         obj_pose=self._get_obj_pose()
         deltas=[x-obj_pose[0],y-obj_pose[1],z-obj_pose[2]]
-
+        #print('deltas',deltas)
         
         if np.linalg.norm(deltas)>0.05:
             self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, x+deltas[0], y+deltas[1], z+deltas[2]])
             self.all_states=[self.all_states_1,self.all_states_2]
-            self._set_state(self.all_states[1])
+            self._set_state(self.all_states[0])
             states = self._get_obs()
 
         #These two varriables are used when the action space is in joint states

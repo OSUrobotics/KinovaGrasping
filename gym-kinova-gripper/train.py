@@ -25,7 +25,7 @@ import NCS_nn
 import random
 import pandas 
 from ounoise import OUNoise
-from classifier_network import LinearNetwork, ReducedLinearNetwork
+from classifier_network import LinearNetwork, ReducedLinearNetwork,LinearNetwork3Layer,LinearNetwork4Layer, ReducedLinearNetwork3Layer, ReducedLinearNetwork4Layer
 from trainGP import trainGP
 import matplotlib.pyplot as plt
 import csv
@@ -149,20 +149,18 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
             #    total_percent[epoch/10,1],true_pos[epoch/10,:,1],false_pos[epoch/10,:,1]=test_network(all_testing_set, all_testing_label,classifier_net,0.9)
             #shuffle the data before it gets fed into the network
             num_data_points=np.shape(training_set)
-            #print(num_data_points)
-            #print(num_data_points)
             random_indicies=np.arange(num_data_points[0])
-            #print(random_indicies)
-            #print(random_indicies)
             np.random.shuffle(random_indicies)
-            #print(random_indicies)
-            #print(random_indicies)
             training_set=training_set[random_indicies,:]
             training_label=training_label[random_indicies]
-            network_feed=training_set[:,21:24]
+            #network_feed=training_set[:,21:24]
             #print(np.shape(network_feed))
-            network_feed=np.append(network_feed,training_set[:,27:36], axis=1)
-            network_feed=np.append(network_feed,training_set[:,49:51], axis=1)
+            #network_feed=np.append(network_feed,training_set[:,27:36], axis=1)
+            #network_feed=np.append(network_feed,training_set[:,49:51], axis=1)
+            #network_feed=training_set
+            network_feed=training_set[:,21:24]
+            network_feed=np.append(network_feed,training_set[:,33:36],axis=1)
+            network_feed=np.append(network_feed,training_set[:,42:48],axis=1)
             #print(np.shape(network_feed))
             running_loss = 0.0
             start_batch = 0
@@ -196,17 +194,17 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
                     f.data.sub_(f.grad.data * learning_rate)
                 running_loss += loss.item() 
                 # print("loss", loss.item())
-                if (i % 100) == 99:
+                if (i % 1000) == 999:
                     print("Epoch {} , idx {}, loss: {}".format(epoch + 1, i + 1, running_loss/(100)))
                     running_loss = 0.0
     print("Finish training, saving...")
     print('Percent Correct ',total_percent)
     print('False Positives ',false_pos)
     print('True Positives ',true_pos)
-    torch.save(classifier_net.state_dict(), model_path + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + "local" + ".pt")    
+    torch.save(classifier_net.state_dict(), model_path + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + "local" +"Red"+ ".pt")    
     return classifier_net, total_percent, false_pos, true_pos
 
-def test_network(test_in,test_out,classifier_net,output_threshold=0.8):
+def test_network(test_in,test_out,classifier_net,output_threshold=0.8,red=True):
     num_tests=np.shape(test_in)
     #print(num_tests)
     test_in=convert_to_local(test_in)
@@ -228,11 +226,12 @@ def test_network(test_in,test_out,classifier_net,output_threshold=0.8):
     network_feed=np.append(network_feed,test_in[:,6:23], axis=1)
     network_feed=np.append(network_feed,test_in[:,24:], axis=1)
     '''
-    
-    network_feed=test_in[:,21:24]
-            #print(np.shape(network_feed))
-    network_feed=np.append(network_feed,test_in[:,27:36], axis=1)
-    network_feed=np.append(network_feed,test_in[:,49:51], axis=1)
+    if red:
+        network_feed=test_in[:,21:24]
+        network_feed=np.append(network_feed,test_in[:,33:36],axis=1)
+        network_feed=np.append(network_feed,test_in[:,42:48],axis=1)
+    else:
+        network_feed=test_in
     for j in range(num_tests[0]):
         #print(test_out[j+past_vals])
         #states=torch.tensor(test_in[j+past_vals])
@@ -510,7 +509,10 @@ if __name__ == '__main__':
     batch_size = 25
     files_dir = "/home/orochi/NCS_data/"
     #files = [files_dir + "Data_Box_B_01_16_20_1728", files_dir + "Data_Box_B_01_21_20_1951", files_dir + "Data_Box_M_01_16_20_1826", files_dir + "Data_Box_M_01_21_20_2005", files_dir + "Data_Box_S_01_16_20_2335", files_dir + "Data_Box_S_01_21_20_2106",files_dir + "Data_Cylinder_B_01_16_20_1405", files_dir + "Data_Cylinder_B_01_21_20_1956", files_dir + "Data_Cylinder_M_01_16_20_1505", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_S_01_17_20_0009", files_dir + "Data_Cylinder_S_01_21_20_2118", files_dir + "Data_Hour_B_03_31_20_0348", files_dir + "Data_Hour_M_03_30_20_1756", files_dir + "Data_Hour_S_03_30_20_1743"]
-    files = [files_dir + "Data_Hour_B_05_14_20_0750", files_dir + "Data_Hour_M_05_14_20_0652", files_dir +"Data_Hour_S_05_14_20_0557", files_dir +"Data_Cylinder_B_05_14_20_0453", files_dir +"Data_Cylinder_M_05_14_20_0407", files_dir +"Data_Cylinder_S_05_14_20_0319",files_dir +"Data_Box_B_05_14_20_0216", files_dir +"Data_Box_M_05_14_20_0131", files_dir +"Data_Box_S_05_14_20_0044"]
+    #files = [files_dir + "Data_Hour_B_05_14_20_0750", files_dir + "Data_Hour_M_05_14_20_0652", files_dir +"Data_Hour_S_05_14_20_0557", files_dir +"Data_Cylinder_B_05_14_20_0453", files_dir +"Data_Cylinder_M_05_14_20_0407", files_dir +"Data_Cylinder_S_05_14_20_0319",files_dir +"Data_Box_B_05_14_20_0216", files_dir +"Data_Box_M_05_14_20_0131", files_dir +"Data_Box_S_05_14_20_0044"]
+    files = [files_dir + "Data_TBottle_BLOCAL_07_02_20_2114", files_dir + "Data_TBottle_MLOCAL_07_02_20_2100", files_dir +"Data_TBottle_SLOCAL_07_02_20_2045", files_dir +"Data_Bottle_BLOCAL_07_02_20_0414", files_dir +"Data_Bottle_MLOCAL_07_02_20_0200", files_dir +"Data_Bottle_SLOCAL_07_01_20_2335",files_dir +"Data_Vase_MLOCAL_07_01_20_2306", files_dir +"Data_Cylinder_BLOCAL_07_01_20_2106", files_dir +"Data_Vase_SLOCAL_07_01_20_2026",files_dir + "Data_Cylinder_MLOCAL_07_01_20_1915", files_dir + "Data_Lemon_BLOCAL_07_01_20_1747", files_dir +"Data_Cylinder_SLOCAL_07_01_20_1713", files_dir +"Data_Box_BLOCAL_07_01_20_1505", files_dir +"Data_Lemon_MLOCAL_07_01_20_1454", files_dir +"Data_Box_MLOCAL_07_01_20_1315",files_dir +"Data_Lemon_SLOCAL_07_01_20_1202", files_dir +"Data_Box_SLOCAL_07_01_20_1121", files_dir +"Data_Bowl_BLOCAL_06_30_20_1958",files_dir + "Data_RBowl_BLOCAL_06_30_20_1933", files_dir + "Data_Bowl_MLOCAL_06_30_20_1711", files_dir +"Data_RBowl_MLOCAL_06_30_20_1657", files_dir +"Data_Bowl_SLOCAL_06_30_20_1420", files_dir +"Data_RBowl_SLOCAL_06_30_20_1415", files_dir +"Data_Hour_BLOCAL_06_30_20_0952",files_dir +"Data_Hour_MLOCAL_06_30_20_0743", files_dir +"Data_Hour_SLOCAL_06_30_20_0529", files_dir +"Data_Vase_BLOCAL_06_30_20_0315"]
+    print(len(files))
+    
     all_training_set = []
     all_training_label = []
     all_testing_set = []
@@ -522,8 +524,8 @@ if __name__ == '__main__':
         file.close()
         state_input = np.array(data["states"])
         #print(np.shape(state_input))
-        temp = state_input[:,0:49]
-        state_input=np.append(temp,state_input[:,55:],axis=1)
+        temp = state_input[:,0:18]
+        state_input=np.append(temp,state_input[:,21:],axis=1)
         
         SI_size=np.shape(state_input)
         #print(data)
@@ -544,12 +546,12 @@ if __name__ == '__main__':
         num_inputs=np.shape(state_input)
         shape_type=np.zeros([num_inputs[0],1])
         #print(num_inputs)
-        si=np.zeros([num_inputs[0],66])
+        si=np.zeros([num_inputs[0],SI_size[1]])
         #print(np.shape(si))
         for j in range(num_inputs[0]):
             temp=state_input[j]
             #print(temp)
-            si[j]=temp[0:66]
+            si[j]=temp[0:SI_size[1]]
         #if i<6:
         #    shape_type[:]=1
         state_input=si
@@ -579,27 +581,59 @@ if __name__ == '__main__':
     all_testing_set=np.array(all_testing_set)
     all_training_label=np.array(all_training_label)
     all_testing_label=np.array(all_testing_label)
-    print(np.shape(all_testing_set))
+    print('shape',np.shape(all_testing_set))
+    print(np.average(all_training_label))
+    print(np.average(all_testing_label))
     #GP_net=trainGP(all_training_set,all_training_label,all_testing_set,all_testing_label)
-    #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label)    
-    model = ReducedLinearNetwork()
-    model.load_state_dict(torch.load('trained_model_05_14_20_1349local.pt'))
-    model.eval()
-    print('model loaded')
+    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label)    
+    model1 = ReducedLinearNetwork()
+    model1.load_state_dict(torch.load('trained_model_07_24_20_1728localRed.pt'))
+    model1.eval()
+    model2 = ReducedLinearNetwork3Layer()
+    model2.load_state_dict(torch.load('trained_model_07_21_20_1435localRed3.pt'))
+    model2.eval()
+    model3 = ReducedLinearNetwork4Layer()
+    model3.load_state_dict(torch.load('trained_model_07_21_20_1319localRed4.pt'))
+    model3.eval()
+    model4 = LinearNetwork()
+    model4.load_state_dict(torch.load('trained_model_07_20_20_1421localFull.pt'))
+    model4.eval()
+    model5 = LinearNetwork3Layer()
+    model5.load_state_dict(torch.load('trained_model_07_21_20_1054localFull3.pt'))
+    model5.eval()
+    model6 = LinearNetwork4Layer()
+    model6.load_state_dict(torch.load('trained_model_07_21_20_1304localFull4.pt'))
+    model6.eval()
+    print('models loaded')
     #output = 0.25
     
-    total_percent=np.zeros(10)
-    false_pos=np.zeros([10,6])
-    true_pos=np.zeros([10,6])
+    total_percent=np.zeros([10,6])
+    false_pos=np.zeros([10,6,6])
+    true_pos=np.zeros([10,6,6])
     print(testing_len)
     for i in range(10):
-        total_percent[i],true_pos[i,:],false_pos[i,:],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model,0.1*i+0.0)    
+        total_percent[i,0],true_pos[i,:,0],false_pos[i,:,0],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model1,0.1*i+0.0)    
+        total_percent[i,1],true_pos[i,:,1],false_pos[i,:,1],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model2,0.1*i+0.0)    
+        total_percent[i,2],true_pos[i,:,2],false_pos[i,:,2],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model3,0.1*i+0.0)    
+        total_percent[i,3],true_pos[i,:,3],false_pos[i,:,3],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model4,0.1*i+0.0,False)    
+        total_percent[i,4],true_pos[i,:,4],false_pos[i,:,4],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model5,0.1*i+0.0,False)    
+        total_percent[i,5],true_pos[i,:,5],false_pos[i,:,5],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model6,0.1*i+0.0,False)    
         #p_show, f_show = get_false_grasps(false_pos_indicies,false_neg_indicies, all_testing_set[0:testing_len])
         #show_false_grasps(p_show,f_show,"Box","B")
     for j in range(1):
         print(true_pos[:,j],false_pos[:,j])
+        print('best accuracies')
+        print('Reduced 3 Layer:', np.max(total_percent[:,1]))
+        print('Reduced 4 Layer:', np.max(total_percent[:,2]))
+        print('Reduced 5 Layer:', np.max(total_percent[:,0]))
+        print('Full 3 Layer:', np.max(total_percent[:,4]))
+        print('Full 4 Layer:', np.max(total_percent[:,5]))
+        print('Full 5 Layer:', np.max(total_percent[:,3]))
+
         plt.plot(false_pos[:,j],true_pos[:,j])
         plt.title('ROC Graph for most updated network')
         plt.xlabel('false positive rate')
         plt.ylabel('true positive rate')
+        plt.legend(('Reduced 5 Layer','Reduced 3 Layer','Reduced 4 Layer','Full 5 Layer','Full 3 Layer','Full 4 Layer'))
         plt.show()
+    
