@@ -376,11 +376,7 @@ if __name__ == "__main__":
 
 			strain_obj_posx = np.append(strain_obj_posx,x_val)
 			strain_obj_posy = np.append(strain_obj_posy,y_val)
-			print("\nx_val: ",x_val)
-			print("y_val: ",y_val)
 
-			print("strain_obj_posx: ", strain_obj_posx)
-			print("strain_obj_posy: ", strain_obj_posy)
 		else:
 			x_val = obj_coords[0]
 			y_val = obj_coords[1]
@@ -389,12 +385,6 @@ if __name__ == "__main__":
 
 			ftrain_obj_posx = np.append(ftrain_obj_posx,x_val)
 			ftrain_obj_posy = np.append(ftrain_obj_posy,y_val)
-
-			print("\nx_val: ",x_val)
-			print("y_val: ",y_val)
-
-			print("ftrain_obj_posx: ", ftrain_obj_posx)
-			print("ftrain_obj_posy: ", ftrain_obj_posy)
 
 		# Evaluation and recording data for tensorboard
 		if (t + 1) % args.eval_freq == 0:

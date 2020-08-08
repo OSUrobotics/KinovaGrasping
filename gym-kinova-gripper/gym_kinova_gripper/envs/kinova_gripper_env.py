@@ -286,9 +286,9 @@ class KinovaGripper_Env(gym.Env):
 	def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
 		if state_rep == None:
 			state_rep = self.state_rep
-		print(self.Tfw)
-		print(self.Tfw[0:3,3])
-		print(self.Twf[0:3,3])
+		#print(self.Tfw)
+		#print(self.Tfw[0:3,3])
+		#print(self.Twf[0:3,3])
 		# states rep
 		obj_pose = self._get_obj_pose()
 		obj_pose = np.copy(obj_pose)
@@ -417,13 +417,14 @@ class KinovaGripper_Env(gym.Env):
 		network_inputs=np.append(network_inputs,obs[24:])
 		inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
-		if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015:
-			 outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-			 if (outputs >=0.3) & (not self.Grasp_Reward):
-				 grasp_reward = 5.0
-				 self.Grasp_Reward=True
-			 else:
-				 grasp_reward = 0.0
+		# WITHOUT GRASP CLASSIFIER
+		#if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015:
+		#	 outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
+		#	 if (outputs >=0.3) & (not self.Grasp_Reward):
+		#		 grasp_reward = 5.0
+		#		 self.Grasp_Reward=True
+		#	 else:
+		#		 grasp_reward = 0.0
 
 		if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
 			lift_reward = 50.0
@@ -902,8 +903,10 @@ class KinovaGripper_Env(gym.Env):
 				  # Check for coords text file
 				  if self.check_obj_file_empty(coords_filename) == True:
 					  x, y, z = self.sample_initial_valid_object_pos(random_shape)
+					  print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
 				  else:
 					  x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
+					  print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
 				else:
 				  if self.check_obj_file_empty(coords_filename) == True:
 					  x, y, z = self.sample_initial_valid_object_pos(random_shape)
@@ -945,6 +948,9 @@ class KinovaGripper_Env(gym.Env):
 		#These two varriables are used when the action space is in joint states
 		self.t_vel = 0
 		self.prev_obs = []
+
+		# Sets the object coordinates for heatmap tracking and plotting
+		self.set_obj_coords(x,y,z)
 
 		return states
 
