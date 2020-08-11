@@ -856,13 +856,13 @@ class KinovaGripper_Env(gym.Env):
 			#print(hand_orientation)
 			if hand_orientation <0.333:
 				new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
-                coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/" + random_shape + ".txt"
+				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/" + random_shape + ".txt"
 			elif hand_orientation >0.667:
 				new_rotation=np.array([0,0,0])+hand_rotation
-                coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Top/" + random_shape + ".txt"
+				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Top/" + random_shape + ".txt"
 			else:
 				new_rotation=np.array([-1.2,0,0])+hand_rotation
-                coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Side/" + random_shape + ".txt"
+				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Side/" + random_shape + ".txt"
 
 
 		xml_file=open(self.file_dir+self.filename,"r")
