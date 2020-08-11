@@ -506,61 +506,6 @@ class KinovaGripper_Env(gym.Env):
 	def get_obj_coords(self):
 		return self.obj_coords
 
-	# Function to place the object at a random position near the hand with a probability density designed to create more difficult grasps
-	def randomize_initial_pose(self, collect_data, size, shape):  #This will get fixed by Stephanie
-		geom_size = size
-
-		if geom_size == "s":
-			if not collect_data:
-				x = [0.05, 0.04, 0.03, 0.02, -0.05, -0.04, -0.03, -0.02]
-				y = [0.0, 0.02, 0.03, 0.04]
-				rand_x = random.choice(x)
-				rand_y = 0.0
-				if rand_x == 0.05 or rand_x == -0.05:
-					rand_y = 0.0
-				elif rand_x == 0.04 or rand_x == -0.04:
-					rand_y = random.uniform(0.0, 0.02)
-				elif rand_x == 0.03 or rand_x == -0.03:
-					rand_y = random.uniform(0.0, 0.03)
-				elif rand_x == 0.02 or rand_x == -0.02:
-					rand_y = random.uniform(0.0, 0.04)
-			else:
-				x = [0.04, 0.03, 0.02, -0.04, -0.03, -0.02]
-				y = [0.0, 0.02, 0.03, 0.04]
-				rand_x = random.choice(x)
-				rand_y = 0.0
-				if rand_x == 0.04 or rand_x == -0.04:
-					rand_y = random.uniform(0.0, 0.02)
-				elif rand_x == 0.03 or rand_x == -0.03:
-					rand_y = random.uniform(0.0, 0.03)
-				elif rand_x == 0.02 or rand_x == -0.02:
-					rand_y = random.uniform(0.0, 0.04)
-		if geom_size == "m":
-			if shape =='b':
-				x=[0.04,0.05,-0.04,-0.05]
-				y=0.0
-			else:
-				x=[0.03,0.04,-0.03,-0.04]
-				y=0.0
-			rand_x = random.choice(x)
-			rand_y = 0.0
-			if rand_x == 0.04 or rand_x == -0.04:
-				rand_y = 0.0
-			elif rand_x == 0.03 or rand_x == -0.03:
-				rand_y = random.uniform(0.0, 0.02)
-			elif rand_x == 0.02 or rand_x == -0.02:
-				rand_y = random.uniform(0.0, 0.03)
-		if geom_size == "b":
-			x = [0.03, 0.02, -0.03, -0.02]
-			y = [0.0, 0.02]
-			rand_x = random.choice(x)
-			rand_y = 0.0
-			if rand_x == 0.03 or rand_x == -0.03:
-				rand_y = 0.0
-			elif rand_x == 0.02 or rand_x == -0.02:
-				rand_y = random.uniform(0.0, 0.02)
-		return rand_x, rand_y
-
 	# Function to run all the experiments for RL training
 	def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
 		all_objects = {}
@@ -634,34 +579,6 @@ class KinovaGripper_Env(gym.Env):
 			raise ValueError
 
 		return self.objects
-
-
-	def randomize_all(self): #Stephanie has a new version, will merge
-
-		self.objects = self.experiment(shape_keys)
-
-		random_shape = np.random.choice(list(self.objects.keys()))
-		#self._model = load_model_from_path(self.file_dir + objects[random_shape])
-		if (random_shape=="sbox") |(random_shape=="mbox")|(random_shape=="bbox"):
-			self.obj_shape=1
-		elif (random_shape=="scyl")|(random_shape=="mcyl")|(random_shape=="bcyl"):
-			self.obj_shape=0
-		self._sim = MjSim(self._model)
-		# print (random_shape)
-		if random_shape == "sbox" or random_shape == "scyl":
-			x, y = self.randomize_initial_pose(False, "s",random_shape[1])
-			z = 0.05
-		elif random_shape == "mbox" or random_shape == "mcyl":
-			x, y = self.randomize_initial_pose(False, "m",random_shape[1])
-			z = 0.055
-		elif random_shape == "bbox" or random_shape == "bcyl":
-			x, y = self.randomize_initial_pose(False, "b",random_shape[1])
-			z = 0.06
-		else:
-			print("size and shape are incorrect")
-			raise ValueError
-
-		return x, y, z
 
 	#Function to randomize the position of the object for grasp classifier data collection
 	def randomize_initial_pos_data_collection(self,orientation="side",obj=0):
@@ -806,9 +723,11 @@ class KinovaGripper_Env(gym.Env):
 
 		return x, y, z
 
-	def reset(self,env_name,shape_keys,start_pos=None,obj_params=None,coords='global',qpos=None):
+	def reset(self,env_name,shape_keys,hand_orientation,start_pos=None,obj_params=None,coords='global',qpos=None):
 		# x, y = self.randomize_initial_pose(False, "s") # for RL training
 		#x, y = self.randomize_initial_pose(True) # for data collection
+
+		print("Within Reset, hand_orientation: ",hand_orientation)
 
 		# Steph new code
 		obj_list_filename = ""
@@ -854,10 +773,14 @@ class KinovaGripper_Env(gym.Env):
 		else:
 			hand_orientation=np.random.rand()
 			#print(hand_orientation)
+
+			# Initial position
 			if hand_orientation <0.333:
 				new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
+			# Top position
 			elif hand_orientation >0.667:
 				new_rotation=np.array([0,0,0])+hand_rotation
+			# Sideways position
 			else:
 				new_rotation=np.array([-1.2,0,0])+hand_rotation
 
