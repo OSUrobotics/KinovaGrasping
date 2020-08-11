@@ -711,8 +711,7 @@ class KinovaGripper_Env(gym.Env):
 		return random_shape, self.objects[random_shape]
 
 	# Get the initial object position
-	def sample_initial_valid_object_pos(self,shapeName):
-		coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/" + shapeName + ".txt"
+	def sample_initial_valid_object_pos(self,shapeName,coords_filename):
 		with open(coords_filename) as csvfile:
 			data = [(float(x), float(y), float(z)) for x, y, z in csv.reader(csvfile, delimiter= ' ')]
 
@@ -755,6 +754,9 @@ class KinovaGripper_Env(gym.Env):
 		hand_rotation=np.random.normal(-0.087,0.087,3)
 		obj=0
 
+		# Orientation is initialized as Normal
+		orientation_type = 0.330
+
 		#-1.57,0,-1.57 is side normal
 		#-1.57, 0, 0 is side tilted
 		#0,0,-1.57 is top down
@@ -762,28 +764,40 @@ class KinovaGripper_Env(gym.Env):
 
 		if self.filename=="/kinova_description/j2s7s300_end_effector.xml":
 			new_rotation=np.array([0,0,0])+hand_rotation
-			hand_orientation=np.random.rand()
-			#print(hand_orientation)
-			if hand_orientation <0.333:
-				new_rotation=np.array([0,0,0])+hand_rotation
-			elif hand_orientation >0.667:
-				new_rotation=np.array([0,0,0])+hand_rotation
+			if hand_orientation == 'random':
+				orientation_type=np.random.rand()
+				print("orientation_type: ",orientation_type)
+				if orientation_type <0.333:
+					new_rotation=np.array([0,0,0])+hand_rotation
+				elif orientation_type >0.667:
+					new_rotation=np.array([0,0,0])+hand_rotation
+				else:
+					new_rotation=np.array([1.2,0,0])+hand_rotation
 			else:
-				new_rotation=np.array([1.2,0,0])+hand_rotation
-		else:
-			hand_orientation=np.random.rand()
-			#print(hand_orientation)
+				# Normal hand orientation
+				new_rotation=np.array([0,0,0])+hand_rotation
 
-			# Initial position
-			if hand_orientation <0.333:
+		else:
+			if hand_orientation == 'random':
+				orientation_type=np.random.rand()
+				print("orientation_type: ",orientation_type)
+
+				# Initial position
+				if orientation_type <0.333:
+					new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
+					coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/" + random_shape + ".txt"
+				# Top orientation
+				elif orientation_type >0.667:
+					new_rotation=np.array([0,0,0])+hand_rotation
+					coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Top/" + random_shape + ".txt"
+				# Sideways orientation
+				else:
+					new_rotation=np.array([-1.2,0,0])+hand_rotation
+					coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Side/" + random_shape + ".txt"
+			else:
+				# Normal hand orientations
 				new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
 				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/" + random_shape + ".txt"
-			elif hand_orientation >0.667:
-				new_rotation=np.array([0,0,0])+hand_rotation
-				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Top/" + random_shape + ".txt"
-			else:
-				new_rotation=np.array([-1.2,0,0])+hand_rotation
-				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Side/" + random_shape + ".txt"
 
 
 		xml_file=open(self.file_dir+self.filename,"r")
@@ -812,9 +826,9 @@ class KinovaGripper_Env(gym.Env):
 		self._sim = MjSim(self._model)
 		self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
 		self._get_trans_mat_wrist_pose()
-		if hand_orientation < 0.333:
+		if orientation_type < 0.333:
 			xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
-		elif hand_orientation > 0.667:
+		elif orientation_type > 0.667:
 			size=self._get_obj_size()
 			stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.1+size[-1]*1.8])
 			xloc,yloc,zloc,f1prox,f2prox,f3prox=-stuff[0],-stuff[1],stuff[2],0,0,0
@@ -823,17 +837,17 @@ class KinovaGripper_Env(gym.Env):
 			xloc,yloc,zloc,f1prox,f2prox,f3prox=temp[0],temp[1],temp[2],0,0,0
 		if qpos is None:
 			if start_pos is None:
-				if hand_orientation >0.667:
+				if orientation_type >0.667:
 				  # Check for coords text file
 				  if self.check_obj_file_empty(coords_filename) == True:
-					  x, y, z = self.sample_initial_valid_object_pos(random_shape)
+					  x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
 					  print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
 				  else:
 					  x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
 					  print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
 				else:
 				  if self.check_obj_file_empty(coords_filename) == True:
-					  x, y, z = self.sample_initial_valid_object_pos(random_shape)
+					  x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
 				  else:
 					  x, y, z = self.randomize_initial_pos_data_collection(obj=obj)
 			elif len(start_pos)==3:
