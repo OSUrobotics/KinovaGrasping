@@ -196,7 +196,7 @@ class KinovaGripper_Env(gym.Env):
 		Tfw=np.zeros([4,4])
 		Tfw[0:3,0:3]=temp
 		Tfw[3,3]=1
-		self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[0.0,0.06,0.0])
+        	self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
 		Tfw[0:3,3]=np.matmul((Tfw[0:3,0:3]),self.wrist_pose)
 		self.Tfw=Tfw
 		self.Twf=np.linalg.inv(Tfw)
