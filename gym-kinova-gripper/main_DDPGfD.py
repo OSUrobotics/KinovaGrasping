@@ -28,7 +28,7 @@ def save_coordinates(x,y,filename):
 	np.save(filename+"_y_arr", y)
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, eval_episodes=200, compare=True):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=200, compare=True):
 	num_success=[0,0]
 	# Heatmap plot success/fail object coordinates
 	seval_obj_posx = np.array([])
@@ -60,7 +60,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 			print('started pos', i)
 			success=0
 			#eval_env = gym.make(env_name)
-			state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+			state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
 			cumulative_reward = 0
 
 			# Keep track of object coordinates
@@ -78,7 +78,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 			# pdb.set_trace()
 			# print(cumulative_reward)
 			num_success[0]+=success
-			state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+			state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
 			success=0
 			while not done:
 				action = GenerateTestPID_JointVel(np.array(state[0:48]),eval_env)
@@ -124,7 +124,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 		for i in range(eval_episodes):
 			success=0
 			#eval_env = gym.make(env_name)
-			state, done = eval_env.reset(hand_orientation=requested_orientation,shape_keys=requested_shapes,env_name="eval_env"), False
+			state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
 			cumulative_reward = 0
 
 			while not done:
@@ -191,6 +191,7 @@ if __name__ == "__main__":
 	parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
 	parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
 	parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
+	parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with (train, test, etc.)
 
 	args = parser.parse_args()
 
@@ -222,7 +223,7 @@ if __name__ == "__main__":
 	print("requested_shapes: ",requested_shapes)
 
 	# Set the desired hand orientation (normal or random)
-	requested_orientation = [args.hand_orientation]
+	requested_orientation = args.hand_orientation
 
 	print("Requested Hand orientation: ", requested_orientation)
 
@@ -281,7 +282,7 @@ if __name__ == "__main__":
 	# Fill pre-training object list using latin square
 	env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
 
-	state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+	state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
 
 	episode_reward = 0
 	episode_timesteps = 0
@@ -334,7 +335,7 @@ if __name__ == "__main__":
 		# Fill training object list using latin square
 		if (env.check_obj_file_empty("objects.csv")):
 			env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys)
-		state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+		state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
 
 		noise.reset()
 		expl_noise.reset()
@@ -395,7 +396,7 @@ if __name__ == "__main__":
 
 		# Evaluation and recording data for tensorboard
 		if (t + 1) % args.eval_freq == 0:
-			eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, eval_episodes=200, compare=True)
+			eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, mode=args.mode, eval_episodes=200, compare=True)
 
 			avg_reward = eval_ret[0]
 			num_success = eval_ret[1]

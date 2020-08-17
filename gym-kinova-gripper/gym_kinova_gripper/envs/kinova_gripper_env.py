@@ -722,7 +722,7 @@ class KinovaGripper_Env(gym.Env):
 
 		return x, y, z
 
-	def reset(self,env_name,shape_keys,hand_orientation,start_pos=None,obj_params=None,coords='global',qpos=None):
+	def reset(self,env_name,shape_keys,hand_orientation,mode,start_pos=None,obj_params=None,coords='global',qpos=None):
 		# x, y = self.randomize_initial_pose(False, "s") # for RL training
 		#x, y = self.randomize_initial_pose(True) # for data collection
 
@@ -785,21 +785,21 @@ class KinovaGripper_Env(gym.Env):
 				# Initial position
 				if orientation_type <0.333:
 					new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
-					coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/" + random_shape + ".txt"
+					coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
 				# Top orientation
 				elif orientation_type >0.667:
 					new_rotation=np.array([0,0,0])+hand_rotation
-					coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Top/" + random_shape + ".txt"
+					coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Top/" + random_shape + ".txt"
 				# Sideways orientation
 				else:
 					new_rotation=np.array([-1.2,0,0])+hand_rotation
-					coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Side/" + random_shape + ".txt"
+					coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Side/" + random_shape + ".txt"
 			else:
 				# Normal hand orientations
 				new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
-				coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/" + random_shape + ".txt"
+				coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
 
-
+		print("COORDS FILENAME: ",coords_filename)
 		xml_file=open(self.file_dir+self.filename,"r")
 		xml_contents=xml_file.read()
 		xml_file.close()
