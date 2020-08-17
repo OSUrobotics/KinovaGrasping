@@ -752,7 +752,7 @@ class KinovaGripper_Env(gym.Env):
 		#print(shapes[0])
 		#self._get_jacobian()
 
-		hand_rotation=np.random.normal(-0.087,0.087,3)
+		hand_rotation= 0 #np.random.normal(-0.087,0.087,3)
 		obj=0
 
 		# Orientation is initialized as Normal
