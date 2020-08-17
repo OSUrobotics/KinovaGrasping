@@ -215,7 +215,8 @@ if __name__ == "__main__":
 	max_action_trained = env.action_space.high # a vector of max actions
 
 	# Sets list of desired objects for experiment
-	requested_shapes = [args.shapes]
+	requested_shapes = args.shapes
+	requested_shapes = requested_shapes.split(',')
 
 	print("args.shapes",args.shapes)
 	print("requested_shapes: ",requested_shapes)
