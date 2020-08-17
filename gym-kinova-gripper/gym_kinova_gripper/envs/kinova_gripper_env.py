@@ -675,7 +675,8 @@ class KinovaGripper_Env(gym.Env):
 				w.writerow(key)
 
 	def objects_file_to_list(self,filename, num_objects,shape_keys):
-		df = pd.read_csv(filename)
+		print("FILENAME: ",filename)
+		df = pd.read_csv(filename,header=None, sep='\n')
 		if (df.empty):
 			"Object file is empty!"
 			self.Generate_Latin_Square(num_objects,filename,shape_keys)
