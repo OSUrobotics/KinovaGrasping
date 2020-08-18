@@ -28,7 +28,7 @@ def save_coordinates(x,y,filename):
 	np.save(filename+"_y_arr", y)
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=200, compare=True):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=200, compare=False):
 	num_success=[0,0]
 	# Heatmap plot success/fail object coordinates
 	seval_obj_posx = np.array([])
@@ -396,7 +396,7 @@ if __name__ == "__main__":
 
 		# Evaluation and recording data for tensorboard
 		if (t + 1) % args.eval_freq == 0:
-			eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, mode=args.mode, eval_episodes=200, compare=True)
+			eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, mode=args.mode, eval_episodes=200)#, compare=True)
 
 			avg_reward = eval_ret[0]
 			num_success = eval_ret[1]

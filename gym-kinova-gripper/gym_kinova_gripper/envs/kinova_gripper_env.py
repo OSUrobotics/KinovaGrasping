@@ -1027,10 +1027,10 @@ class KinovaGripper_Env(gym.Env):
 		obs = self._get_obs()
 
 		### Get this reward for RL training ###
-		#total_reward, info, done = self._get_reward()
+		total_reward, info, done = self._get_reward()
 
 		### Get this reward for grasp classifier collection ###
-		total_reward, info, done = self._get_reward_DataCollection()
+		#total_reward, info, done = self._get_reward_DataCollection()
 		return obs, total_reward, done, info
 
 
