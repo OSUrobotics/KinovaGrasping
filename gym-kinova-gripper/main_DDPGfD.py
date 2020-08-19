@@ -29,7 +29,7 @@ def save_coordinates(x,y,filename):
 
 # Runs policy for X episodes and returns average reward
 def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=200, compare=False):
-	num_success=[0,0]
+	num_success=0#[0,0]
 	# Heatmap plot success/fail object coordinates
 	seval_obj_posx = np.array([])
 	feval_obj_posx = np.array([])
@@ -126,6 +126,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 			#eval_env = gym.make(env_name)
 			state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
 			cumulative_reward = 0
+			
+			# Keep track of object coordinates
+			obj_coords = eval_env.get_obj_coords()
 
 			while not done:
 				action = policy.select_action(np.array(state[0:48]))

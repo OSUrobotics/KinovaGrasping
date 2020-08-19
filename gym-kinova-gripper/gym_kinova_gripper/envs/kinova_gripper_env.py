@@ -436,8 +436,9 @@ class KinovaGripper_Env(gym.Env):
 		finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
 
 		reward = 0.2*finger_reward + lift_reward + grasp_reward
+		info = {"lift_reward":lift_reward}
 
-		return reward, {}, done
+		return reward, info, done
 
 	# only set proximal joints, cuz this is an underactuated hand
 	#we have a problem here (a binomial in the denomiator)
