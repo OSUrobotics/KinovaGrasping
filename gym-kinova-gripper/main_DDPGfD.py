@@ -32,13 +32,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, eval_episodes=50, compare=True):
+def eval_policy(policy, env_name, seed, eval_episodes=50, compare=False):
     num_success=[0,0]
     if compare:
         eval_env = gym.make(env_name)
         eval_env.seed(seed + 100)
     
-        avg_reward = 0.0
+        avg_reward = [0.0,0.0]
         # step = 0
         for i in range(40):
             if i<23:
@@ -56,7 +56,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=50, compare=True):
             while not done:
                 action = policy.select_action(np.array(state[0:48]))
                 state, reward, done, _ = eval_env.step(action)
-                avg_reward += reward
+                avg_reward[0] += reward
                 cumulative_reward += reward
                 if reward > 25:
                     success=1
@@ -70,7 +70,7 @@ def eval_policy(policy, env_name, seed, eval_episodes=50, compare=True):
             while not done:
                 action = GenerateTestPID_JointVel(np.array(state[0:48]),eval_env)
                 state, reward, done, _ = eval_env.step(action)
-                avg_reward += reward
+                avg_reward[1] += reward
                 cumulative_reward += reward
                 if reward > 25:
                     success=1
