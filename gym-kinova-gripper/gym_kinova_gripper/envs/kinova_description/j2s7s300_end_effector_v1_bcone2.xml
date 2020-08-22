@@ -29,20 +29,13 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <mesh name="Small_hourglass" file="Small_hglass.STL" scale="0.001 0.001 0.001"/>
 	<mesh name="Small_vase" file="Vase2S_vert.stl" scale="0.001 0.001 0.001"/>
 	<mesh name="Big_vase" file="Vase2B_vert.stl" scale="0.001 0.001 0.001"/>
-        <mesh name="Lemon" file="Lemon_Standin.STL" scale="0.001 0.001 0.001"/>
-        <mesh name="RoundBowl" file="RoundBowl.STL" scale="0.00035 0.00035 0.00035"/>
-       <mesh name="RoundBowlB" file="RoundBowlBottom.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlS1" file="RoundBowlSide1of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlS2" file="RoundBowlSide2of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlL1" file="RoundBowlLip1of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlL2" file="RoundBowlLip2of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlS3" file="RoundBowlSide3of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlS4" file="RoundBowlSide4of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlL3" file="RoundBowlLip3of4.STL" scale="0.00035 0.00035 0.00035"/>
-        <mesh name="RoundBowlL4" file="RoundBowlLip4of4.STL" scale="0.00035 0.00035 0.00035"/>
+        <mesh name="Lemon" file="Lemon_Standin.STL" scale="0.000824 0.000824 0.000824"/>
+        <mesh name="RoundBowl" file="RoundBowl.STL" scale="0.001 0.001 0.001"/>
 	<mesh name="RectBowl" file="RectBowl.STL" scale="0.001 0.001 0.001"/>
 	<mesh name="ShortBottle" file="ShortBottle.STL" scale="0.001 0.001 0.001"/>
 	<mesh name="TallBottle" file="TallBottle.STL" scale="0.001 0.001 0.001"/>
+	<mesh name="Cone1" file="Cone1B.stl" scale="0.001 0.001 0.001"/>
+	<mesh name="Cone2" file="Cone2B.stl" scale="0.001 0.001 0.001"/>
 		<texture type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="100" height="100"/>
 		<texture name="groundplane" type="2d" builtin="checker" rgb1=".25 .26 .25" 
 			rgb2=".22 .22 .22" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
@@ -69,7 +62,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
     	<body name="root" pos="0 0 0">
     		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
-				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.53 0.062 -1.49">
+				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.27 -0.05 -0.03">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" />
@@ -161,31 +154,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
 		<body name="object" pos="0 0 0">
 			<joint name="object" type="free" />
-			<geom mass="0.06" name="object" type="mesh" rgba="1 0 0 1" mesh="RoundBowlB" euler="1.57 0 0"/>
-			<body name="object_S1" pos="0 0 0">
-				<geom mass="0.005" name="object_S1" type="mesh" rgba="1 0 0 1" mesh="RoundBowlS1" euler="1.57 0 0"/>
-			</body>
-			<body name="object_S2" pos="0 0 0">
-				<geom mass="0.005" name="object_S2" type="mesh" rgba="1 0 0 1" mesh="RoundBowlS2" euler="1.57 0 0"/>
-			</body>
-			<body name="object_L1" pos="0 0 0">
-				<geom mass="0.005" name="object_L1" type="mesh" rgba="1 0 0 1" mesh="RoundBowlL1" euler="1.57 0 0"/>
-			</body>
-			<body name="object_L2" pos="0 0 0">
-				<geom mass="0.005" name="object_L2" type="mesh" rgba="1 0 0 1" mesh="RoundBowlL2" euler="1.57 0 0"/>
-			</body>
-			<body name="object_S3" pos="0 0 0">
-				<geom mass="0.005" name="object_S3" type="mesh" rgba="1 0 0 1" mesh="RoundBowlS3" euler="1.57 0 0"/>
-			</body>
-			<body name="object_S4" pos="0 0 0">
-				<geom mass="0.005" name="object_S4" type="mesh" rgba="1 0 0 1" mesh="RoundBowlS4" euler="1.57 0 0"/>
-			</body>
-			<body name="object_L3" pos="0 0 0">
-				<geom mass="0.005" name="object_L3" type="mesh" rgba="1 0 0 1" mesh="RoundBowlL3" euler="1.57 0 0"/>
-			</body>
-			<body name="object_L4" pos="0 0 0">
-				<geom mass="0.005" name="object_L4" type="mesh" rgba="1 0 0 1" mesh="RoundBowlL4" euler="1.57 0 0"/>
-			</body>
+			<geom mass="0.1" name="object" type="mesh" rgba="1 0 0 1" mesh="Cone2" euler="0 0 0"/>
 		</body>				
     </worldbody>
 
