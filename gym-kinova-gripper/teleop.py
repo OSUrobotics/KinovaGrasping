@@ -60,6 +60,7 @@ print('model loaded')
 '''
 coords='local'
 episode_obs=[]
+value=0
 #t=time.time()
 #ttot=np.array([])
 for k in range(20):
@@ -75,9 +76,9 @@ for k in range(20):
     #env.save_vid()
     #print('reset')
     #t3=time.time()
-    action=np.array([0,0,0,0.3, 0.3, 0.3])
+    action=np.array([0,0,0,0.15, 0.3, 0.3])
     print('reset')
-    for i in range(2500):
+    for i in range(300):
         
         #print(action)
     # read action from pyserial
@@ -98,9 +99,9 @@ for k in range(20):
         #if i == 80:
         #    print('move in y')
         #    action=np.array([0,-0.1,0,0.0, 0.0, 0.0])
-        if i == 170:
+        if i == 150:
             print('move in z')
-            action=np.array([0,0,0.1,0.05, 0.05, 0.05])
+            action=np.array([0,0,0.15,0.05, 0.05, 0.05])
         '''
         if i ==10:
             action = np.array([0,0,0,0.3,0.3,0.3])
@@ -117,6 +118,7 @@ for k in range(20):
             #action[3:6]=np.matmul(env.Twf[0:3,0:3],action[3:6])
         #print(action)
         obs, reward, done, _ = env.step(action)
+        print(reward)
         #print(optimizer.optimize_grasp(obs,reward))
         #print('reward',reward,'done',done)
         #obs=np.copy(obs)
@@ -135,9 +137,8 @@ for k in range(20):
             #print(j)
         #print(states)
         #input_stuff=torch.tensor(network_feed,dtype=torch.float)
-        
         states=states.float()
-        #env.render()
+        env.render()
         #t3=time.time()
         #np.random.rand(14)
         #output = model(states)
@@ -165,7 +166,7 @@ for k in range(20):
     # action[1] += 0.5
     # action[2] += 0.2
     # action[3] += 0.7
-        env.render()
+        #env.render()
     # if t > 25:
     #     action = np.array([0.1, 0.8, 0.8, 0.8])
     # # print()
@@ -175,6 +176,7 @@ for k in range(20):
 #t2=time.time()
 #print('it took ',t2-t,'seconds')
 #print(np.sum(ttot))
+print(value,'out of twenty')
 with open('Training_Examples.csv', 'w', newline='') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=',',
                             quotechar='|', quoting=csv.QUOTE_MINIMAL)

@@ -170,18 +170,18 @@ def getRandomVelocity():
     # if not flag:
     flag = np.random.choice(np.array([1, 0]), p = [0.8, 0.2])
     if flag:
-        f1 = np.random.uniform(0.0, 0.3)
-        f2 = np.random.uniform(0.0, 0.3)
-        f3 = np.random.uniform(0.0, 0.3)
+        f1 = np.random.uniform(0.0, 0.4)
+        f2 = np.random.uniform(0.0, 0.4)
+        f3 = np.random.uniform(0.0, 0.4)
         #print('flag')
     else:
-        f1 = np.random.uniform(-0.3, 0.3)
-        f2 = np.random.uniform(-0.3, 0.3)
-        f3 = np.random.uniform(-0.3, 0.3)        
+        f1 = np.random.uniform(-0.4, 0.4)
+        f2 = np.random.uniform(-0.4, 0.4)
+        f3 = np.random.uniform(-0.4, 0.4)        
     vels = np.array([f1, f2, f3])
     return vels
 
-def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
+def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True,prelims=100):
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     start = time.time()
     graspSuccess_label = []
@@ -189,7 +189,7 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
 
     print('AWOOOOOOOOOGA')
     #t=time.time()
-    for episode in range(episode_num):
+    for episode in range(episode_num*2):
         obs, done = env.reset(start_pos=None, obj_params=[obj_shape,obj_size]), False
         #print(obs[21:24])
         reward = 0
@@ -209,7 +209,7 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
             # First part : go to random joint config         
             # print((np.array(obs[25:28])))
             
-            if prelim_step <=100:
+            if prelim_step <=prelims:
             #if (np.max(np.abs((np.array(obs[25:28]) - target_joint_config))) > 0.1) and (reach == False) and prelim_step <200:
                 #for finger in range(3):
                     # print(target_joint_config[i], obs[25+i])
@@ -241,16 +241,24 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
             #print('data collection', done)
             #env.render()
 
-        # If object is lifted,     
-        if reward:
-            graspSuccess_label.append(1)
+        # If object is lifted,  
+        if (len(graspSuccess_label)-np.sum(graspSuccess_label))/episode_num < 0.75:
+            if reward:
+                graspSuccess_label.append(1)
+            else:
+                graspSuccess_label.append(0)
+            obs_label.append(episode_obs_label)
         else:
-            graspSuccess_label.append(0)
-        obs_label.append(episode_obs_label)
+            if reward:
+                graspSuccess_label.append(1)
+                obs_label.append(episode_obs_label)
+        if len(graspSuccess_label)>=episode_num:
+            break
+
         #print(obs_label)
         #Sprint(graspSuccess_label)
         #print(obs_label)
-        if episode%500==0:
+        if episode%50==0:
             #t2=time.time()
             #print('time elapsed:', t2-t)
             print(episode)
@@ -271,7 +279,11 @@ def DataCollection_GraspClassifier(episode_num, obj_shape, obj_size, save=True):
         pickle.dump(data, file)
         file.close()
 
-'''
+
+DataCollection_GraspClassifier(5000, "Bowl", "S", True,prelims=150)
+DataCollection_GraspClassifier(5000, "Bowl", "M", True,prelims=150)
+DataCollection_GraspClassifier(5000, "Bowl", "B", True,prelims=150)
+
 DataCollection_GraspClassifier(5000, "Box", "S", True)
 DataCollection_GraspClassifier(5000, "Box", "M", True)
 DataCollection_GraspClassifier(5000, "Box", "B", True)
@@ -284,18 +296,14 @@ DataCollection_GraspClassifier(5000, "Bottle", "S", True)
 DataCollection_GraspClassifier(5000, "Bottle", "M", True)
 DataCollection_GraspClassifier(5000, "Bottle", "B", True)
 
-DataCollection_GraspClassifier(5000, "Bowl", "S", True)
-DataCollection_GraspClassifier(5000, "Bowl", "M", True)
-DataCollection_GraspClassifier(5000, "Bowl", "B", True)
-
 DataCollection_GraspClassifier(5000, "TBottle", "S", True)
 DataCollection_GraspClassifier(5000, "TBottle", "M", True)
-'''
+
 DataCollection_GraspClassifier(5000, "TBottle", "B", True)
 
-DataCollection_GraspClassifier(5000, "RBowl", "S", True)
-DataCollection_GraspClassifier(5000, "RBowl", "M", True)
-DataCollection_GraspClassifier(5000, "RBowl", "B", True)
+DataCollection_GraspClassifier(5000, "RBowl", "S", True,prelims=150)
+DataCollection_GraspClassifier(5000, "RBowl", "M", True,prelims=150)
+DataCollection_GraspClassifier(5000, "RBowl", "B", True,prelims=150)
 
 DataCollection_GraspClassifier(5000, "Lemon", "S", True)
 DataCollection_GraspClassifier(5000, "Lemon", "M", True)
@@ -310,3 +318,10 @@ DataCollection_GraspClassifier(5000, "Hour", "S", True)
 DataCollection_GraspClassifier(5000, "Hour", "M", True)
 DataCollection_GraspClassifier(5000, "Hour", "B", True)
 
+DataCollection_GraspClassifier(5000, "Cone1", "S", True)
+DataCollection_GraspClassifier(5000, "Cone1", "M", True)
+DataCollection_GraspClassifier(5000, "Cone1", "B", True)
+
+DataCollection_GraspClassifier(5000, "Cone2", "S", True)
+DataCollection_GraspClassifier(5000, "Cone2", "M", True)
+DataCollection_GraspClassifier(5000, "Cone2", "B", True)
