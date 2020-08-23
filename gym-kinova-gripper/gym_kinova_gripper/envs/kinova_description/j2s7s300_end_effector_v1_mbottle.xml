@@ -65,7 +65,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
     	<body name="root" pos="0 0 0">
     		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
-				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.66 -0.07 -1.62">
+				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.67 0.073 -1.63">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" />
