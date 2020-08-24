@@ -83,12 +83,12 @@ class KinovaGripper_Env(gym.Env):
 			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
 			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_msphere.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_sphere.xml"
 			self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone1.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone2.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone2.xml"
+			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"
+			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"
+			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone1.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone1.xml"
+			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"
+			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"
+			#self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone2.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone2.xml"
 
 		else:
 			print("CHOOSE EITHER HAND OR ARM")
@@ -190,28 +190,28 @@ class KinovaGripper_Env(gym.Env):
 
 
 	# Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
-    def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
-        self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm')) 
-        Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
-        temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
-        temp=np.transpose(temp)
-        #print('wrist pose',self.wrist_pose)
-        #print('xmat times const matrix',temp)
-        #temp=np.matmul(temp,np.array([[1,0,0],[0,1,0],[0,0,1]]))
-        Tfa=np.zeros([4,4])
-        Tfa[0:3,0:3]=temp
-        Tfa[3,3]=1       
-        Tfw=np.zeros([4,4])
-        Tfw[0:3,0:3]=temp
-        Tfw[3,3]=1
-        self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
-        Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
-        self.Tfw=Tfw 
-        #print('hunch',np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose)))
-        self.Twf=np.linalg.inv(Tfw)
-        #print('wrist pose',self.wrist_pose)
-        #print('Tfw', np.round(self.Tfw,decimals=2))
-        #print('Twf',np.round(self.Twf,decimals=2))
+	def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
+		self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
+		Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
+		temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
+		temp=np.transpose(temp)
+		#print('wrist pose',self.wrist_pose)
+		#print('xmat times const matrix',temp)
+		#temp=np.matmul(temp,np.array([[1,0,0],[0,1,0],[0,0,1]]))
+		Tfa=np.zeros([4,4])
+		Tfa[0:3,0:3]=temp
+		Tfa[3,3]=1
+		Tfw=np.zeros([4,4])
+		Tfw[0:3,0:3]=temp
+		Tfw[3,3]=1
+		self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+		Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
+		self.Tfw=Tfw
+		#print('hunch',np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose)))
+		self.Twf=np.linalg.inv(Tfw)
+		#print('wrist pose',self.wrist_pose)
+		#print('Tfw', np.round(self.Tfw,decimals=2))
+		#print('Twf',np.round(self.Twf,decimals=2))
 
 	def experimental_sensor(self,rangedata,finger_pose,gravity):
 		#print('flimflam')
@@ -346,7 +346,7 @@ class KinovaGripper_Env(gym.Env):
 
 	# Function to get the distance between the digits on the fingers and the object center
 	def _get_finger_obj_dist(self): #TODO: check to see what happens when you comment out the dist[0]-= 0.0175 line and make sure it is outputting the right values
-        finger_joints = ["f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", "f3_prox_1","f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"]
+		finger_joints = ["f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", "f3_prox_1","f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"]
 
 		obj = self._get_obj_pose()
 		dists = []
@@ -466,48 +466,48 @@ class KinovaGripper_Env(gym.Env):
 		self._sim.data.set_joint_qpos("object", [states[6], states[7], states[8], 1.0, 0.0, 0.0, 0.0])
 		self._sim.forward()
 
-    # Function to get the dimensions of the object
-    def _get_obj_size(self):
-        #TODO: fix this shit
-        num_of_geoms=np.shape(self._sim.model.geom_size)
-        final_size=[0,0,0]
-        #print(self._sim.model.geom_size)
-        #print(num_of_geoms[0]-8)
-        for i in range(num_of_geoms[0]-8):
-            size=np.copy(self._sim.model.geom_size[-1-i])
-            diffs=[0,0,0]
-            if size[2]==0:
-                size[2]=size[1]
-                size[1]=size[0]
-            diffs[0]=abs(size[0]-size[1])
-            diffs[1]=abs(size[1]-size[2])
-            diffs[2]=abs(size[0]-size[2])
-            if ('lemon' in self.filename)|(np.argmin(diffs)!=0):
-                temp=size[0]
-                size[0]=size[2]
-                size[2]=temp
+	# Function to get the dimensions of the object
+	def _get_obj_size(self):
+		#TODO: fix this shit
+		num_of_geoms=np.shape(self._sim.model.geom_size)
+		final_size=[0,0,0]
+		#print(self._sim.model.geom_size)
+		#print(num_of_geoms[0]-8)
+		for i in range(num_of_geoms[0]-8):
+			size=np.copy(self._sim.model.geom_size[-1-i])
+			diffs=[0,0,0]
+			if size[2]==0:
+				size[2]=size[1]
+				size[1]=size[0]
+			diffs[0]=abs(size[0]-size[1])
+			diffs[1]=abs(size[1]-size[2])
+			diffs[2]=abs(size[0]-size[2])
+			if ('lemon' in self.filename)|(np.argmin(diffs)!=0):
+				temp=size[0]
+				size[0]=size[2]
+				size[2]=temp
 
-            if 'Bowl' in self.filename:
-                if 'Rect' in self.filename:
-                    final_size[0]=0.17
-                    final_size[1]=0.17
-                    final_size[2]=0.075
-                else:
-                    final_size[0]=0.175
-                    final_size[1]=0.175
-                    final_size[2]=0.07
-                if self.obj_size=='m':
-                    for j in range(3):
-                        final_size[j]=final_size[j]*0.85
-                elif self.obj_size=='s':
-                    for j in range(3):
-                        final_size[j]=final_size[j]*0.7
-            else:
-                final_size[0]=max(size[0],final_size[0])
-                final_size[1]=max(size[1],final_size[1])
-                final_size[2]+=size[2]
-        #print(final_size)
-        return final_size
+			if 'Bowl' in self.filename:
+				if 'Rect' in self.filename:
+					final_size[0]=0.17
+					final_size[1]=0.17
+					final_size[2]=0.075
+				else:
+					final_size[0]=0.175
+					final_size[1]=0.175
+					final_size[2]=0.07
+				if self.obj_size=='m':
+					for j in range(3):
+						final_size[j]=final_size[j]*0.85
+				elif self.obj_size=='s':
+					for j in range(3):
+						final_size[j]=final_size[j]*0.7
+			else:
+				final_size[0]=max(size[0],final_size[0])
+				final_size[1]=max(size[1],final_size[1])
+				final_size[2]+=size[2]
+		#print(final_size)
+		return final_size
 
 	def set_obj_coords(self,x,y,z):
 		self.obj_coords[0] = x
@@ -592,67 +592,67 @@ class KinovaGripper_Env(gym.Env):
 		return self.objects
 
 	#Function to randomize the position of the object for grasp classifier data collection
-    def randomize_initial_pos_data_collection(self,orientation="side"):
-        
-        size=self._get_obj_size()
-        #The old way to generate random poses
-        if orientation=='side':
-            '''
-            temp=self.random_poses[obj][self.instance]
-            rand_x=temp[0]
-            rand_y=temp[1]
-            z=temp[2]
-            self.instance+=1
-            '''
-            rand_x=triang.rvs(0.5)
-            rand_x=(rand_x-0.5)*(0.16-2*size[0])
-            rand_y=np.random.uniform()
-            if rand_x>=0:
-                rand_y=rand_y*(-(0.07-size[0]*np.sqrt(2))/(0.08-size[0])*rand_x-(-0.03-size[0]))
-            else:
-                rand_y=rand_y*((0.07-size[0]*np.sqrt(2))/(0.08-size[0])*rand_x-(-0.03-size[0]))
-        elif orientation=='rotated':
-            rand_x=0
-            rand_y=0
-        else:
-            theta=np.random.uniform(low=0,high=2*np.pi)
-            r=np.random.uniform(low=0,high=size[0]/2)
-            rand_x=np.sin(theta)*r
-            rand_y=np.cos(theta)*r
-        z = size[-1]/2
-        return rand_x, rand_y, z 
+	def randomize_initial_pos_data_collection(self,obj,orientation="side"):
 
-    def write_xml(self,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
-                                        #self.file_dir and self.filename to that rotation. It then sets up the simulator with the object 
-                                        #incredibly far from the hand to prevent collisions and recalculates the rotation matrices of the hand
-        xml_file=open(self.file_dir+self.filename,"r")
-        xml_contents=xml_file.read()
-        xml_file.close()
-        starting_point=xml_contents.find('<body name="j2s7s300_link_7"')
-        euler_point=xml_contents.find('euler=',starting_point)
-        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[euler_point:])
-        c_start=contents.start()
-        c_end=contents.end()
-        starting_point=xml_contents.find('joint name="j2s7s300_joint_7" type')
-        axis_point=xml_contents.find('axis=',starting_point)
-        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[axis_point:])
-        starting_point=xml_contents.find('site name="local_origin_site" type="cylinder" size="0.0075 0.005" rgba="25 0.5 0.0 1"')
-        site_point=xml_contents.find('pos=',starting_point)
-        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[starting_point:])
-        wrist_pose=self.wrist_pose
-        new_thing= str(wrist_pose[0]) + " " + str(wrist_pose[1]) + " " + str(wrist_pose[2])
-        p1=str(new_rotation[0])
-        p2=str(new_rotation[1])
-        p3=str(new_rotation[2])
-        xml_contents=xml_contents[:euler_point+c_start+7] + p1[0:min(5,len(p1))]+ " "+p2[0:min(5,len(p2))] +" "+ p3[0:min(5,len(p3))] \
-        + xml_contents[euler_point+c_end-1:]# + new_thing + xml_contents[site_point+c2_end:]
-        xml_file=open(self.file_dir+self.filename,"w")
-        xml_file.write(xml_contents)
-        xml_file.close()
-        self._model = load_model_from_path(self.file_dir + self.filename)
-        self._sim = MjSim(self._model) 
-        self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
-        self._get_trans_mat_wrist_pose()
+		size=self._get_obj_size()
+		#The old way to generate random poses
+		if orientation=='side':
+			'''
+			temp=self.random_poses[obj][self.instance]
+			rand_x=temp[0]
+			rand_y=temp[1]
+			z=temp[2]
+			self.instance+=1
+			'''
+			rand_x=triang.rvs(0.5)
+			rand_x=(rand_x-0.5)*(0.16-2*size[0])
+			rand_y=np.random.uniform()
+			if rand_x>=0:
+				rand_y=rand_y*(-(0.07-size[0]*np.sqrt(2))/(0.08-size[0])*rand_x-(-0.03-size[0]))
+			else:
+				rand_y=rand_y*((0.07-size[0]*np.sqrt(2))/(0.08-size[0])*rand_x-(-0.03-size[0]))
+		elif orientation=='rotated':
+			rand_x=0
+			rand_y=0
+		else:
+			theta=np.random.uniform(low=0,high=2*np.pi)
+			r=np.random.uniform(low=0,high=size[0]/2)
+			rand_x=np.sin(theta)*r
+			rand_y=np.cos(theta)*r
+		z = size[-1]/2
+		return rand_x, rand_y, z
+
+	def write_xml(self,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
+										#self.file_dir and self.filename to that rotation. It then sets up the simulator with the object
+										#incredibly far from the hand to prevent collisions and recalculates the rotation matrices of the hand
+		xml_file=open(self.file_dir+self.filename,"r")
+		xml_contents=xml_file.read()
+		xml_file.close()
+		starting_point=xml_contents.find('<body name="j2s7s300_link_7"')
+		euler_point=xml_contents.find('euler=',starting_point)
+		contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[euler_point:])
+		c_start=contents.start()
+		c_end=contents.end()
+		starting_point=xml_contents.find('joint name="j2s7s300_joint_7" type')
+		axis_point=xml_contents.find('axis=',starting_point)
+		contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[axis_point:])
+		starting_point=xml_contents.find('site name="local_origin_site" type="cylinder" size="0.0075 0.005" rgba="25 0.5 0.0 1"')
+		site_point=xml_contents.find('pos=',starting_point)
+		contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[starting_point:])
+		wrist_pose=self.wrist_pose
+		new_thing= str(wrist_pose[0]) + " " + str(wrist_pose[1]) + " " + str(wrist_pose[2])
+		p1=str(new_rotation[0])
+		p2=str(new_rotation[1])
+		p3=str(new_rotation[2])
+		xml_contents=xml_contents[:euler_point+c_start+7] + p1[0:min(5,len(p1))]+ " "+p2[0:min(5,len(p2))] +" "+ p3[0:min(5,len(p3))] \
+		+ xml_contents[euler_point+c_end-1:]# + new_thing + xml_contents[site_point+c2_end:]
+		xml_file=open(self.file_dir+self.filename,"w")
+		xml_file.write(xml_contents)
+		xml_file.close()
+		self._model = load_model_from_path(self.file_dir + self.filename)
+		self._sim = MjSim(self._model)
+		self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
+		self._get_trans_mat_wrist_pose()
 
 	# Steph Added
 	def check_obj_file_empty(self,filename):
@@ -842,30 +842,30 @@ class KinovaGripper_Env(gym.Env):
 				# Normal hand orientations
 				new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
 				coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
-        print("COORDS FILENAME: ",coords_filename)
-        self.write_xml(new_rotation)
+		print("COORDS FILENAME: ",coords_filename)
+		self.write_xml(new_rotation)
 
-        if hand_orientation < 0.333:
-            self.orientation = 'normal'
-            xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
-        elif hand_orientation > 0.667:
-            self.orientation = 'top'
-            size=self._get_obj_size()
-            
-            if self.obj_size=='b':
-                Z=0.15
-            elif self.obj_size=='m':
-                Z=0.14
-            elif self.obj_size=='s':
-                Z=0.13
-            stuff=np.matmul(self.Tfw[0:3,0:3],[-0.005,-0.155,Z+0.06])
-            #stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.1+size[-1]*1.8])
-            xloc,yloc,zloc,f1prox,f2prox,f3prox=-stuff[0],-stuff[1],stuff[2],0,0,0
-        else:
-            self.orientation = 'rotated'
-            temp=np.matmul(self.Tfw[0:3,0:3],np.array([0.051,-0.075,0.06]))
-            #print('temp',temp)
-            xloc,yloc,zloc,f1prox,f2prox,f3prox=-temp[0],-temp[1],temp[2],0,0,0
+		if orientation_type < 0.333:
+			self.orientation = 'normal'
+			xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
+		elif orientation_type > 0.667:
+			self.orientation = 'top'
+			size=self._get_obj_size()
+
+			if self.obj_size=='b':
+				Z=0.15
+			elif self.obj_size=='m':
+				Z=0.14
+			elif self.obj_size=='s':
+				Z=0.13
+			stuff=np.matmul(self.Tfw[0:3,0:3],[-0.005,-0.155,Z+0.06])
+			#stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.1+size[-1]*1.8])
+			xloc,yloc,zloc,f1prox,f2prox,f3prox=-stuff[0],-stuff[1],stuff[2],0,0,0
+		else:
+			self.orientation = 'rotated'
+			temp=np.matmul(self.Tfw[0:3,0:3],np.array([0.051,-0.075,0.06]))
+			#print('temp',temp)
+			xloc,yloc,zloc,f1prox,f2prox,f3prox=-temp[0],-temp[1],temp[2],0,0,0
 		if qpos is None:
 			if start_pos is None:
 				if orientation_type >0.667:
@@ -874,7 +874,7 @@ class KinovaGripper_Env(gym.Env):
 					  x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
 					  print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
 				  else:
-					  x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
+					  x, y, z = self.randomize_initial_pos_data_collection(obj,orientation='top')
 					  print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
 				else:
 				  if self.check_obj_file_empty(coords_filename) == True:
@@ -896,7 +896,7 @@ class KinovaGripper_Env(gym.Env):
 			#    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
 			#    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
 			self.Grasp_Reward=False
-            self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.00, 0.0, 0.055])
+			self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.00, 0.0, 0.055])
 			self.all_states = [self.all_states_1 , self.all_states_2]
 
 			self._set_state(self.all_states[0])
@@ -917,10 +917,10 @@ class KinovaGripper_Env(gym.Env):
 		#These two varriables are used when the action space is in joint states
 		self.t_vel = 0
 		self.prev_obs = []
-        
+
 		# Sets the object coordinates for heatmap tracking and plotting
 		self.set_obj_coords(x,y,z)
-        self._get_trans_mat_wrist_pose()
+		self._get_trans_mat_wrist_pose()
 		return states
 
 	#Function to display the current state in a video. The video is always paused when it first starts up.
@@ -1001,21 +1001,21 @@ class KinovaGripper_Env(gym.Env):
 			stuff=np.matmul(self.Tfw[0:3,0:3],[0,0,mass*10/gear])
 			stuff[0]=-stuff[0]
 			stuff[1]=-stuff[1]
-            for _ in range(self.frame_skip):
-                #print('tfw',self.Tfw)
-                if self.step_coords=='global':
-                    slide_vector=np.matmul(self.Tfw[0:3,0:3],action[0:3])
-                    if (self.orientation == 'rotated') & (action[2]<=0):
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
-                    else:
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
-                else:
+			for _ in range(self.frame_skip):
+				#print('tfw',self.Tfw)
+				if self.step_coords=='global':
+					slide_vector=np.matmul(self.Tfw[0:3,0:3],action[0:3])
+					if (self.orientation == 'rotated') & (action[2]<=0):
+						slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
+					else:
+						slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
+				else:
 
-                    if (self.orientation == 'rotated')&(action[2]<=0):
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
-                    else:
-                        slide_vector=[-action[0],-action[1],action[2]]#np.matmul(self.Twf[0:3,0:3],action[0:3])
-                #print(self.Twf[0:3,0:3])
+					if (self.orientation == 'rotated')&(action[2]<=0):
+						slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
+					else:
+						slide_vector=[-action[0],-action[1],action[2]]#np.matmul(self.Twf[0:3,0:3],action[0:3])
+				#print(self.Twf[0:3,0:3])
 				'''
 				if action[0] < 0.0:
 					self._sim.data.ctrl[0] = 0.0
@@ -1028,14 +1028,14 @@ class KinovaGripper_Env(gym.Env):
 					self._sim.data.ctrl[1]=stuff[2]
 					for i in range(3):
 						self._sim.data.ctrl[i+2] = action[i+1]
-                else:
-                    for i in range(3):
-                        self._sim.data.ctrl[(i)*2] = slide_vector[i]
-                        if self.step_coords=='rotated':
-                            self._sim.data.ctrl[i+6] = action[i+3]+0.05
-                        else:
-                            self._sim.data.ctrl[i+6] = action[i+3]
-                        self._sim.data.ctrl[i*2+1]=stuff[i]
+				else:
+					for i in range(3):
+						self._sim.data.ctrl[(i)*2] = slide_vector[i]
+						if self.step_coords=='rotated':
+							self._sim.data.ctrl[i+6] = action[i+3]+0.05
+						else:
+							self._sim.data.ctrl[i+6] = action[i+3]
+						self._sim.data.ctrl[i*2+1]=stuff[i]
 				self._sim.step()
 			#print('slide vector',slide_vector)
 		else:
