@@ -207,7 +207,17 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<body name="object9" pos="1.2 0.0 0.1">
 			<joint name="object9" type="free" />
 			<geom mass="0.1" name="object9" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box" />
-		</body>		
+		</body>
+
+		<body name="object10" pos="1.2 0.1 0.1">
+			<joint name="object10" type="free" />
+			<geom mass="0.1" name="object10" rgba="0 1 0 1" size="0.025 0.025 0.06" type="box" />
+		</body>	
+
+		<body name="object11" pos="1.2 -0.1 0.1">
+			<joint name="object11" type="free" />
+			<geom mass="0.1" name="object11" rgba="0 1 0 1" size="0.0175 0.0175 0.05" type="box" />
+		</body>			
     </worldbody>
 
 
