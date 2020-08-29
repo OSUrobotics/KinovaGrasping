@@ -593,7 +593,7 @@ class KinovaGripper_Env(gym.Env):
 
     #Function to randomize the position of the object for grasp classifier data collection
     def randomize_initial_pos_data_collection(self,orientation="side"):
-        
+        print('ya done messed up A-A-ron')
         size=self._get_obj_size()
         #The old way to generate random poses
         if orientation=='side':
@@ -845,10 +845,10 @@ class KinovaGripper_Env(gym.Env):
         print("COORDS FILENAME: ",coords_filename)
         self.write_xml(new_rotation)
 
-        if hand_orientation < 0.333:
+        if orientation_type < 0.333:
             self.orientation = 'normal'
             xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
-        elif hand_orientation > 0.667:
+        elif orientation_type > 0.667:
             self.orientation = 'top'
             size=self._get_obj_size()
             
@@ -870,17 +870,18 @@ class KinovaGripper_Env(gym.Env):
             if start_pos is None:
                 if orientation_type >0.667:
                   # Check for coords text file
-                  if self.check_obj_file_empty(coords_filename) == True:
+                  if self.check_obj_file_empty(coords_filename) == False:
                       x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
                       print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
                       print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
                 else:
-                  if self.check_obj_file_empty(coords_filename) == True:
+                  if self.check_obj_file_empty(coords_filename) == False:
                       x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
                   else:
-                      x, y, z = self.randomize_initial_pos_data_collection(obj=obj)
+                      x, y, z = self.randomize_initial_pos_data_collection()
+                      print(orientation_type, 'this wasnt bigger than 0.667 and the object file wasnt empty')
             elif len(start_pos)==3:
                 x, y, z = start_pos[0], start_pos[1], start_pos[2]
             elif len(start_pos)==2:
@@ -956,7 +957,8 @@ class KinovaGripper_Env(gym.Env):
         #if len(action)==4:
         #    action=[action[0],0,0,0,0,0,action[1],action[2],action[3]]
         self._get_trans_mat_wrist_pose()
-
+        if len(action)==4:
+            action=[0,0,action[0],action[1],action[2],action[3]]
         # This is used to tell if the object is in contact with the hand and which parts of the hand
         '''
         tot_external_force=np.array([0,0,0])
@@ -1023,19 +1025,13 @@ class KinovaGripper_Env(gym.Env):
                     #self._sim.data.ctrl[0] = (action[0] / 0.8) * 0.2
                     self._sim.data.ctrl[0] = action[0]
                 '''
-                if len(action) ==4:
-                    self._sim.data.ctrl[0] = action[0]
-                    self._sim.data.ctrl[1]=stuff[2]
-                    for i in range(3):
-                        self._sim.data.ctrl[i+2] = action[i+1]
-                else:
-                    for i in range(3):
-                        self._sim.data.ctrl[(i)*2] = slide_vector[i]
-                        if self.step_coords=='rotated':
-                            self._sim.data.ctrl[i+6] = action[i+3]+0.05
-                        else:
-                            self._sim.data.ctrl[i+6] = action[i+3]
-                        self._sim.data.ctrl[i*2+1]=stuff[i]
+                for i in range(3):
+                    self._sim.data.ctrl[(i)*2] = slide_vector[i]
+                    if self.step_coords=='rotated':
+                        self._sim.data.ctrl[i+6] = action[i+3]+0.05
+                    else:
+                        self._sim.data.ctrl[i+6] = action[i+3]
+                    self._sim.data.ctrl[i*2+1]=stuff[i]
                 self._sim.step()
             #print('slide vector',slide_vector)
         else:

@@ -65,7 +65,7 @@ value=0
 #ttot=np.array([])
 for k in range(20):
     #env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-    env.reset()
+    env.reset(env_name="env",shape_keys=["CubeM","CubeS","CubeB"],hand_orientation='random',mode='shape')
     x_move = np.random.rand()/10
     y_move = np.random.rand()/10
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
@@ -78,7 +78,7 @@ for k in range(20):
     #t3=time.time()
     action=np.array([0,0,0,0.15, 0.3, 0.3])
     print('reset')
-    for i in range(300):
+    for i in range(200):
         
         #print(action)
     # read action from pyserial
@@ -101,7 +101,7 @@ for k in range(20):
         #    action=np.array([0,-0.1,0,0.0, 0.0, 0.0])
         if i == 150:
             print('move in z')
-            action=np.array([0,0,0.15,0.05, 0.05, 0.05])
+            action=np.array([0.15,0.05, 0.05, 0.05])
         '''
         if i ==10:
             action = np.array([0,0,0,0.3,0.3,0.3])
@@ -118,7 +118,7 @@ for k in range(20):
             #action[3:6]=np.matmul(env.Twf[0:3,0:3],action[3:6])
         #print(action)
         obs, reward, done, _ = env.step(action)
-        print(reward)
+        #print(reward)
         #print(optimizer.optimize_grasp(obs,reward))
         #print('reward',reward,'done',done)
         #obs=np.copy(obs)
@@ -138,7 +138,7 @@ for k in range(20):
         #print(states)
         #input_stuff=torch.tensor(network_feed,dtype=torch.float)
         states=states.float()
-        env.render()
+        #env.render()
         #t3=time.time()
         #np.random.rand(14)
         #output = model(states)
