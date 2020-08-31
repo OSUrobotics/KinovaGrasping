@@ -757,8 +757,10 @@ class KinovaGripper_Env(gym.Env):
     # Get the initial object position
     def sample_initial_valid_object_pos(self,shapeName,coords_filename):
         with open(coords_filename) as csvfile:
-            data = [(float(x), float(y), float(z)) for x, y, z in csv.reader(csvfile, delimiter= ' ')]
-
+            for i in csv.reader(csvfile, delimiter= ' '):
+                temp=i[0].split(",")
+                data = [(float(temp[0]), float(temp[1]), float(temp[2]))]
+        
         rand_coord = random.choice(data)
         x = rand_coord[0]
         y = rand_coord[1]
