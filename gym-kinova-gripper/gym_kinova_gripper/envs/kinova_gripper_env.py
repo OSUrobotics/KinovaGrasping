@@ -195,9 +195,6 @@ class KinovaGripper_Env(gym.Env):
         Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
         temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
         temp=np.transpose(temp)
-        #print('wrist pose',self.wrist_pose)
-        #print('xmat times const matrix',temp)
-        #temp=np.matmul(temp,np.array([[1,0,0],[0,1,0],[0,0,1]]))
         Tfa=np.zeros([4,4])
         Tfa[0:3,0:3]=temp
         Tfa[3,3]=1       
@@ -207,11 +204,7 @@ class KinovaGripper_Env(gym.Env):
         self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
         Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
         self.Tfw=Tfw 
-        #print('hunch',np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose)))
         self.Twf=np.linalg.inv(Tfw)
-        #print('wrist pose',self.wrist_pose)
-        #print('Tfw', np.round(self.Tfw,decimals=2))
-        #print('Twf',np.round(self.Twf,decimals=2))
 
     def experimental_sensor(self,rangedata,finger_pose,gravity):
         #print('flimflam')
@@ -253,9 +246,6 @@ class KinovaGripper_Env(gym.Env):
             sensor_pose=[0.2,0.2,0.2]
         else:
             sensor_pose=[np.average(xs),np.average(ys),np.average(zs)]
-        #print('object pose',obj_pose)
-        #print('finger pose',finger_pose)
-        #print('sensed pos',sensor_pose)
         obj_size=np.copy(self._get_obj_size())
         if np.argmax(np.abs(gravity))==2:
             front_part=np.abs(obj_size[0]*obj_size[2])/front_area
@@ -267,10 +257,6 @@ class KinovaGripper_Env(gym.Env):
             front_part=np.abs(obj_size[0]*obj_size[1])/front_area
             top_part=np.abs(obj_size[0]*obj_size[2])/top_area
 
-        #print(front_part*front_area,front_area)
-        #print(top_part*top_area,top_area)
-        #print('sensor pos', sensor_pose)
-        #print('front and top part', front_part, top_part)
         return sensor_pose,front_part, top_part
 
 
@@ -296,9 +282,6 @@ class KinovaGripper_Env(gym.Env):
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         if state_rep == None:
             state_rep = self.state_rep
-        #print(self.Tfw)
-        #print(self.Tfw[0:3,3])
-        #print(self.Twf[0:3,3])
         # states rep
         obj_pose = self._get_obj_pose()
         obj_pose = np.copy(obj_pose)
@@ -329,7 +312,6 @@ class KinovaGripper_Env(gym.Env):
                 trans = list(trans)
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
-            #print('world wrist pose',self.wrist_pose)
             wrist_for_rotation=np.append(self.wrist_pose,1)
             wrist_for_rotation=np.matmul(self.Tfw,wrist_for_rotation)
 
@@ -389,7 +371,6 @@ class KinovaGripper_Env(gym.Env):
         z_angle = np.arccos(z_dot/np.linalg.norm(obj_wrist[0:2]))
         x_dot = np.dot(obj_wrist[1:3],center_line[1:3])
         x_angle = np.arccos(x_dot/np.linalg.norm(obj_wrist[1:3]))
-        #print('angle calc took', t-time.time(), 'seconds')
         return x_angle,z_angle
 
     # Function to get rewards based only on the lift reward. This is primarily used to generate data for the grasp classifier
@@ -588,7 +569,6 @@ class KinovaGripper_Env(gym.Env):
         elif len(shape_keys) != len(self.objects):
             print("Invlaid shape key requested")
             raise ValueError
-
         return self.objects
 
     #Function to randomize the position of the object for grasp classifier data collection
@@ -719,6 +699,7 @@ class KinovaGripper_Env(gym.Env):
 
     def objects_file_to_list(self,filename, num_objects,shape_keys):
         print("FILENAME: ",filename)
+        #print('FIRST OBJECT KEYS',self.obj_keys)
         df = pd.read_csv(filename,header=None, sep='\n')
         if (df.empty):
             "Object file is empty!"
@@ -728,7 +709,7 @@ class KinovaGripper_Env(gym.Env):
             for row in reader:
                 row = ''.join(row)
                 self.obj_keys.append(row)
-
+        #print('LAST OBJECT KEYS',self.obj_keys)
     def get_obj_keys(self):
         return self.obj_keys
 
@@ -757,10 +738,13 @@ class KinovaGripper_Env(gym.Env):
     # Get the initial object position
     def sample_initial_valid_object_pos(self,shapeName,coords_filename):
         with open(coords_filename) as csvfile:
-            for i in csv.reader(csvfile, delimiter= ' '):
-                temp=i[0].split(",")
-                data = [(float(temp[0]), float(temp[1]), float(temp[2]))]
-        
+            checker=csvfile.readline()
+            if ',' in checker:
+                delim=','
+            else:
+                delim=' '
+            for i in csv.reader(csvfile, delimiter= delim):
+                data = [(float(i[0]), float(i[1]), float(i[2]))]
         rand_coord = random.choice(data)
         x = rand_coord[0]
         y = rand_coord[1]
@@ -768,7 +752,93 @@ class KinovaGripper_Env(gym.Env):
 
         return x, y, z
 
-    def reset(self,env_name,shape_keys,hand_orientation,mode,start_pos=None,obj_params=None,coords='global',qpos=None):
+    def obj_shape_generator(self,obj_params):
+        if obj_params[0] == "Cube":
+            if obj_params[1] == "B":
+                obj=0
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
+            elif obj_params[1] == "M":
+                obj=1
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
+            elif obj_params[1] == "S":
+                obj=2
+                self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1.xml"
+        elif obj_params[0] == "Cylinder":
+            if obj_params[1] == "B":
+                obj=3
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"          
+            elif obj_params[1] == "M":
+                obj=4
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
+            elif obj_params[1] == "S":
+                obj=5
+                self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
+        elif obj_params[0] == "Hour":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+        if obj_params[0] == "Vase":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_svase.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_svase.xml"
+        elif obj_params[0] == "Bottle":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"
+        elif obj_params[0] == "Bowl":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"
+        if obj_params[0] == "Lemon":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
+        elif obj_params[0] == "TBottle":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"
+        elif obj_params[0] == "RBowl":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
+        elif obj_params[0] == "Cone1":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone1.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone1.xml"
+        elif obj_params[0] == "Cone2":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone2.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone2.xml"
+        return obj_params[0]+obj_params[1]
+
+    def reset(self,env_name="env",shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"],hand_orientation="random",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
@@ -788,7 +858,12 @@ class KinovaGripper_Env(gym.Env):
             self.objects = self.experiment(shape_keys)
         if len(self.obj_keys) == 0:
             self.objects_file_to_list(obj_list_filename,num_objects,shape_keys)
-        random_shape, self.filename = self.get_object(obj_list_filename)
+            
+        if obj_params==None:
+            random_shape, self.filename = self.get_object(obj_list_filename)
+        else:
+            random_shape = self.obj_shape_generator(obj_params)
+
         #coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/" + random_shape + ".txt"
 
         # End of stephs new code
@@ -883,7 +958,6 @@ class KinovaGripper_Env(gym.Env):
                       x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
-                      print(orientation_type, 'this wasnt bigger than 0.667 and the object file wasnt empty')
             elif len(start_pos)==3:
                 x, y, z = start_pos[0], start_pos[1], start_pos[2]
             elif len(start_pos)==2:

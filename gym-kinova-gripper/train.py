@@ -104,7 +104,7 @@ def test(env, trained_model):
             # print(reward)
 
 # def train_network(data_filename, max_action, num_epoch, total_steps, batch_size, model_path="trained_model"):
-def train_network(training_set, training_label, num_epoch, total_steps, batch_size, all_testing_set,all_testing_label,model_path="trained_model"):
+def train_network(training_set, training_label, num_epoch, total_steps, batch_size, all_testing_set,all_testing_label,model_path="trained_model",network='Full5'):
     # import data
     # file = open(data_filename + ".pkl", "rb")
     # data = pickle.load(file)
@@ -124,7 +124,18 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
     # total_steps = data["total_steps"]
     # actions = data[:, -1]
     # pdb.set_trace()
-    classifier_net = ReducedLinearNetwork()
+    if network=='Full5':
+        classifier_net = LinearNetwork()
+    elif network=='Full4':
+        classifier_net = LinearNetwork4Layer()
+    elif network=='Full3':
+        classifier_net = LinearNetwork3Layer()
+    elif network=='Red5':
+        classifier_net = ReducedLinearNetwork()
+    elif network=='Red4':
+        classifier_net = ReducedLinearNetwork4Layer() 
+    elif network=='Red3':
+        classifier_net = ReducedLinearNetwork3Layer()
     classifier_net=classifier_net.float()
     
     '''
@@ -158,9 +169,12 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
             #network_feed=np.append(network_feed,training_set[:,27:36], axis=1)
             #network_feed=np.append(network_feed,training_set[:,49:51], axis=1)
             #network_feed=training_set
-            network_feed=training_set[:,21:24]
-            network_feed=np.append(network_feed,training_set[:,33:36],axis=1)
-            network_feed=np.append(network_feed,training_set[:,42:48],axis=1)
+            if network[0]=='R':
+                network_feed=training_set[:,21:24]
+                network_feed=np.append(network_feed,training_set[:,33:36],axis=1)
+                network_feed=np.append(network_feed,training_set[:,42:48],axis=1)
+            else:
+                network_feed=training_set
             #print(np.shape(network_feed))
             running_loss = 0.0
             start_batch = 0
@@ -201,7 +215,7 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
     print('Percent Correct ',total_percent)
     print('False Positives ',false_pos)
     print('True Positives ',true_pos)
-    torch.save(classifier_net.state_dict(), model_path + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + "local" +"Red"+ ".pt")    
+    torch.save(classifier_net.state_dict(), model_path + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + "local" +network+ ".pt")    
     return classifier_net, total_percent, false_pos, true_pos
 
 def test_network(test_in,test_out,classifier_net,output_threshold=0.8,red=True):
@@ -511,8 +525,9 @@ if __name__ == '__main__':
     #files = [files_dir + "Data_Box_B_01_16_20_1728", files_dir + "Data_Box_B_01_21_20_1951", files_dir + "Data_Box_M_01_16_20_1826", files_dir + "Data_Box_M_01_21_20_2005", files_dir + "Data_Box_S_01_16_20_2335", files_dir + "Data_Box_S_01_21_20_2106",files_dir + "Data_Cylinder_B_01_16_20_1405", files_dir + "Data_Cylinder_B_01_21_20_1956", files_dir + "Data_Cylinder_M_01_16_20_1505", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_S_01_17_20_0009", files_dir + "Data_Cylinder_S_01_21_20_2118", files_dir + "Data_Hour_B_03_31_20_0348", files_dir + "Data_Hour_M_03_30_20_1756", files_dir + "Data_Hour_S_03_30_20_1743"]
     #files = [files_dir + "Data_Hour_B_05_14_20_0750", files_dir + "Data_Hour_M_05_14_20_0652", files_dir +"Data_Hour_S_05_14_20_0557", files_dir +"Data_Cylinder_B_05_14_20_0453", files_dir +"Data_Cylinder_M_05_14_20_0407", files_dir +"Data_Cylinder_S_05_14_20_0319",files_dir +"Data_Box_B_05_14_20_0216", files_dir +"Data_Box_M_05_14_20_0131", files_dir +"Data_Box_S_05_14_20_0044"]
     #files = [files_dir + "Data_TBottle_BLOCAL_07_02_20_2114", files_dir + "Data_TBottle_MLOCAL_07_02_20_2100", files_dir +"Data_TBottle_SLOCAL_07_02_20_2045", files_dir +"Data_Bottle_BLOCAL_07_02_20_0414", files_dir +"Data_Bottle_MLOCAL_07_02_20_0200", files_dir +"Data_Bottle_SLOCAL_07_01_20_2335",files_dir +"Data_Vase_MLOCAL_07_01_20_2306", files_dir +"Data_Cylinder_BLOCAL_07_01_20_2106", files_dir +"Data_Vase_SLOCAL_07_01_20_2026",files_dir + "Data_Cylinder_MLOCAL_07_01_20_1915", files_dir + "Data_Lemon_BLOCAL_07_01_20_1747", files_dir +"Data_Cylinder_SLOCAL_07_01_20_1713", files_dir +"Data_Box_BLOCAL_07_01_20_1505", files_dir +"Data_Lemon_MLOCAL_07_01_20_1454", files_dir +"Data_Box_MLOCAL_07_01_20_1315",files_dir +"Data_Lemon_SLOCAL_07_01_20_1202", files_dir +"Data_Box_SLOCAL_07_01_20_1121", files_dir +"Data_Bowl_BLOCAL_06_30_20_1958",files_dir + "Data_RBowl_BLOCAL_06_30_20_1933", files_dir + "Data_Bowl_MLOCAL_06_30_20_1711", files_dir +"Data_RBowl_MLOCAL_06_30_20_1657", files_dir +"Data_Bowl_SLOCAL_06_30_20_1420", files_dir +"Data_RBowl_SLOCAL_06_30_20_1415", files_dir +"Data_Hour_BLOCAL_06_30_20_0952",files_dir +"Data_Hour_MLOCAL_06_30_20_0743", files_dir +"Data_Hour_SLOCAL_06_30_20_0529", files_dir +"Data_Vase_BLOCAL_06_30_20_0315"]
-    files = [files_dir + "Data_Box_SLOCAL_07_30_20_1548", files_dir + "Data_TBottle_BLOCAL_07_30_20_1608", files_dir +"Data_Box_MLOCAL_07_30_20_1746", files_dir +"Data_RBowl_SLOCAL_07_30_20_1845", files_dir +"Data_Box_BLOCAL_07_30_20_1943", files_dir +"Data_RBowl_MLOCAL_07_30_20_2131",files_dir +"Data_Cylinder_SLOCAL_07_30_20_2154", files_dir +"Data_Cylinder_MLOCAL_07_31_20_0001", files_dir +"Data_RBowl_BLOCAL_07_31_20_0017",files_dir + "Data_Cylinder_BLOCAL_07_31_20_0202", files_dir + "Data_Lemon_SLOCAL_07_31_20_0257", files_dir +"Data_Bottle_SLOCAL_07_31_20_0435", files_dir +"Data_Lemon_MLOCAL_07_31_20_0544", files_dir +"Data_Bottle_MLOCAL_07_31_20_0709", files_dir +"Data_Lemon_BLOCAL_07_31_20_0841",files_dir +"Data_Bottle_BLOCAL_07_31_20_0943", files_dir +"Data_Vase_SLOCAL_07_31_20_1123", files_dir +"Data_Bowl_SLOCAL_07_31_20_1232",files_dir + "Data_Vase_MLOCAL_07_31_20_1406", files_dir + "Data_Bowl_MLOCAL_07_31_20_1526", files_dir +"Data_Vase_BLOCAL_07_31_20_1650", files_dir +"Data_Bowl_BLOCAL_07_31_20_1826", files_dir +"Data_Hour_SLOCAL_07_31_20_1906", files_dir +"Data_TBottle_SLOCAL_07_31_20_2052",files_dir +"Data_Hour_MLOCAL_07_31_20_2120", files_dir +"Data_TBottle_MLOCAL_07_31_20_2315", files_dir +"Data_Hour_BLOCAL_07_31_20_2335"]
-    
+    #files = [files_dir + "Data_Box_SLOCAL_07_30_20_1548", files_dir + "Data_TBottle_BLOCAL_07_30_20_1608", files_dir +"Data_Box_MLOCAL_07_30_20_1746", files_dir +"Data_RBowl_SLOCAL_07_30_20_1845", files_dir +"Data_Box_BLOCAL_07_30_20_1943", files_dir +"Data_RBowl_MLOCAL_07_30_20_2131",files_dir +"Data_Cylinder_SLOCAL_07_30_20_2154", files_dir +"Data_Cylinder_MLOCAL_07_31_20_0001", files_dir +"Data_RBowl_BLOCAL_07_31_20_0017",files_dir + "Data_Cylinder_BLOCAL_07_31_20_0202", files_dir + "Data_Lemon_SLOCAL_07_31_20_0257", files_dir +"Data_Bottle_SLOCAL_07_31_20_0435", files_dir +"Data_Lemon_MLOCAL_07_31_20_0544", files_dir +"Data_Bottle_MLOCAL_07_31_20_0709", files_dir +"Data_Lemon_BLOCAL_07_31_20_0841",files_dir +"Data_Bottle_BLOCAL_07_31_20_0943", files_dir +"Data_Vase_SLOCAL_07_31_20_1123", files_dir +"Data_Bowl_SLOCAL_07_31_20_1232",files_dir + "Data_Vase_MLOCAL_07_31_20_1406", files_dir + "Data_Bowl_MLOCAL_07_31_20_1526", files_dir +"Data_Vase_BLOCAL_07_31_20_1650", files_dir +"Data_Bowl_BLOCAL_07_31_20_1826", files_dir +"Data_Hour_SLOCAL_07_31_20_1906", files_dir +"Data_TBottle_SLOCAL_07_31_20_2052",files_dir +"Data_Hour_MLOCAL_07_31_20_2120", files_dir +"Data_TBottle_MLOCAL_07_31_20_2315", files_dir +"Data_Hour_BLOCAL_07_31_20_2335"]
+    files = [files_dir + "Data_Hour_BLOCAL_08_26_20_0540", files_dir + "Data_Hour_MLOCAL_08_26_20_0245", files_dir +"Data_Hour_SLOCAL_08_25_20_2353", files_dir +"Data_Vase_BLOCAL_08_25_20_2057", files_dir +"Data_Vase_MLOCAL_08_25_20_1714", files_dir +"Data_Vase_SLOCAL_08_25_20_1325",files_dir +"Data_RBowl_BLOCAL_08_24_20_1126", files_dir +"Data_RBowl_MLOCAL_08_24_20_0141", files_dir +"Data_RBowl_SLOCAL_08_23_20_1611",files_dir + "Data_TBottle_BLOCAL_08_23_20_0653", files_dir + "Data_TBottle_MLOCAL_08_23_20_0311", files_dir +"Data_TBottle_SLOCAL_08_22_20_2343", files_dir +"Data_Bottle_BLOCAL_08_22_20_2027", files_dir +"Data_Bottle_MLOCAL_08_22_20_1624", files_dir +"Data_Bottle_SLOCAL_08_22_20_1255",files_dir +"Data_Cylinder_BLOCAL_08_22_20_0937", files_dir +"Data_Cylinder_MLOCAL_08_22_20_0606", files_dir +"Data_Cylinder_SLOCAL_08_22_20_0238",files_dir + "Data_Box_BLOCAL_08_21_20_2143", files_dir + "Data_Box_MLOCAL_08_21_20_1911", files_dir +"Data_Box_SLOCAL_08_20_20_2033", files_dir +"Data_Bowl_BLOCAL_08_20_20_1746", files_dir +"Data_Bowl_MLOCAL_08_20_20_0807", files_dir +"Data_Bowl_SLOCAL_08_19_20_2237"]
+
     print(len(files))
     
     all_training_set = []
@@ -589,7 +604,10 @@ if __name__ == '__main__':
     print(np.average(all_training_label))
     print(np.average(all_testing_label))
     #GP_net=trainGP(all_training_set,all_training_label,all_testing_set,all_testing_label)
-    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label)    
+    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full5')
+    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full4')
+    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full3')
+    '''
     model1 = ReducedLinearNetwork()
     model1.load_state_dict(torch.load('trained_model_07_24_20_1728localRed.pt'))
     model1.eval()
@@ -640,4 +658,4 @@ if __name__ == '__main__':
         plt.ylabel('true positive rate')
         plt.legend(('Reduced 5 Layer','Reduced 3 Layer','Reduced 4 Layer','Full 5 Layer','Full 3 Layer','Full 4 Layer'))
         plt.show()
-    
+    '''

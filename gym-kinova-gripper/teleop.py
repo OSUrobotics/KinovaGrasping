@@ -65,7 +65,7 @@ value=0
 #ttot=np.array([])
 for k in range(20):
     #env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-    env.reset(env_name="env",shape_keys=["CubeM","CubeS","CubeB"],hand_orientation='random',mode='shape')
+    env.reset(start_pos=[0,0],obj_params=['Cube','S'],hand_orientation='not_random')
     x_move = np.random.rand()/10
     y_move = np.random.rand()/10
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
@@ -138,7 +138,7 @@ for k in range(20):
         #print(states)
         #input_stuff=torch.tensor(network_feed,dtype=torch.float)
         states=states.float()
-        #env.render()
+        env.render()
         #t3=time.time()
         #np.random.rand(14)
         #output = model(states)
