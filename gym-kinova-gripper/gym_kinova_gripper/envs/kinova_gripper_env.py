@@ -102,7 +102,7 @@ class KinovaGripper_Env(gym.Env):
         self.wrist_pose=np.zeros(3)  # The wrist position in world coordinates
         self.thetas=[0,0,0,0,0,0,0] # The angles of the joints of a real robot arm used for calculating the jacobian of the hand
         self._timestep = self._sim.model.opt.timestep
-
+        self.pid=False
         self.step_coords='global'
         self._torque = [0,0,0,0] #Unused
         self._velocity = [0,0,0,0] #Unused
@@ -322,6 +322,8 @@ class KinovaGripper_Env(gym.Env):
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] #+ [self.obj_shape]
+            if self.pid:
+                fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
             fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [x_angle, z_angle] #+ fingers_dot_prod
         return fingers_6D_pose
@@ -372,6 +374,25 @@ class KinovaGripper_Env(gym.Env):
         x_dot = np.dot(obj_wrist[1:3],center_line[1:3])
         x_angle = np.arccos(x_dot/np.linalg.norm(obj_wrist[1:3]))
         return x_angle,z_angle
+    
+    #function to get the dot product. Only used for the pid controller
+    def _get_dot_product(self):
+        obj_state = self._get_obj_pose()
+        hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
+        obj_state_x = abs(obj_state[0] - hand_pose[0])
+        obj_state_y = abs(obj_state[1] - hand_pose[1])
+        obj_vec = np.array([obj_state_x, obj_state_y])
+        obj_vec_norm = np.linalg.norm(obj_vec)
+        obj_unit_vec = obj_vec / obj_vec_norm
+
+        center_x = abs(0.0 - hand_pose[0])
+        center_y = abs(0.0 - hand_pose[1])
+        center_vec = np.array([center_x, center_y])
+        center_vec_norm = np.linalg.norm(center_vec)
+        center_unit_vec = center_vec / center_vec_norm
+        dot_prod = np.dot(obj_unit_vec, center_unit_vec)
+        return dot_prod**20 # cuspy to get distinct reward
+
 
     # Function to get rewards based only on the lift reward. This is primarily used to generate data for the grasp classifier
     def _get_reward_DataCollection(self):
@@ -1219,3 +1240,4 @@ class GraspValid_net(nn.Module):
         a = F.relu(self.l2(a))
         a =    torch.sigmoid(self.l3(a))
         return a
+    
