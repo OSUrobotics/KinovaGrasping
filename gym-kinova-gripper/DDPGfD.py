@@ -69,8 +69,8 @@ class DDPGfD(object):
 		self.total_it += 1
 
 		# Sample replay buffer 
-		# state, action, next_state, reward, not_done = replay_buffer.sample()
-		state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
+		state, action, next_state, reward, not_done = replay_buffer.sample()
+		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
 
 		
 		# episode_step = len(state) # for varying episode sets

@@ -37,6 +37,7 @@ import re
 from scipy.stats import triang
 import csv
 import pandas as pd
+from pathlib import Path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -126,7 +127,7 @@ class KinovaGripper_Env(gym.Env):
         self.objects = {}
         self.obj_keys = list()
 
-        #In theory this is all unused --->
+        #USED FOR STATE REPRESENTATION (not useless for now)
         min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0]
         min_obj_xyz = [-0.1, -0.01, 0.0]
         min_joint_states = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
@@ -669,6 +670,7 @@ class KinovaGripper_Env(gym.Env):
 
     def Generate_Latin_Square(self,max_elements,filename,shape_keys):
         print("GENERATE LATIN SQUARE")
+        print("shape keys: ",shape_keys)
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
 
@@ -714,17 +716,23 @@ class KinovaGripper_Env(gym.Env):
                     break
                 k -= 1
 
-            w = csv.writer(open(filename, "w"))
-            for key in self.obj_keys:
-                w.writerow(key)
+            with open(filename, "w", newline="") as outfile:
+                writer = csv.writer(outfile)
+                for key in self.obj_keys:
+                    writer.writerow(key)
 
     def objects_file_to_list(self,filename, num_objects,shape_keys):
         print("FILENAME: ",filename)
-        #print('FIRST OBJECT KEYS',self.obj_keys)
-        df = pd.read_csv(filename,header=None, sep='\n')
-        if (df.empty):
-            "Object file is empty!"
-            self.Generate_Latin_Square(num_objects,filename,shape_keys)
+
+        my_file = Path(filename)
+        if my_file.is_file() is True:
+            df = pd.read_csv(filename, header=None, sep='\n')
+            if (df.empty):
+                "Object file is empty!"
+                self.Generate_Latin_Square(num_objects,filename,shape_keys)
+        else:
+            self.Generate_Latin_Square(num_objects, filename, shape_keys)
+
         with open(filename, newline='') as csvfile:
             reader = csv.reader(csvfile)
             for row in reader:
