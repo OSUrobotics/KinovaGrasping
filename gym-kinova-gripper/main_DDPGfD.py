@@ -330,6 +330,21 @@ if __name__ == "__main__":
 	total_evalx = np.array([])
 	total_evaly = np.array([])
 
+
+	# ##Testing Code##
+	# env = gym.make(args.env_name)
+	# env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes, test = True)
+	# state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode, test = True), False
+	# noise.reset()
+	# expl_noise.reset()
+	# episode_reward = 0
+	# obj_coords = env.get_obj_coords()
+	# action = (
+	# 	policy.select_action(np.array(state[0:48]))
+	# 	+ np.random.normal(0, max_action * args.expl_noise, size=action_dim)
+	# ).clip(-max_action, max_action)
+	# next_state, reward, done, info = env.step(action)
+
 	print("---- RL training in process ----")
 	for t in range(int(args.max_episode)):
 		env = gym.make(args.env_name)
@@ -361,6 +376,7 @@ if __name__ == "__main__":
 
 			# Perform action obs, total_reward, done, info
 			next_state, reward, done, info = env.step(action)
+			env.render()
 			done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
 			# Store data in replay buffer

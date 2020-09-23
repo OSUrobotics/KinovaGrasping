@@ -166,7 +166,7 @@ class KinovaGripper_Env(gym.Env):
         # <---- end of unused section
 
 
-        self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
+        #self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_05_28_20_2105local.pt"
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_01_23_20_2052local.pt"
         # self.Grasp_net = GraspValid_net(54).to(device)
@@ -413,7 +413,7 @@ class KinovaGripper_Env(gym.Env):
         return lift_reward, info, done
 
     # Function to get rewards for RL training
-    def _get_reward(self): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
+    def _get_reward(self, test = False): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
         #TODO: Make sure this works with the new grasp classifier
 
         # object height target
@@ -424,10 +424,10 @@ class KinovaGripper_Env(gym.Env):
         obs = self._get_obs(state_rep="global")
         loc_obs=self._get_obs()
 
-        network_inputs=obs[0:5]
-        network_inputs=np.append(network_inputs,obs[6:23])
-        network_inputs=np.append(network_inputs,obs[24:])
-        inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
+        # network_inputs=obs[0:5]
+        # network_inputs=np.append(network_inputs,obs[6:23])
+        # network_inputs=np.append(network_inputs,obs[24:])
+        # inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
         # WITHOUT GRASP CLASSIFIER
         #if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015:
@@ -438,17 +438,31 @@ class KinovaGripper_Env(gym.Env):
         #     else:
         #         grasp_reward = 0.0
 
-        if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
-            lift_reward = 50.0
-            done = True
+        if not test:
+            if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
+                lift_reward = 50.0
+                done = True
+            else:
+                lift_reward = 0.0
+                done = False
+
+            finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
+
         else:
             lift_reward = 0.0
             done = False
+            finger_reward = -12.0
 
-        finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
+        #finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
         info = {"lift_reward":lift_reward}
+
+        if test:
+            if reward == -2.4000000000000004:
+                print("Reward function Working Properly")
+            else:
+                print("Reward function is not Working Properly")
 
         return reward, info, done
 
@@ -667,7 +681,7 @@ class KinovaGripper_Env(gym.Env):
                return True
             return False
 
-    def Generate_Latin_Square(self,max_elements,filename,shape_keys):
+    def Generate_Latin_Square(self,max_elements,filename,shape_keys, test = False):
         print("GENERATE LATIN SQUARE")
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
@@ -713,6 +727,22 @@ class KinovaGripper_Env(gym.Env):
                 if elem_gen_done:
                     break
                 k -= 1
+
+########## Function Testing Code########
+            if test:
+                test_key = self.obj_keys
+                if len(test_key) == max_elements:
+                    test_key.sort()
+                    num_elem_test = 1
+                    for i in range(len(test_key)-2):
+                        if test_key[i] != test_key[i+1]:
+                            num_elem_test += 1
+
+                    if num_elem_test == len(shape_keys):
+                        print("Latin Square function is Generating Perfect Distribution")
+                    else:
+                        print("Latin Square function is not Generating Perfect Distribution")
+########## Ends Here ###############
 
             w = csv.writer(open(filename, "w"))
             for key in self.obj_keys:
@@ -859,7 +889,7 @@ class KinovaGripper_Env(gym.Env):
                 self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone2.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone2.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,env_name="env",shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"],hand_orientation="random",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self,env_name="env",shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"],hand_orientation="random",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None, test = False):
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
@@ -921,7 +951,10 @@ class KinovaGripper_Env(gym.Env):
 
         else:
             if hand_orientation == 'random':
-                orientation_type=np.random.rand()
+                if not test:
+                    orientation_type=np.random.rand()
+                else:
+                    orientation_type= 0.111
                 print("orientation_type: ",orientation_type)
 
                 # Initial position
@@ -1019,6 +1052,18 @@ class KinovaGripper_Env(gym.Env):
         # Sets the object coordinates for heatmap tracking and plotting
         self.set_obj_coords(x,y,z)
         self._get_trans_mat_wrist_pose()
+
+
+        ##Testing Code
+        if test:
+            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]: 
+                if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
+                    print("Reset function is working Properly Check the render")
+                    self.render()
+            else:
+                print("Reset function is not working Properly Check the render")
+                self.render()
+
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
@@ -1049,7 +1094,7 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork = False, testfun = False): #TODO: fix this so that we can rotate the hand
         total_reward = 0
         #if len(action)==4:
         #    action=[action[0],0,0,0,0,0,action[1],action[2],action[3]]
@@ -1159,11 +1204,16 @@ class KinovaGripper_Env(gym.Env):
                 self._sim.step()
         obs = self._get_obs()
 
-        ### Get this reward for RL training ###
-        total_reward, info, done = self._get_reward()
+        if not graspnetwork:
+            if not testfun:
+                ### Get this reward for RL training ###
+                total_reward, info, done = self._get_reward()
+            else:
+                total_reward, info, done = self._get_reward(test = True)
+        else:
+            ### Get this reward for grasp classifier collection ###
+            total_reward, info, done = self._get_reward_DataCollection()
 
-        ### Get this reward for grasp classifier collection ###
-        #total_reward, info, done = self._get_reward_DataCollection()
         return obs, total_reward, done, info
 
 
