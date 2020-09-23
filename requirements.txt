@@ -1,0 +1,9 @@
+torch
+gpytorch
+
+numpy
+pandas
+matplotlib
+tensorboardX
+
+gym
