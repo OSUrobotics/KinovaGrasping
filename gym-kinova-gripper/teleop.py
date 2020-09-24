@@ -65,7 +65,7 @@ value=0
 #ttot=np.array([])
 for k in range(20):
     #env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-    env.reset(start_pos=[0,0],obj_params=['Cube','S'],hand_orientation='not_random')
+    env.reset(start_pos=[0.03,0],obj_params=['Cube','M'],hand_orientation='not_random')
     x_move = np.random.rand()/10
     y_move = np.random.rand()/10
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
@@ -102,6 +102,8 @@ for k in range(20):
         if i == 150:
             print('move in z')
             action=np.array([0.15,0.05, 0.05, 0.05])
+            env.env.pid=True
+
         '''
         if i ==10:
             action = np.array([0,0,0,0.3,0.3,0.3])
@@ -118,64 +120,22 @@ for k in range(20):
             #action[3:6]=np.matmul(env.Twf[0:3,0:3],action[3:6])
         #print(action)
         obs, reward, done, _ = env.step(action)
-        #print(reward)
-        #print(optimizer.optimize_grasp(obs,reward))
-        #print('reward',reward,'done',done)
-        #obs=np.copy(obs)
+        print(np.shape(obs))
+        print(obs[-1])
         network_feed=obs[21:24]
             #print(np.shape(network_feed))
+        print('finger poses',np.matmul(env.env.Twf,[obs[0],obs[1],obs[2],1]))
+        print('joint states',env.env.Twf)
         network_feed=np.append(network_feed,obs[27:36])
         network_feed=np.append(network_feed,obs[49:51])
-        
-        
-        #network_feed=np.copy(obs[0:61])
-        #print('network feed', network_feed)
         states=torch.zeros(1,14, dtype=torch.float)
         #print(len(network_feed))
         for j in range(len(network_feed)):
             states[0][j]= network_feed[j]
-            #print(j)
-        #print(states)
-        #input_stuff=torch.tensor(network_feed,dtype=torch.float)
+
         states=states.float()
         env.render()
-        #t3=time.time()
-        #np.random.rand(14)
-        #output = model(states)
-        #t4=time.time()
-        
-        #ttot=np.append(ttot,t4-t3)
-        #if output >0.2:
-        #    if k ==0:
-        #        episode_obs=np.copy(network_feed)
-        #    else:
-        #        episode_obs=np.vstack((episode_obs,network_feed))
-        #    break
-    #print(episode_obs)
-        #network_feed=obs[0:5]
-        #print('Distal 1,', obs[9:12])
-        #print('Distal 1,', obs[12:15])
-        #print('Distal 1,', obs[15:18])
-        #print('Wrist,', obs[18:21])
-        #network_feed=np.append(network_feed,obs[6:23])
-        #network_feed=np.append(network_feed,obs[24:])
-        #input_stuff=torch.tensor(network_feed,dtype=torch.float)
-        #print(input_stuff)
-        #print(model(input_stuff))
-        #print(done)
-    # action[1] += 0.5
-    # action[2] += 0.2
-    # action[3] += 0.7
-        #env.render()
-    # if t > 25:
-    #     action = np.array([0.1, 0.8, 0.8, 0.8])
-    # # print()
-    # t += 1
-    #t4=time.time()
-    #print(t3-t4)
-#t2=time.time()
-#print('it took ',t2-t,'seconds')
-#print(np.sum(ttot))
+    env.close()
 print(value,'out of twenty')
 with open('Training_Examples.csv', 'w', newline='') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=',',

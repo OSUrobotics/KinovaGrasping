@@ -34,18 +34,19 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <mesh name="RoundBowl" file="RoundBowl.STL" scale="0.000425 0.000425 0.000425"/>
 	<mesh name="RectBowl" file="RectBowl.STL" scale="0.00085 0.00085 0.00085"/>
 	<mesh name="ShortBottle" file="ShortBottle.STL" scale="0.00034 0.00034 0.00034"/>
-	<mesh name="TallBottle" file="TallBottle.STL" scale="0.0007 0.0007 0.0007"/>
-	<mesh name="Base" file="BottleBase.STL" scale="0.0007 0.0007 0.0007"/>
-	<mesh name="Cap" file="BottleCap.STL" scale="0.0007 0.0007 0.0007"/>
-	<mesh name="BNT" file="BottleNeckTransition.STL" scale="0.0007 0.0007 0.0007"/>
-	<mesh name="Neck" file="BottleNeck.STL" scale="0.0007 0.0007 0.0007"/>
-	<mesh name="Cylinder" file="BottleCylendar.STL" scale="0.0007 0.0007 0.0007"/>
-		<texture type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="100" height="100"/>
-		<texture name="groundplane" type="2d" builtin="checker" rgb1=".25 .26 .25" 
-			rgb2=".22 .22 .22" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
+	<mesh name="TallBottle" file="TallBottle.STL" scale="0.00085 0.00085 0.00085"/>
+	<mesh name="Base" file="BottleBase.STL" scale="0.00085 0.00085 0.00085"/>
+	<mesh name="Cap" file="BottleCap.STL" scale="0.00085 0.00085 0.00085"/>
+	<mesh name="BNT" file="BottleNeckTransition.STL" scale="0.00085 0.00085 0.00085"/>
+	<mesh name="Neck" file="BottleNeck.STL" scale="0.00085 0.00085 0.00085"/>
+	<mesh name="Cylinder" file="BottleCylendar.STL" scale="0.00085 0.00085 0.00085"/>
+		<texture type="skybox" builtin="gradient" rgb1=".9 .9 1" rgb2="1 1 1" width="100" height="100"/>
+		<texture name="groundplane" type="2d" builtin="checker" rgb1="1 1 1" 
+			rgb2=".98 .98 .98" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
+
 
 		<material name="MatViz" specular="1" shininess=".1" reflectance="0.5" rgba=".07 .07 .1 1"/>
-		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".3" reflectance="0.00001"/>
+		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".1" reflectance="0.00001" rgba="1 1 1 0.5"/>
     </asset>
 
 	<default>
@@ -66,7 +67,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
     	<body name="root" pos="0 0 0">
     		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
-				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.31 -0.03 -0.15">
+				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.57 0.0 -1.57">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" />
@@ -155,7 +156,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 <!-- 		<body name="ground" pos="0 0 -0.01">
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
-		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
+		<geom name="ground" class="ground" pos="0 0 0" size="2 0.15 1"/>
 		<body name="object" pos="0 0 0">
 			<joint name="object" type="free" />
 			<geom mass="0.06" name="object" type="mesh" rgba="0 1 0 1" mesh="Cylinder" euler="1.57 0 0"/>
@@ -173,48 +174,48 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 			</body>
 
 		</body>	
-		<body name="object2" pos="0.15 0.0 0.1">
+		<body name="object2" pos="0.1 0.0 0.1">
 			<joint name="object2" type="free" />
 			<geom mass="0.1" name="object2" type="mesh" rgba="0 1 0 1" mesh="Lemon" euler="1.57 0 0"/>
 		</body>
 
-		<body name="object3" pos="0.3 0.08 0.1">
+		<body name="object3" pos="0.25 0.08 0.1">
 			<joint name="object3" type="free" />
 			<geom mass="0.1" name="object3" type="mesh" rgba="0 1 0 1" mesh="RoundBowl" euler="1.57 0 0"/>
 		</body>
-		<body name="object4" pos="0.43 0.08 0.1">
+		<body name="object4" pos="0.38 0.08 0.1">
 			<joint name="object4" type="free" />
 			<geom mass="0.1" name="object4" type="mesh" rgba="0 1 0 1" mesh="RectBowl" euler="1.57 0 0"/>
 		</body>		
-		<body name="object5" pos="0.55 0.02 0.1">
+		<body name="object5" pos="0.5 0.02 0.1">
 			<joint name="object5" type="free" />
 			<geom mass="0.1" name="object5" type="mesh" rgba="0 1 0 1" mesh="ShortBottle" euler="1.57 0 0"/>
 		</body>
 
-		<body name="object6" pos="0.65 0.0 0.1">
+		<body name="object6" pos="0.6 0.0 0.1">
 			<joint name="object6" type="free" />
 			<geom mass="0.1" name="object6" type="mesh" rgba="0 1 0 1" mesh="Medium_hourglass" euler="1.57 0 0"/>
 		</body>
-		<body name="object7" pos="0.9 0.0 0.1">
+		<body name="object7" pos="0.83 0.0 0.1">
 			<joint name="object7" type="free" />
 			<geom mass="0.1" name="object7" type="mesh" rgba="0 1 0 1" mesh="Medium_vase" euler="0 0 0"/>
 		</body>	
-		<body name="object8" pos="1.05 0.0 0.1">
+		<body name="object8" pos="0.9 0.0 0.1">
 			<joint name="object8" type="free" />
 			<geom mass="0.1" name="object8" rgba="0 1 0 1" size="0.02125 0.055" type="cylinder" />
 		</body>
 
-		<body name="object9" pos="1.2 0.0 0.1">
+		<body name="object9" pos="1.0 0.0 0.1">
 			<joint name="object9" type="free" />
 			<geom mass="0.1" name="object9" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box" />
 		</body>
 
-		<body name="object10" pos="1.2 0.1 0.1">
+		<body name="object10" pos="1.0 0.1 0.1">
 			<joint name="object10" type="free" />
 			<geom mass="0.1" name="object10" rgba="0 1 0 1" size="0.025 0.025 0.06" type="box" />
 		</body>	
 
-		<body name="object11" pos="1.2 -0.1 0.1">
+		<body name="object11" pos="1.0 -0.1 0.1">
 			<joint name="object11" type="free" />
 			<geom mass="0.1" name="object11" rgba="0 1 0 1" size="0.0175 0.0175 0.05" type="box" />
 		</body>			

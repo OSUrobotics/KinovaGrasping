@@ -455,7 +455,7 @@ def GenerateTestPID_JointVel(obs,env):
     action,grasp_label=controller.NudgeController(obs, env.action_space,grasp_label)
     return action
 
-def GenerateExpertPID_JointVel(episode_num, replay_buffer, save=True):
+def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid=True
     # episode_num = 10
@@ -466,17 +466,19 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer, save=True):
     for i in range(episode_num):
         obs, done = env.reset(), False
         controller = ExpertPIDController(obs)
-        replay_buffer.add_episode(1)
+        if replay_buffer != None:
+            replay_buffer.add_episode(1)
         while not done:
             obs_label.append(obs)
             action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
             action_label.append(action)
             next_obs, reward, done, _ = env.step(action)
-            replay_buffer.add(obs, action, next_obs, reward, float(done))
+            if replay_buffer != None:
+                replay_buffer.add(obs, action, next_obs, reward, float(done))
             obs = next_obs
             total_steps += 1
-
-        replay_buffer.add_episode(0)
+        if replay_buffer != None:
+            replay_buffer.add_episode(0)
         # print(i)
     if save:
         filename = "expertdata"
@@ -543,4 +545,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-# GenerateExpertPID_JointVel(4000)
+GenerateExpertPID_JointVel(4000)

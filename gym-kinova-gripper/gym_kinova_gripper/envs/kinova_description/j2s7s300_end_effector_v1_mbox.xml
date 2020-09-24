@@ -27,12 +27,13 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <mesh name="Large_hourglass" file="Large_hglass.STL" scale="0.001 0.001 0.001"/>
         <mesh name="Medium_hourglass" file="Medium_hglass.STL" scale="0.001 0.001 0.001"/>
         <mesh name="Small_hourglass" file="Small_hglass.STL" scale="0.001 0.001 0.001"/>
-		<texture type="skybox" builtin="gradient" rgb1=".4 .5 .6" rgb2="1 1 1" width="100" height="100"/>
-		<texture name="groundplane" type="2d" builtin="checker" rgb1=".25 .26 .25" 
-			rgb2=".22 .22 .22" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
+		<texture type="skybox" builtin="gradient" rgb1=".9 .9 1" rgb2="1 1 1" width="100" height="100"/>
+		<texture name="groundplane" type="2d" builtin="checker" rgb1="1 1 1" 
+			rgb2=".98 .98 .98" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
 
 		<material name="MatViz" specular="1" shininess=".1" reflectance="0.5" rgba=".07 .07 .1 1"/>
-		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".3" reflectance="0.00001"/>
+		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".3" reflectance="0.00001" rgba="1 1 1 0.5"/>
+		<material name="BrightMaterial" specular="1" emission = "0.3" shininess=".1" reflectance="0.1" rgba="0 1 0 1"/>
     </asset>
 
 	<default>
@@ -51,14 +52,14 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     <worldbody>
     	<body name="root" pos="0 0 0">
-<!--
-		<site name="world_origin" type="cylinder" size="0.005 0.05" rgba="25 0.5 0.7 1" pos="-0.0041291   0.1190699   0.06535418" quat="0 1 0 0"/>
--->
-		<site name="local_origin_site" type="cylinder" size="0.0075 0.005" rgba="25 0.5 0.0 1" pos="0.0  0.0  0.14" quat="0 1 0 0"/>
+
+		<site name="world_origin" type="cylinder" size="0.005 0.05" rgba="25 0.5 0.7 1" pos="0.0041291   0.07   0.06535418" quat="0 1 0 0"/>
+
+		<site name="local_origin_site" type="cylinder" size="0.0075 0.05" rgba="25 0.5 0.0 1" pos="0.05187974 0.05912689 0.07243581" quat="0 1 0 0"/>
 
     		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
-				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.63 -0.15 -1.52">
+				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.57 0.0 -1.57">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.2 0.2" />
@@ -147,10 +148,10 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 <!-- 		<body name="ground" pos="0 0 -0.01">
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
-		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1" rgba="1 1 1 0.3"/>
+		<geom name="ground" class="ground" pos="0 0 0" size="0.15 0.15 1" rgba="1 1 1 0.3"/>
 		<body name="object" pos="0 0 0">
 			<joint name="object" type="free" />
-			<geom mass="0.1" name="object" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box" />
+			<geom mass="0.1" name="object" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box" material="BrightMaterial"/>
 		</body>				
     </worldbody>
 
