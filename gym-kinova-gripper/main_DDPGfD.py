@@ -313,6 +313,9 @@ if __name__ == "__main__":
     num_updates = 1000
     for k in range(int(num_updates)):
         policy.train(replay_buffer, env._max_episode_steps)
+    pretrain_model_save_path = saving_dir + "/DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    print("Pre-training: Saving into {}".format(pretrain_model_save_path))
+    policy.save(pretrain_model_save_path)
 
     print("POST PRETRAINING")
     print("replay_buffer: ",replay_buffer)
