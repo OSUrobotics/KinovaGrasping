@@ -399,6 +399,7 @@ class KinovaGripper_Env(gym.Env):
         range_data=self._get_rangefinder_data()
         finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
         gravity=[0,0,-1]
+        dot_prod=self._get_dot_product()
         fingers_6D_pose = []
         if test:
             x=threading.Thread(target=self.obs_test)
@@ -412,7 +413,7 @@ class KinovaGripper_Env(gym.Env):
                 trans = list(trans)
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
-            fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data #+ [self.obj_shape]
+            fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + dot_prod#+ [self.obj_shape]
 
         elif state_rep == "local":
 
@@ -433,7 +434,7 @@ class KinovaGripper_Env(gym.Env):
             obj_pose = obj_for_roation[0:3]
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
-            fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] #+ [self.obj_shape]
+            fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] +dot_prod#+ [self.obj_shape]
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
