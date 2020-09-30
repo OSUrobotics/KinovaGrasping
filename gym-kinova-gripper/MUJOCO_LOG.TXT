@@ -28,3 +28,18 @@ ERROR: GLEW initalization error: Missing GL version
 Fri Jan 10 13:31:32 2020
 ERROR: GLEW initalization error: Missing GL version
 
+Fri Sep 25 12:20:48 2020
+ERROR: GLEW initalization error: Missing GL version
+
+Tue Sep 29 22:54:40 2020
+ERROR: Expired activation key
+
+Tue Sep 29 22:55:18 2020
+ERROR: Expired activation key
+
+Tue Sep 29 22:55:46 2020
+ERROR: Expired activation key
+
+Tue Sep 29 22:56:02 2020
+ERROR: Expired activation key
+

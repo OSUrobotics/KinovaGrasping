@@ -9,8 +9,19 @@ import gym
 import DDPG
 import torch
 import wierd
+import numpy as np
+import utils
 
-env = gym.make('CartPole-v0')
+
+env = gym.make('LunarLander-v2')
+env.reset()
+env.env.continuous=True
+while True:
+    env.step(np.random.rand(2))
+    env.render()
+print('should be rendering')
+env.close()
+'''
 train_prev_state=[]
 train_action=[]
 train_observation=[]
@@ -43,3 +54,4 @@ for i_episode in range(2000):
             print("Episode finished after {} timesteps".format(t+1))
             break
 env.close()
+'''

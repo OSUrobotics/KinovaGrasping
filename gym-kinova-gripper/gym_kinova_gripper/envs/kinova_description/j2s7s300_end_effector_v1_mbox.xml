@@ -52,12 +52,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     <worldbody>
     	<body name="root" pos="0 0 0">
-
-		<site name="world_origin" type="cylinder" size="0.005 0.05" rgba="25 0.5 0.7 1" pos="0.0041291   0.07   0.06535418" quat="0 1 0 0"/>
-
-		<site name="local_origin_site" type="cylinder" size="0.0075 0.05" rgba="25 0.5 0.0 1" pos="0.05187974 0.05912689 0.07243581" quat="0 1 0 0"/>
-
-    		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
+    		<site name="site0" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="0 0 0" euler="0 0 0"/>
+    		<site name="site1" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="0 0 0" euler="0 1.5707963267948966 0"/>
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
 				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.57 0.0 -1.57">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />

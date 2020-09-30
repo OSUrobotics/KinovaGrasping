@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 import csv
 import time
 env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
-print('action space',env.action_space.low, env.action_space.high)
+#print('action space',env.action_space.low, env.action_space.high)
 #env.reset()
 # setup serial
 # ser = serial.Serial("/dev/ttyACM0", 9600)
@@ -65,7 +65,7 @@ value=0
 #ttot=np.array([])
 for k in range(20):
     #env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-    env.reset(start_pos=[0.03,0],obj_params=['Cube','M'],hand_orientation='not_random')
+    env.reset(start_pos=[0.03,0.01],obj_params=['Cube','M'],hand_orientation='not_random')
     x_move = np.random.rand()/10
     y_move = np.random.rand()/10
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
@@ -119,13 +119,15 @@ for k in range(20):
             action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
             #action[3:6]=np.matmul(env.Twf[0:3,0:3],action[3:6])
         #print(action)
+        env.render()
         obs, reward, done, _ = env.step(action)
+        env.render()
         print(np.shape(obs))
         print(obs[-1])
         network_feed=obs[21:24]
             #print(np.shape(network_feed))
-        print('finger poses',np.matmul(env.env.Twf,[obs[0],obs[1],obs[2],1]))
-        print('joint states',env.env.Twf)
+        #print('finger poses',np.matmul(env.env.Twf,[obs[0],obs[1],obs[2],1]))
+        #print('joint states',env.env.Twf)
         network_feed=np.append(network_feed,obs[27:36])
         network_feed=np.append(network_feed,obs[49:51])
         states=torch.zeros(1,14, dtype=torch.float)
@@ -134,7 +136,7 @@ for k in range(20):
             states[0][j]= network_feed[j]
 
         states=states.float()
-        env.render()
+        
     env.close()
 print(value,'out of twenty')
 with open('Training_Examples.csv', 'w', newline='') as csvfile:
