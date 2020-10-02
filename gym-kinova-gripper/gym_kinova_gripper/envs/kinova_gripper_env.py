@@ -166,7 +166,7 @@ class KinovaGripper_Env(gym.Env):
             obs_max = max_joint_states + max_obj_xyz + max_obj_size + max_dot_prod
             self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
         # <---- end of unused section
-
+        print('observation space size', self.observation_space.shape[0])
 
         #self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_05_28_20_2105local.pt"
@@ -361,29 +361,29 @@ class KinovaGripper_Env(gym.Env):
     def _get_obs(self, state_rep=None, test = False):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         '''
         Local obs, all in local coordinates (from the center of the palm)
-        (18,) Finger Pos										0-18
-        (3,) Wrist Pos											18-21
-        (3,) Obj Pos											21-24
-        (9,) Joint States										24-33
-        (3,) Obj Size											33-36
-        (12,) Finger Object Distance							36-48
-        (2,) X and Z angle										48-50
-        (17,) Rangefinder data									50-67
-        (3,) Gravity vector in local coordinates					67-70
-        (3,) Object location based on rangefinder data				70-73
-        (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand	73
-        (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand	74
+        (18,) Finger Pos                                        0-18
+        (3,) Wrist Pos                                            18-21
+        (3,) Obj Pos                                            21-24
+        (9,) Joint States                                        24-33
+        (3,) Obj Size                                            33-36
+        (12,) Finger Object Distance                            36-48
+        (2,) X and Z angle                                        48-50
+        (17,) Rangefinder data                                    50-67
+        (3,) Gravity vector in local coordinates                    67-70
+        (3,) Object location based on rangefinder data                70-73
+        (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
+        (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
         '''
         '''
         Global obs, all in global coordinates (from simulator 0,0,0)
-        (18,) Finger Pos										0-18
-        (3,) Wrist Pos											18-21
-        (3,) Obj Pos											21-24
-        (9,) Joint States										24-33
-        (3,) Obj Size											33-36
-        (12,) Finger Object Distance							36-48
-        (2,) X and Z angle										48-50
-        (17,) Rangefinder data									50-67
+        (18,) Finger Pos                                        0-18
+        (3,) Wrist Pos                                            18-21
+        (3,) Obj Pos                                            21-24
+        (9,) Joint States                                        24-33
+        (3,) Obj Size                                            33-36
+        (12,) Finger Object Distance                            36-48
+        (2,) X and Z angle                                        48-50
+        (17,) Rangefinder data                                    50-67
         '''
         
         if state_rep == None:
@@ -413,12 +413,14 @@ class KinovaGripper_Env(gym.Env):
                 trans = list(trans)
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
-            fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + dot_prod#+ [self.obj_shape]
+                finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
+            fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ dot_prod#+ [self.obj_shape]
 
         elif state_rep == "local":
-
+            dot_prod_coords=[]
             for joint in finger_joints:
                 trans = np.copy(self._sim.data.get_geom_xpos(joint))
+                dot_prod_coords.append(trans)
                 trans_for_roation=np.append(trans,1)
                 trans_for_roation=np.matmul(self.Tfw,trans_for_roation)
                 trans = trans_for_roation[0:3]
@@ -427,14 +429,14 @@ class KinovaGripper_Env(gym.Env):
                     fingers_6D_pose.append(trans[i])
             wrist_for_rotation=np.append(self.wrist_pose,1)
             wrist_for_rotation=np.matmul(self.Tfw,wrist_for_rotation)
-
+            finger_dot_prod=self._get_fingers_dot_product(dot_prod_coords)
             wrist_pose = wrist_for_rotation[0:3]
             obj_for_roation=np.append(obj_pose,1)
             obj_for_roation=np.matmul(self.Tfw,obj_for_roation)
             obj_pose = obj_for_roation[0:3]
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
-            fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] +dot_prod#+ [self.obj_shape]
+            fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod +dot_prod#+ [self.obj_shape]
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
@@ -489,9 +491,14 @@ class KinovaGripper_Env(gym.Env):
         x_angle = np.arccos(x_dot/np.linalg.norm(obj_wrist[1:3]))
         return x_angle,z_angle
     
+    def _get_fingers_dot_product(self, fingers_6D_pose):
+        fingers_dot_product = []
+        for i in range(6):
+            fingers_dot_product.append(self._get_dot_product(fingers_6D_pose[3*i:3*i+3]))
+        return fingers_dot_product
+    
     #function to get the dot product. Only used for the pid controller
-    def _get_dot_product(self):
-        obj_state = self._get_obj_pose()
+    def _get_dot_product(self,obj_state=self._get_obj_pose()):
         hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
         obj_state_x = abs(obj_state[0] - hand_pose[0])
         obj_state_y = abs(obj_state[1] - hand_pose[1])
@@ -1282,9 +1289,9 @@ class KinovaGripper_Env(gym.Env):
         starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
         site_point=xml_contents.find('\n',starting_point)
         end_site_point=xml_contents.find('            <camera name="camera"')
-        site_text=f'    		<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
+        site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
         self.site_count+=1
-        second_site_text=f'    		<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
+        second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
         self.site_count+=1
         new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
         if keep_sites:
