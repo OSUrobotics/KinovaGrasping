@@ -67,6 +67,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
+                #action = policy.select_action(np.array(state[0:48]))
                 action = policy.select_action(np.array(state))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
@@ -81,6 +82,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
             while not done:
+                #action = GenerateTestPID_JointVel(np.array(state[0:48]), eval_env)
                 action = GenerateTestPID_JointVel(np.array(state),eval_env)
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
@@ -132,6 +134,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
             while not done:
                 action = policy.select_action(np.array(state))
+                #action = policy.select_action(np.array(state[0:48]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -213,8 +216,9 @@ if __name__ == "__main__":
     np.random.seed(args.seed)
 
     state_dim = env.observation_space.shape[0]
+    #state_dim = env.get_obs(state_rep="global").shape[0]
     # TESTING ONLY _ REMOVE ONCE DONE
-    state_dim = 76
+    #state_dim = 76
     print ("STATE DIM ---------", state_dim)
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
@@ -283,6 +287,8 @@ if __name__ == "__main__":
     replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
     #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
     replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    #print("REPLAY_BUFFER: ",replay_buffer)
+    #print("REPLAY_BUFFER.SIZE: ", replay_buffer.size())
 
     # Evaluate untrained policy
     evaluations = []
@@ -305,21 +311,6 @@ if __name__ == "__main__":
     expl_noise = OUNoise(4, sigma=0.001)
     expl_noise.reset()
 
-    # Initialize SummaryWriter
-    writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
-
-    # Pretrain (No pretraining without imitation learning)
-    print("---- Pretraining ----")
-    num_updates = 1000
-    for k in range(int(num_updates)):
-        policy.train(replay_buffer, env._max_episode_steps)
-    pretrain_model_save_path = saving_dir + "/DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
-    print("Pre-training: Saving into {}".format(pretrain_model_save_path))
-    policy.save(pretrain_model_save_path)
-
-    print("POST PRETRAINING")
-    print("replay_buffer: ",replay_buffer)
-
     # Check and create directory
     trplot_saving_dir = "./train_plots"
     if not os.path.isdir(trplot_saving_dir):
@@ -337,6 +328,33 @@ if __name__ == "__main__":
     feval_obj_posy = np.array([])
     total_evalx = np.array([])
     total_evaly = np.array([])
+
+    # Initialize SummaryWriter
+    writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
+
+    # Pretrain (No pretraining without imitation learning)
+    print("---- Pretraining ----")
+    num_updates = 10000
+    for pretrain_episode_num in range(int(num_updates)):
+        print("pretrain_episode_num: ", pretrain_episode_num)
+        pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
+
+        if (pretrain_episode_num + 1) % 100 == 0:
+            eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
+
+            avg_reward = eval_ret[0]
+            writer.add_scalar("Episode reward, Avg. 100 episodes", avg_reward, pretrain_episode_num)
+            writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
+            writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
+            writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
+            writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
+    pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    print("Pre-training: Saving into {}".format(pretrain_model_save_path))
+    policy.save(pretrain_model_save_path)
+
+    print("POST PRETRAINING")
+    print("replay_buffer: ",replay_buffer)
+    quit()
 
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
@@ -359,6 +377,7 @@ if __name__ == "__main__":
             # if t < args.start_timesteps:
             # 	action = env.action_space.sample()
             # else:
+            # policy.select_action(np.array(state[0:48]))
             action = (
                 policy.select_action(np.array(state))
                 + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
@@ -372,7 +391,8 @@ if __name__ == "__main__":
             done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
             # Store data in replay buffer
-            replay_buffer.add_wo_expert(state, action, next_state, reward, done_bool)
+            #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)
+            replay_buffer.add(state, action, next_state, reward, done_bool)
             if(info["lift_reward"] > 0):
                 lift_success = True
             else:

@@ -59,8 +59,8 @@ class ReplayBuffer_VarStepsEpisode(object):
 		# sample episode 
 		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1] + 1)
 		
-		if self.episodes_count > 10:
-			pdb.set_trace()
+		#if self.episodes_count > 10:
+		#	pdb.set_trace()
 		return (
 			torch.FloatTensor(self.state[ind.astype(int)]).to(self.device),
 			torch.FloatTensor(self.action[ind.astype(int)]).to(self.device),

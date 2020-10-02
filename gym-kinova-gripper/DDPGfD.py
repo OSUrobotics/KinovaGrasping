@@ -71,7 +71,6 @@ class DDPGfD(object):
 		# Sample replay buffer 
 		state, action, next_state, reward, not_done = replay_buffer.sample()
 		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
-
 		
 		# episode_step = len(state) # for varying episode sets
 
@@ -92,6 +91,10 @@ class DDPGfD(object):
 			raise ValueError
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
+		print("rollreward.get_shape(): ", rollreward.size())
+		print("target_QN.get_shape(): ", target_QN.size())
+		print("self.discount: ", self.discount)
+		print("self.n.: ", self.n)
 		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation
 
 		# Get current Q estimate

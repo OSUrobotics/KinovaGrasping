@@ -148,11 +148,11 @@ class KinovaGripper_Env(gym.Env):
 
             obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod #+ min_f_dot_prod
             obs_min = np.array(obs_min)
-            # print(len(obs_min))
+            print(len(obs_min))
 
             obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod #+ max_f_dot_prod
             obs_max = np.array(obs_max)
-            # print(len(obs_max))
+            print(len(obs_max))
 
             self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
         elif self.state_rep == "metric":
@@ -327,7 +327,8 @@ class KinovaGripper_Env(gym.Env):
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
             fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [x_angle, z_angle] #+ fingers_dot_prod
-        return fingers_6D_pose
+        fingers_6D_pose = fingers_6D_pose[0:48]
+        return fingers_6D_pose[0:48]
 
     # Function to get the distance between the digits on the fingers and the object center
     def _get_finger_obj_dist(self): #TODO: check to see what happens when you comment out the dist[0]-= 0.0175 line and make sure it is outputting the right values
@@ -752,9 +753,13 @@ class KinovaGripper_Env(gym.Env):
         f.close()
 
         # write new object keys to file so new env will have updated list
-        w = csv.writer(open(filename, "w"))
-        for key in self.obj_keys:
-            w.writerow(key)
+        #w = csv.writer(open(filename, "w"))
+        #for key in self.obj_keys:
+        #    w.writerow(key)
+        with open(filename, "w", newline="") as outfile:
+            writer = csv.writer(outfile)
+            for key in self.obj_keys:
+                writer.writerow(key)
 
         # Load model
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
