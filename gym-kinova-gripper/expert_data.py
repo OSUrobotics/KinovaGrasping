@@ -367,9 +367,9 @@ class ExpertPIDController(object):
         pid = PID(action_space)
 
         # obtain robot and object state
-        robot_pose = np.array([states[0], states[1], states[2]]) #first finger pos
-        obj_pose = states[21] #object x
-        obj_dot_prod = states[-1] #dot prod
+        robot_pose = np.array([states[0], states[1], states[2]])
+        obj_pose = states[21]
+        obj_dot_prod = states[-7]  # f
         f1_jA = states[25]
         f2_jA = states[26]
         f3_jA = states[27]
@@ -379,58 +379,65 @@ class ExpertPIDController(object):
         target_region = [x, y]
         max_vel = 0.3
         # Define finger action
-        f1 = 0.0
-        f2 = 0.0
-        f3 = 0.0
+        f1 = 0.0  # far out finger, on single side
+        f2 = 0.0  # double side finger - right of finger 1
+        f3 = 0.0  # double side finger - left of finger 1
         wrist = 0.0
 
-        if abs(self.init_obj_pose) <= 0.03:
-            f1, f2, f3 = 0.2, 0.2, 0.2
-            if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
-                f1, f2, f3 = 0.2, 0.1, 0.1
+        if abs(
+                self.init_obj_pose) <= 0.03:  # only comparing initial X position of object. because we know hand starts at the same position every time (close to origin)
+            """
+            note that the object is near the center, so we just kinda close the fingers here
+            """
+            f1, f2, f3 = 0.2, 0.2, 0.2  # set constant velocity of all three fingers
+            if abs(obj_dot_prod - self.init_dot_prod) > 0.01:  # start lowering velocity of the three fingers
+                f1, f2, f3 = 0.2, 0.1, 0.1  # slows down to keep steady in one spot
                 if self.step > 200:
-                    wrist = 0.3    
-        else:    
+                    wrist = 0.3  # begin to add vel to the wrist once the episode of finger movement is over (200 time steps)
+        else:
             # object on right hand side, move 2-fingered side
             if self.init_obj_pose < 0.0:
                 # Pre-contact
-                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
-                    f2 = pid.touch_vel(obj_dot_prod, states[-5])
-                    f3 = f2
-                    f1 = 0.0
+                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:  # small difference between current finger-object distance, and initial finger-object difference - so not much work done yet!
+                    f2 = pid.touch_vel(obj_dot_prod, states[-5])  # f2 dist
+                    f3 = f2  # other double side finger moves at same speed
+                    f1 = 0.0  # frontal finger doesn't move
                     wrist = 0.0
-                # Post-contact    
-                else:
-                    if abs(1 - obj_dot_prod) > 0.01:
-                        f2 = pid.velocity(obj_dot_prod)
-                        f3 = f2
-                        f1 = 0.05
+                # Post-contact
+                else:  # now finger-object distance has been changed a decent amount.
+                    if abs(1 - obj_dot_prod) > 0.01:  # goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors.
+                        # start to close the PID stuff
+                        f2 = pid.velocity(obj_dot_prod)  # get PID velocity
+                        f3 = f2  # other double side finger moves at same speed
+                        f1 = 0.05  # frontal finger moves slightly
                         wrist = 0.0
-                    else:
-                        f1 = pid.touch_vel(obj_dot_prod, states[-6])
+                    else:  # goal is within 0.01 of being reached:
+                        # start to close from the first finger
+                        f1 = pid.touch_vel(obj_dot_prod, states[-6])  # f1 dist_1
                         f2 = 0.0
                         f3 = 0.0
                         wrist = 0.0
                     # Hand tune lift time
-                    if self.step > 400:
+                    if self.step > 400:  # if another 200 time steps pass, switch to constant finger movement
                         f1, f2, f3 = 0.3, 0.15, 0.15
                         wrist = 0.3
             # object on left hand side, move 1-fingered side
             else:
                 # Pre-contact
-                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
-                    f1 = pid.touch_vel(obj_dot_prod, states[-6])
+                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:  # small difference between current finger-object distance, and initial finger-object difference - so not much work done yet!
+                    f1 = pid.touch_vel(obj_dot_prod, states[-6])  # f1 dist_1
                     f2 = 0.0
                     f3 = 0.0
                     wrist = 0.0
-                # Post-contact    
-                else:
+                # Post-contact
+                else:  # note how this is mirrored from the right hand side case above.
                     if abs(1 - obj_dot_prod) > 0.01:
                         f1 = pid.velocity(obj_dot_prod)
                         f2 = 0.05
                         f3 = 0.05
                         wrist = 0.0
                     else:
+                        # nudge with thumb
                         f2 = pid.touch_vel(obj_dot_prod, states[-5])
                         f3 = f2
                         f1 = 0.0
@@ -447,7 +454,7 @@ class ExpertPIDController(object):
         self._count()
         # print(self.step)
 
-        return np.array([wrist, f1, f2, f3]), label
+        return np.array([wrist, f1, f2, f3]), label  # action, grasp label
 
 def GenerateTestPID_JointVel(obs,env):
     grasp_label=[]
