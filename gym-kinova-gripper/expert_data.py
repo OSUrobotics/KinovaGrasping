@@ -356,8 +356,8 @@ class ExpertPIDController(object):
         self.prev_f2jA = 0.0
         self.prev_f3jA = 0.0
         self.step = 0.0
-        self.init_obj_pose = states[21]
-        self.init_dot_prod = states[-7]
+        self.init_obj_pose = states[21]  # X position of object
+        self.init_dot_prod = states[-1]  # dot product of object wrt palm
 
     def _count(self):
         self.step += 1
