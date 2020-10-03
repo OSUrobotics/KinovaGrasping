@@ -14,7 +14,7 @@ class ReplayBuffer_VarStepsEpisode(object):
 		# self.episode_step = episode_step
 		self.expert_episode_num = expert_episode_num
 
-		self.episodes = np.zeros((self.max_episode, 2)) # keep track each episode index
+		self.episodes = np.zeros((self.max_episode, 2))  # keep track each episode index - inner array contains the start index (in ptr) and end index (also in ptr form)
 		self.episodes_count = 0
 		self.state = np.zeros((self.max_size, state_dim))
 		self.action = np.zeros((self.max_size, action_dim))
@@ -39,10 +39,10 @@ class ReplayBuffer_VarStepsEpisode(object):
 	def add_episode(self, start):
 		# call it when each episode starts
 		if start:
-			self.episodes[self.episodes_count, 0] = int(self.ptr)
+			self.episodes[self.episodes_count, 0] = int(self.ptr)  # record the beginning index in the buffer (ptr)
 		# call it when each episode ends
 		else:
-			self.episodes[self.episodes_count, 1] = int(self.ptr)			
+			self.episodes[self.episodes_count, 1] = int(self.ptr)  # record the ending index in the buffer (ptr)
 			self.episodes_count += 1
 
 	def sample(self):
