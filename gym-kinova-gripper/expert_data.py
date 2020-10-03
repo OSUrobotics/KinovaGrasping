@@ -368,8 +368,8 @@ class ExpertPIDController(object):
 
         # obtain robot and object state
         robot_pose = np.array([states[0], states[1], states[2]])
-        obj_pose = states[21]
-        obj_dot_prod = states[-7]  # f
+        obj_pose = states[21]  # X position of object
+        obj_dot_prod = states[-1]  # dot product of object wrt palm
         f1_jA = states[25]
         f2_jA = states[26]
         f3_jA = states[27]
