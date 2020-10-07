@@ -81,6 +81,8 @@ class DDPGfD(object):
 
 		# Compute the target Q_N value
 		rollreward = []
+		print("next_state: ", next_state)
+		print("next_state[(self.n - 1):] ", next_state[(self.n - 1):])
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
 		for i in range(episode_step):
 			if i >= (self.n - 1):

@@ -479,8 +479,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer, save=True):
             action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
             action_label.append(action)
             next_obs, reward, done, _ = env.step(action)
-            replay_buffer.add(obs[0:48], action, next_obs[0:48], reward, float(done))
-            #replay_buffer.add(obs, action, next_obs, reward, float(done))
+            replay_buffer.add(obs, action, next_obs, reward, float(done))
             obs = next_obs
             total_steps += 1
 
