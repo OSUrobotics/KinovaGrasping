@@ -215,10 +215,11 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    state_dim = env.observation_space.shape[0]
+    #state_dim = env.observation_space.shape[0]
+    #state_dim = env.observation_space
     #state_dim = env.get_obs(state_rep="global").shape[0]
     # TESTING ONLY _ REMOVE ONCE DONE
-    #state_dim = 76
+    state_dim = 76
     print ("STATE DIM ---------", state_dim)
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])

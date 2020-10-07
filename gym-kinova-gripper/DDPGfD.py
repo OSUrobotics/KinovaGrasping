@@ -92,7 +92,10 @@ class DDPGfD(object):
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
 		print("rollreward.get_shape(): ", rollreward.size())
+		#print("rollreward: ", rollreward)
 		print("target_QN.get_shape(): ", target_QN.size())
+		print("target_Q.get_shape(): ", target_Q.size())
+		#print("target_QN: ", target_QN)
 		print("self.discount: ", self.discount)
 		print("self.n.: ", self.n)
 		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation

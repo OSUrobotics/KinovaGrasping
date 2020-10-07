@@ -155,6 +155,7 @@ class KinovaGripper_Env(gym.Env):
             print(len(obs_max))
 
             self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
+
         elif self.state_rep == "metric":
             obs_min = list(np.zeros(17)) + [-0.1, -0.1, 0.0] + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_dot_prod
             obs_max = list(np.full(17, np.inf)) + [0.1, 0.1, 0.5] + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_dot_prod
@@ -327,8 +328,7 @@ class KinovaGripper_Env(gym.Env):
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
             fingers_6D_pose = joint_states + list(obj_pose) + [obj_size[0], obj_size[1], obj_size[2]*2] + [x_angle, z_angle] #+ fingers_dot_prod
-        fingers_6D_pose = fingers_6D_pose[0:48]
-        return fingers_6D_pose[0:48]
+        return fingers_6D_pose
 
     # Function to get the distance between the digits on the fingers and the object center
     def _get_finger_obj_dist(self): #TODO: check to see what happens when you comment out the dist[0]-= 0.0175 line and make sure it is outputting the right values
@@ -380,7 +380,7 @@ class KinovaGripper_Env(gym.Env):
     #function to get the dot product. Only used for the pid controller
     def _get_dot_product(self):
         obj_state = self._get_obj_pose()
-        hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
+        hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7") # Palm
         obj_state_x = abs(obj_state[0] - hand_pose[0])
         obj_state_y = abs(obj_state[1] - hand_pose[1])
         obj_vec = np.array([obj_state_x, obj_state_y])
@@ -1032,6 +1032,7 @@ class KinovaGripper_Env(gym.Env):
         # Sets the object coordinates for heatmap tracking and plotting
         self.set_obj_coords(x,y,z)
         self._get_trans_mat_wrist_pose()
+        print("IN RESET: states: ", len(states))
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.

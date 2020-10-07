@@ -384,16 +384,17 @@ class ExpertPIDController(object):
         f3 = 0.0
         wrist = 0.0
 
-        if abs(self.init_obj_pose) <= 0.03:
-            f1, f2, f3 = 0.2, 0.2, 0.2
-            if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
+        # If the object is really close to the hand, close all fingers
+        if abs(self.init_obj_pose) <= 0.03: # Is object in the middle of area within the hand
+            f1, f2, f3 = 0.2, 0.2, 0.2 # Finger velocity
+            if abs(obj_dot_prod - self.init_dot_prod) > 0.01: # If object gets farther from initial positon, speed up thumb
                 f1, f2, f3 = 0.2, 0.1, 0.1
-                if self.step > 200:
+                if self.step > 200: # If greater than 200 steps, lift object
                     wrist = 0.3    
         else:    
-            # object on right hand side, move 2-fingered side
+            # If object is on the right hand side, move 2-fingered side
             if self.init_obj_pose < 0.0:
-                # Pre-contact
+                # Pre-contact - slowly increase velocity of f2 and f3
                 if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
                     f2 = pid.touch_vel(obj_dot_prod, states[-5])
                     f3 = f2
@@ -401,11 +402,13 @@ class ExpertPIDController(object):
                     wrist = 0.0
                 # Post-contact    
                 else:
+                    # if the object dot product is equal to 1, then the object is in the middle of the hand
                     if abs(1 - obj_dot_prod) > 0.01:
                         f2 = pid.velocity(obj_dot_prod)
                         f3 = f2
                         f1 = 0.05
                         wrist = 0.0
+                    # if the object is farther from the center, nudge with thumb to get it there
                     else:
                         f1 = pid.touch_vel(obj_dot_prod, states[-6])
                         f2 = 0.0
@@ -425,21 +428,24 @@ class ExpertPIDController(object):
                     wrist = 0.0
                 # Post-contact    
                 else:
+                    # if the object dot product is equal to 1, then the object is in the middle of the hand
                     if abs(1 - obj_dot_prod) > 0.01:
                         f1 = pid.velocity(obj_dot_prod)
                         f2 = 0.05
                         f3 = 0.05
                         wrist = 0.0
+                    # if the object is not in the middle of the hand, nudge with two fingers to get it there
                     else:
                         f2 = pid.touch_vel(obj_dot_prod, states[-5])
                         f3 = f2
                         f1 = 0.0
                         wrist = 0.0
                     # Hand tune lift time
-                    if self.step > 400:
+                    if self.step > 400: # If we reach 400 steps, try to lift
                         f1, f2, f3 = 0.3, 0.15, 0.15
                         wrist = 0.3
 
+        # We're checking if we've reached 400 steps, not if we've successfully lifted
         if self.step <= 400:
             label.append(0)
         else:
@@ -472,8 +478,8 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer, save=True):
             action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
             action_label.append(action)
             next_obs, reward, done, _ = env.step(action)
-            replay_buffer.add(obs[0:48], action, next_obs[0:48], reward, float(done))
-            #replay_buffer.add(obs, action, next_obs, reward, float(done))
+            #replay_buffer.add(obs[0:48], action, next_obs[0:48], reward, float(done))
+            replay_buffer.add(obs, action, next_obs, reward, float(done))
             obs = next_obs
             total_steps += 1
 
