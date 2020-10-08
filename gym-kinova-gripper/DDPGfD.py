@@ -96,6 +96,7 @@ class DDPGfD(object):
 
 		# pdb.set_trace()
 		# Compute the target Q value
+
 		# target_Q = self.critic_target(next_state, self.actor_target(next_state))
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
 		print("before regular")
