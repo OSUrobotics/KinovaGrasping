@@ -675,6 +675,9 @@ class KinovaGripper_Env(gym.Env):
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
 
+        # TEMPORARY - REMOVE
+        max_elements = 1000
+
         # n is the number of object types (sbox, bbox, bcyl, etc.)
         num_elements = 0
         elem_gen_done = 0

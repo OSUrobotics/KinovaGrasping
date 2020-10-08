@@ -55,10 +55,11 @@ class ReplayBuffer_VarStepsEpisode(object):
 			episode = np.random.randint(0, self.expert_episode_num, size = 1)
 		else:
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size = 1)
-		
-		# sample episode 
-		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1] + 1)
-		
+		# sample episode
+		print("Episode: ", episode)
+		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
+		print("In sample: ind:", ind)
+		print("self.state[ind.astype(int)]: ", self.state[ind.astype(int)].shape)
 		#if self.episodes_count > 10:
 		#	pdb.set_trace()
 		return (

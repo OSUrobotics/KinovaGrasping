@@ -81,8 +81,15 @@ class DDPGfD(object):
 
 		# Compute the target Q_N value
 		rollreward = []
-		print("next_state: ", next_state)
-		print("next_state[(self.n - 1):] ", next_state[(self.n - 1):])
+		'''
+		print("\nWITHIN TRAIN")
+		print("state.shape: ", state.shape)
+		print("action.shape: ", action.shape)
+		print("next_state: ", next_state.shape)
+		print("next_state[(self.n - 1):] ", next_state[(self.n - 1):].shape)
+		print("not_done: ", not_done)
+		print("len(not_done): ", not_done)
+		'''
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
 		for i in range(episode_step):
 			if i >= (self.n - 1):
@@ -93,20 +100,21 @@ class DDPGfD(object):
 			raise ValueError
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
-		print("rollreward.get_shape(): ", rollreward.size())
-		#print("rollreward: ", rollreward)
-		print("target_QN.get_shape(): ", target_QN.size())
-		print("target_Q.get_shape(): ", target_Q.size())
-		#print("target_QN: ", target_QN)
+		print("rollreward.shape: ", rollreward.shape)
+		print("target_QN.shape: ", target_QN.shape)
+		print("target_Q.shape: ", target_Q.shape)
 		print("self.discount: ", self.discount)
 		print("self.n.: ", self.n)
+		print("rollreward length: ", len(rollreward))
 		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation
 
 		# Get current Q estimate
 		current_Q = self.critic(state, action)
+		print("current_Q.shape: ", current_Q.shape)
 
 		# Get current Q estimate for n-step return 
 		current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+		print("current_Q_n.shape: ", current_Q_n.shape)
 
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)

@@ -65,7 +65,6 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
-
             while not done:
                 #action = policy.select_action(np.array(state[0:48]))
                 action = policy.select_action(np.array(state))
@@ -121,21 +120,27 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         # Generate randomized list of objects to select from
         eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
 
+        print("After Generate Latin square")
         avg_reward = 0.0
         # step = 0
         for i in range(eval_episodes):
             success=0
             #eval_env = gym.make(env_name)
+            print("Before eval reset")
             state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
             cumulative_reward = 0
-
+            print("After eval reset")
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
+                print("Within while not done, before select action")
+                print("Before select action, len(state): ", len(state))
                 action = policy.select_action(np.array(state))
                 #action = policy.select_action(np.array(state[0:48]))
+                print("after select_action")
                 state, reward, done, _ = eval_env.step(action)
+                print("after step")
                 avg_reward += reward
                 cumulative_reward += reward
                 if reward > 25:
@@ -335,27 +340,29 @@ if __name__ == "__main__":
 
     # Pretrain (No pretraining without imitation learning)
     print("---- Pretraining ----")
-    num_updates = 10000
+    num_updates = 1000
     for pretrain_episode_num in range(int(num_updates)):
         print("pretrain_episode_num: ", pretrain_episode_num)
         pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
-
+        '''
         if (pretrain_episode_num + 1) % 100 == 0:
+            print("\n\n***You're in evaluate pretain policy")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
-
+            print("\n***After eval_policy - pretain policy")
             avg_reward = eval_ret[0]
             writer.add_scalar("Episode reward, Avg. 100 episodes", avg_reward, pretrain_episode_num)
             writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
             writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
             writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
             writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
+        '''
     pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
     print("Pre-training: Saving into {}".format(pretrain_model_save_path))
     policy.save(pretrain_model_save_path)
 
     print("POST PRETRAINING")
     print("replay_buffer: ",replay_buffer)
-    quit()
+    #quit()
 
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
@@ -393,6 +400,7 @@ if __name__ == "__main__":
 
             # Store data in replay buffer
             #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)
+            print("main_DDPGfD training, replay_buffer.add state: ", state.shape())
             replay_buffer.add(state, action, next_state, reward, done_bool)
             if(info["lift_reward"] > 0):
                 lift_success = True
