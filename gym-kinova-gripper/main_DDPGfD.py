@@ -285,7 +285,20 @@ if __name__ == "__main__":
     # replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
 
     # new pid control
-    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+    ## this is it
+    print("state dimension FOR REPLAY BUFFER ================================")
+    print(state_dim)  # this is 48 by default
+    print("action dimension FOR REPLAY BUFFER ================================")
+    print(action_dim)  # this is 4 by default
+    print("args.pre_replay_episode =================================")
+    print(args.pre_replay_episode)  # this is 100 by defualt
+    # replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+
+
+    # experimental replay buffer
+    replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
+
+
     #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
     replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
     #print("REPLAY_BUFFER: ",replay_buffer)

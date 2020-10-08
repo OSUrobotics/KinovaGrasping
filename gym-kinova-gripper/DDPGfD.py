@@ -39,7 +39,7 @@ class Critic(nn.Module):
 
 
 	def forward(self, state, action):
-		q = F.relu(self.l1(torch.cat([state, action], 1)))
+		q = F.relu(self.l1(torch.cat([state, action], -1)))
 		q = F.relu(self.l2(q))
 		return self.l3(q)
 
@@ -60,6 +60,9 @@ class DDPGfD(object):
 		self.network_repl_freq = 10
 		self.total_it = 0
 
+		# note: parameterize this later!!!
+		self.batch_size = 64
+
 	def select_action(self, state):
 		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
 		return self.actor(state).cpu().data.numpy().flatten()
@@ -69,44 +72,116 @@ class DDPGfD(object):
 		self.total_it += 1
 
 		# Sample replay buffer 
-		state, action, next_state, reward, not_done = replay_buffer.sample()
+		# state, action, next_state, reward, not_done = replay_buffer.sample()
 		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
+
+		# new sampling procedure for n step rollback
+		state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
+
+		print("=======================state===================")
+		print(state.shape)
+		print("=======================next_state===================")
+		print(next_state.shape)
+
+		print("=====================action====================")
+		print(action.shape)
+
+		# print("==========modified states and actions==============")
+		# print(state[:, -1])
+		# print(action[:, -1])
+
+
 		
 		# episode_step = len(state) # for varying episode sets
 
 		# pdb.set_trace()
 		# Compute the target Q value
-		target_Q = self.critic_target(next_state, self.actor_target(next_state))
-		target_Q = reward + (self.discount * target_Q).detach() #bellman equation
+		# target_Q = self.critic_target(next_state, self.actor_target(next_state))
+		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
+		print("before regular")
+		print(target_Q.shape)
+		print(reward[:, 0].shape)
+		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
 
-		# Compute the target Q_N value
-		rollreward = []
-		print("next_state: ", next_state)
-		print("next_state[(self.n - 1):] ", next_state[(self.n - 1):])
-		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
-		for i in range(episode_step):
-			if i >= (self.n - 1):
-				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
-				rollreward.append(roll_reward)
 
-		if len(rollreward) != episode_step - (self.n - 1):
-			raise ValueError
+		# print("======================target_Q===================")
+		# print(target_Q.shape)
+		#
+		# print("next state smaller")
+		# print(next_state[(self.n - 1):].shape)
+		#
+		# print("number of episode steps")
+		# print(episode_step)
 
-		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
-		print("rollreward.get_shape(): ", rollreward.size())
-		#print("rollreward: ", rollreward)
-		print("target_QN.get_shape(): ", target_QN.size())
-		print("target_Q.get_shape(): ", target_Q.size())
-		#print("target_QN: ", target_QN)
-		print("self.discount: ", self.discount)
-		print("self.n.: ", self.n)
-		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation
+		"""
+		This is the updated version, assuming that we're sampling from a batch.
+		"""
+
+		target_action = self.actor_target(next_state[:, -1])
+		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
+
+		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
+		# note: might need to pass n properly from higher state!!!
+
+		print("================================reward shape=======================")
+		print(reward[:, 0].shape)  # idk the shape here, please record
+
+		for i in range(self.n):
+			n_step_return += (self.discount ** i) * reward[:, i].squeeze(-1)
+
+		print("====================n step return shape====================")
+		print(n_step_return.shape)
+
+		# this is the n step return with the added value fn estimation
+		target_QN = n_step_return + (self.discount ** self.n) * target_critic_val.squeeze(-1)
+		target_QN = target_QN.unsqueeze(dim=-1)
+
+		print("=======================target QN")
+		print(target_QN.shape)
+
+		# # Compute the target Q_N value
+		# rollreward = []
+		# target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
+		# for i in range(episode_step):
+		# 	if i >= (self.n - 1):
+		# 		roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
+		# 		rollreward.append(roll_reward)
+		#
+		# if len(rollreward) != episode_step - (self.n - 1):
+		# 	raise ValueError
+		#
+		# print("roll reward before reshape: ")
+		# print(rollreward)
+		# print(len(rollreward))
+		#
+		# rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
+		# print("rollreward.get_shape(): ", rollreward.size())
+		# print("target_QN.get_shape(): ", target_QN.size())
+		# print("self.discount: ", self.discount)
+		# print("self.n.: ", self.n)
+
+
+		# print("================SHAPE DUMP=============")
+		# print(rollreward.shape)
+		# print(((self.discount ** self.n) * target_QN).shape)
+		# target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation <= this is the final N step return
 
 		# Get current Q estimate
-		current_Q = self.critic(state, action)
+		# current_Q = self.critic(state, action)
+		current_Q = self.critic(state[:, 0], action[:, 0])
 
 		# Get current Q estimate for n-step return 
-		current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+		# current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+
+		# Updated for new rollback method
+		current_Q_n = self.critic(state[:, -1], action[:, -1])
+
+		print("======================Q shapes finallly==============")
+		print(current_Q.shape)
+		print(target_Q.shape)
+		print(current_Q_n.shape)
+		print(target_QN.shape)
+		print("==============end printing pain==================")
 
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
