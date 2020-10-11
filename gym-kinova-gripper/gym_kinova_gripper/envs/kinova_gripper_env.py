@@ -408,12 +408,13 @@ class KinovaGripper_Env(gym.Env):
                 self.render()
             print('')
         if state_rep == "global":#NOTE: only use local coordinates! global coordinates suck
+            finger_dot_prod=[]
             for joint in finger_joints:
                 trans = self._sim.data.get_geom_xpos(joint)
                 trans = list(trans)
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
-                finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
+            finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
             fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ dot_prod#+ [self.obj_shape]
 
         elif state_rep == "local":
@@ -439,7 +440,6 @@ class KinovaGripper_Env(gym.Env):
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod +dot_prod#+ [self.obj_shape]
-            print('joint states',joint_states)
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
@@ -504,7 +504,6 @@ class KinovaGripper_Env(gym.Env):
     def _get_dot_product(self,obj_state=None):
         if obj_state==None:
             obj_state=self._get_obj_pose()
-        print('object state',obj_state)
         hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
         obj_state_x = abs(obj_state[0] - hand_pose[0])
         obj_state_y = abs(obj_state[1] - hand_pose[1])
@@ -517,7 +516,6 @@ class KinovaGripper_Env(gym.Env):
         center_vec = np.array([center_x, center_y])
         center_vec_norm = np.linalg.norm(center_vec)
         center_unit_vec = center_vec / center_vec_norm
-        print(obj_unit_vec, center_unit_vec)
 
         dot_prod = np.dot(obj_unit_vec, center_unit_vec)
         return dot_prod**20 # cuspy to get distinct reward
@@ -1274,7 +1272,8 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(len(finger_velocities)):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
-        obs = self._get_obs(test=True)
+        
+        obs = self._get_obs(test=False)
 
         if not graspnetwork:
             if not testfun:
@@ -1294,29 +1293,26 @@ class KinovaGripper_Env(gym.Env):
         xml_file=open(self.file_dir+self.filename,"r")
         xml_contents=xml_file.read()
         xml_file.close()
-        starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
-        site_point=xml_contents.find('\n',starting_point)
-        end_site_point=xml_contents.find('            <camera name="camera"')
-        site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
-        self.site_count+=1
-        second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
-        self.site_count+=1
-        new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
-        if keep_sites:
+        a=xml_contents.find('<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n')
+        if a!=-1:
+            starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
+            site_point=xml_contents.find('\n',starting_point)
+            site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
+            self.site_count+=1
+            second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
+            self.site_count+=1
+            new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
             new_thing=new_thing+xml_contents[site_point+1:]
-        else:
-            new_thing=new_thing+xml_contents[end_site_point:]
-        
-        xml_file=open(self.file_dir+self.filename,"w")
-        xml_file.write(new_thing)
-        xml_file.close()
-        
-        self._model = load_model_from_path(self.file_dir + self.filename)
-        self._sim = MjSim(self._model) 
-        object_location=self._get_obj_size()
-        states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
-        self._set_state(np.array(states))
-        self._get_trans_mat_wrist_pose()
+            xml_file=open(self.file_dir+self.filename,"w")
+            xml_file.write(new_thing)
+            xml_file.close()
+            
+            self._model = load_model_from_path(self.file_dir + self.filename)
+            self._sim = MjSim(self._model) 
+            object_location=self._get_obj_size()
+            states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
+            self._set_state(np.array(states))
+            self._get_trans_mat_wrist_pose()
         
     def test_self(self):
         shapes=['Cube','Cylinder','Cone1','Cone2','Bowl','Rbowl','Bottle','TBottle','Hour','Vase','Lemon']
