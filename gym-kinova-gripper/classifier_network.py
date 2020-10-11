@@ -101,3 +101,18 @@ class ReducedLinearNetwork4Layer(nn.Module):
         x = torch.sigmoid(self.fc2(x))
         x = torch.sigmoid(self.fc3(x))
         return x
+
+class SmallNetwork(nn.Module):
+    def __init__(self):
+        super(SmallNetwork, self).__init__()
+        self.fc1 = nn.Linear(15, 40)
+        self.fc2 = nn.Linear(40, 20)
+        self.fc3 = nn.Linear(20, 10)
+        self.fc4 = nn.Linear(10, 1)
+
+    def forward(self, x):
+        x = torch.sigmoid(self.fc1(x))
+        x = torch.sigmoid(self.fc2(x))
+        x = torch.sigmoid(self.fc3(x))
+        x = torch.sigmoid(self.fc4(x))
+        return x

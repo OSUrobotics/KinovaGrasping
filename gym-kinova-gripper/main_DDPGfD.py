@@ -65,9 +65,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
+
             while not done:
-                #action = policy.select_action(np.array(state[0:48]))
-                action = policy.select_action(np.array(state))
+                action = policy.select_action(np.array(state[0:75]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -81,8 +81,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
             while not done:
-                #action = GenerateTestPID_JointVel(np.array(state[0:48]), eval_env)
-                action = GenerateTestPID_JointVel(np.array(state),eval_env)
+                action = GenerateTestPID_JointVel(np.array(state[0:75]),eval_env)
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -120,27 +119,20 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         # Generate randomized list of objects to select from
         eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
 
-        print("After Generate Latin square")
         avg_reward = 0.0
         # step = 0
         for i in range(eval_episodes):
             success=0
             #eval_env = gym.make(env_name)
-            print("Before eval reset")
             state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
             cumulative_reward = 0
-            print("After eval reset")
+
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
-                print("Within while not done, before select action")
-                print("Before select action, len(state): ", len(state))
-                action = policy.select_action(np.array(state))
-                #action = policy.select_action(np.array(state[0:48]))
-                print("after select_action")
+                action = policy.select_action(np.array(state[0:75]))
                 state, reward, done, _ = eval_env.step(action)
-                print("after step")
                 avg_reward += reward
                 cumulative_reward += reward
                 if reward > 25:
@@ -204,21 +196,21 @@ if __name__ == "__main__":
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with (train, test, etc.)
 
-    args = parser.parse_args()
+	args = parser.parse_args()
 
-    file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
-    print("---------------------------------------")
-    print("Settings: {file_name}")
-    print("---------------------------------------")
+	file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
+	print("---------------------------------------")
+	print("Settings: {file_name}")
+	print("---------------------------------------")
 
-    if not os.path.exists("./results"):
-        os.makedirs("./results")
+	if not os.path.exists("./results"):
+		os.makedirs("./results")
 
-    env = gym.make(args.env_name)
-    # Set seeds
-    env.seed(args.seed)
-    torch.manual_seed(args.seed)
-    np.random.seed(args.seed)
+	env = gym.make(args.env_name)
+	# Set seeds
+	env.seed(args.seed)
+	torch.manual_seed(args.seed)
+	np.random.seed(args.seed)
 
     #state_dim = env.observation_space.shape[0]
     #state_dim = env.observation_space
@@ -230,40 +222,40 @@ if __name__ == "__main__":
     max_action = float(env.action_space.high[0])
     max_action_trained = env.action_space.high # a vector of max actions
 
-    # Sets list of desired objects for experiment
-    requested_shapes = args.shapes
-    requested_shapes = requested_shapes.split(',')
+	# Sets list of desired objects for experiment
+	requested_shapes = args.shapes
+	requested_shapes = requested_shapes.split(',')
 
-    print("args.shapes",args.shapes)
-    print("requested_shapes: ",requested_shapes)
+	print("args.shapes",args.shapes)
+	print("requested_shapes: ",requested_shapes)
 
-    # Set the desired hand orientation (normal or random)
-    requested_orientation = args.hand_orientation
+	# Set the desired hand orientation (normal or random)
+	requested_orientation = args.hand_orientation
 
-    print("Requested Hand orientation: ", requested_orientation)
+	print("Requested Hand orientation: ", requested_orientation)
 
-    kwargs = {
-        "state_dim": state_dim,
-        "action_dim": action_dim,
-        "max_action": max_action,
-        "discount": args.discount,
-        "tau": args.tau,
-        # "trained_model": "data_cube_5_trained_model_10_07_19_1749.pt"
-    }
+	kwargs = {
+		"state_dim": state_dim,
+		"action_dim": action_dim,
+		"max_action": max_action,
+		"discount": args.discount,
+		"tau": args.tau,
+		# "trained_model": "data_cube_5_trained_model_10_07_19_1749.pt"
+	}
 
-    # Initialize policy
-    if args.policy_name == "TD3":
-        # Target policy smoothing is scaled wrt the action scale
-        kwargs["policy_noise"] = args.policy_noise * max_action
-        kwargs["noise_clip"] = args.noise_clip * max_action
-        kwargs["policy_freq"] = args.policy_freq
-        policy = TD3.TD3(**kwargs)
-    elif args.policy_name == "OurDDPG":
-        policy = OurDDPG.DDPG(**kwargs)
-    elif args.policy_name == "DDPG":
-        policy = DDPG.DDPG(**kwargs)
-    elif args.policy_name == "DDPGfD":
-        policy = DDPGfD.DDPGfD(**kwargs)
+	# Initialize policy
+	if args.policy_name == "TD3":
+		# Target policy smoothing is scaled wrt the action scale
+		kwargs["policy_noise"] = args.policy_noise * max_action
+		kwargs["noise_clip"] = args.noise_clip * max_action
+		kwargs["policy_freq"] = args.policy_freq
+		policy = TD3.TD3(**kwargs)
+	elif args.policy_name == "OurDDPG":
+		policy = OurDDPG.DDPG(**kwargs)
+	elif args.policy_name == "DDPG":
+		policy = DDPG.DDPG(**kwargs)
+	elif args.policy_name == "DDPGfD":
+		policy = DDPGfD.DDPGfD(**kwargs)
 
     # Fill pre-training object list using latin square
     env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
@@ -369,8 +361,8 @@ if __name__ == "__main__":
             writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
             writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
             writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
-        
-        
+
+
     pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
     print("Pre-training: Saving into {}".format(pretrain_model_save_path))
     policy.save(pretrain_model_save_path)
@@ -413,6 +405,7 @@ if __name__ == "__main__":
 
             # Perform action obs, total_reward, done, info
             next_state, reward, done, info = env.step(action)
+            # env.render()
             done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
             # Store data in replay buffer

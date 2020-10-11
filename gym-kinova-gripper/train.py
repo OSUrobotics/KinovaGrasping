@@ -25,7 +25,7 @@ import NCS_nn
 import random
 import pandas 
 from ounoise import OUNoise
-from classifier_network import LinearNetwork, ReducedLinearNetwork,LinearNetwork3Layer,LinearNetwork4Layer, ReducedLinearNetwork3Layer, ReducedLinearNetwork4Layer
+from classifier_network import LinearNetwork, ReducedLinearNetwork,LinearNetwork3Layer,LinearNetwork4Layer, ReducedLinearNetwork3Layer, ReducedLinearNetwork4Layer, SmallNetwork
 from trainGP import trainGP
 import matplotlib.pyplot as plt
 import csv
@@ -105,25 +105,7 @@ def test(env, trained_model):
 
 # def train_network(data_filename, max_action, num_epoch, total_steps, batch_size, model_path="trained_model"):
 def train_network(training_set, training_label, num_epoch, total_steps, batch_size, all_testing_set,all_testing_label,model_path="trained_model",network='Full5'):
-    # import data
-    # file = open(data_filename + ".pkl", "rb")
-    # data = pickle.load(file)
-    # file.close()
 
-    ##### Training Action Net ######
-    # state_input = data["states"]
-    # actions = data["label"]
-    # actor_net = NCS_nn.NCS_net(len(state_input[0]), len(actions[0]), max_action).to(device)
-    # criterion = nn.MSELoss()
-    # optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
-
-    ##### Training Grasp Classifier ######
-    # state_input = data[:, 0:-1]
-    # state_input = data["states"]
-    # actions = data["grasp_success"]
-    # total_steps = data["total_steps"]
-    # actions = data[:, -1]
-    # pdb.set_trace()
     if network=='Full5':
         classifier_net = LinearNetwork()
     elif network=='Full4':
@@ -136,70 +118,48 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
         classifier_net = ReducedLinearNetwork4Layer() 
     elif network=='Red3':
         classifier_net = ReducedLinearNetwork3Layer()
+    else:
+        classifier_net = SmallNetwork()
     classifier_net=classifier_net.float()
-    
-    '''
-    actor_net = NCS_nn.GraspValid_net(len(state_input[0])).to(device)
-    criterion = nn.BCELoss()
-    optimizer = optim.Adam(actor_net.parameters(), lr=1e-3)
-    '''
     
     total_percent=np.zeros([int(num_epoch/10),2])
     true_pos=np.zeros([int(num_epoch/10),6,2])
     false_pos=np.zeros([int(num_epoch/10),6,2])
     num_update = total_steps / batch_size
-    
-    # print(num_update, len(state_input[0]), len(actions))
-
+    max_accuracy=0
+    all_accuracy=[0,0,0,0,0]
+    network_accuracy=np.zeros([10])
     for epoch in range(num_epoch):
-            # actions_all_loc = np.random.randint(0,total_steps, size=total_steps)
-            # np.random.shuffle(actions_all_loc)
-            # actions_all_loc = np.array(actions_all_loc)
-            #if epoch%10==0:
-            #    total_percent[epoch/10,0],true_pos[epoch/10,:,0],false_pos[epoch/10,:,0]=test_network(all_testing_set, all_testing_label,classifier_net,0.9)
-            #    total_percent[epoch/10,1],true_pos[epoch/10,:,1],false_pos[epoch/10,:,1]=test_network(all_testing_set, all_testing_label,classifier_net,0.9)
-            #shuffle the data before it gets fed into the network
+
             num_data_points=np.shape(training_set)
             random_indicies=np.arange(num_data_points[0])
             np.random.shuffle(random_indicies)
             training_set=training_set[random_indicies,:]
             training_label=training_label[random_indicies]
-            #network_feed=training_set[:,21:24]
-            #print(np.shape(network_feed))
-            #network_feed=np.append(network_feed,training_set[:,27:36], axis=1)
-            #network_feed=np.append(network_feed,training_set[:,49:51], axis=1)
-            #network_feed=training_set
+
             if network[0]=='R':
                 network_feed=training_set[:,21:24]
+                network_feed=np.append(network_feed,training_set[:,24:27],axis=1)
                 network_feed=np.append(network_feed,training_set[:,33:36],axis=1)
                 network_feed=np.append(network_feed,training_set[:,42:48],axis=1)
             else:
                 network_feed=training_set
-            #print(np.shape(network_feed))
             running_loss = 0.0
-            start_batch = 0
-            end_batch = batch_size
             learning_rate=0.1-epoch/num_epoch*0.09
             for i in range(int(num_update)):
                 # zero parameter gradients
                 classifier_net.zero_grad()
-                # forward, backward, and optimize
-                #ind = np.arange(start_batch, end_batch)
-                start_batch += batch_size
-                end_batch += batch_size
-                # states = torch.FloatTensor(np.array(state_input)[ind]).to(device)
-                # labels = torch.FloatTensor(np.array(actions)[ind].reshape(-1, 1)).to(device)
-
                 states = torch.tensor(network_feed[i])
                 labels = torch.tensor(training_label[i])
                 states=states.float()
                 labels=labels.float()
-                # labels = torch.FloatTensor(np.array(training_label)[ind].reshape(-1, 1)).to(device)                
-                # labels = torch.FloatTensor(np.array(actions)[ind]).to(device)
+                if labels==0:
+                    labels=torch.tensor(0.05)
+                elif labels==1:
+                    labels=torch.tensor(0.95)
+                labels=labels.float()
 
                 output = classifier_net(states)
-                #output=output.reshape(1)
-                # pdb.set_trace()
                 criterion = nn.MSELoss()
                 loss = criterion(output, labels)
                 classifier_net.zero_grad()
@@ -207,10 +167,24 @@ def train_network(training_set, training_label, num_epoch, total_steps, batch_si
                 for f in classifier_net.parameters():
                     f.data.sub_(f.grad.data * learning_rate)
                 running_loss += loss.item() 
-                # print("loss", loss.item())
                 if (i % 1000) == 999:
-                    print("Epoch {} , idx {}, loss: {}".format(epoch + 1, i + 1, running_loss/(100)))
+                    print("Epoch {}, idx {}, loss: {}".format(epoch + 1, i + 1, running_loss/(100)))
                     running_loss = 0.0
+            if (epoch % 100)==99:
+                classifier_net.eval()
+                for i in range(9):
+                    network_accuracy[i],_,_,_,_=test_network(all_testing_set, all_testing_label,classifier_net,0.05*i+0.5,network[0]=='R')
+                all_accuracy.append(float(np.max(network_accuracy)))
+                print('all_accuracy:',all_accuracy)
+                if all_accuracy[-1]>max_accuracy:
+                    torch.save(classifier_net.state_dict(),model_path + "_temp.pt")
+                max_accuracy=np.max(all_accuracy)
+                if all_accuracy[-5]>(np.max(all_accuracy[-4:])+0.01):
+                    temp='./'+model_path + '_temp.pt'
+                    os.rename(temp,'./'+model_path + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + "local" +network+ ".pt")
+                    print("Finish training, saving...")
+                    return classifier_net, total_percent, false_pos, true_pos
+                classifier_net.train()
     print("Finish training, saving...")
     print('Percent Correct ',total_percent)
     print('False Positives ',false_pos)
@@ -242,18 +216,16 @@ def test_network(test_in,test_out,classifier_net,output_threshold=0.8,red=True):
     '''
     if red:
         network_feed=test_in[:,21:24]
+        network_feed=np.append(network_feed,test_in[:,24:27],axis=1)
         network_feed=np.append(network_feed,test_in[:,33:36],axis=1)
         network_feed=np.append(network_feed,test_in[:,42:48],axis=1)
     else:
         network_feed=test_in
     for j in range(num_tests[0]):
-        #print(test_out[j+past_vals])
-        #states=torch.tensor(test_in[j+past_vals])
-        #labels=torch.tensor(test_out[j+past_vals])
-        
         states=torch.tensor(network_feed[j])
         labels=torch.tensor(test_out[j])
         states=states.float()
+        labels=labels.float()
         labels=labels.float()
         output=classifier_net(states)
         #print(output)
@@ -262,9 +234,6 @@ def test_network(test_in,test_out,classifier_net,output_threshold=0.8,red=True):
             #print('1')
         else:
             net_out=0
-            #print('0')
-        #print(labels.item())
-        #print(abs(net_out-labels.item()))
         percent_correct[i]=percent_correct[i]+abs(net_out-labels.item())
         #print(percent_correct[i])
         if (net_out-labels.item())==1:
@@ -275,11 +244,6 @@ def test_network(test_in,test_out,classifier_net,output_threshold=0.8,red=True):
             false_neg_indicies.append(j+past_vals)
         elif (net_out>=0.5) & (labels.item() >=0.5):
             num_true_pos[i]=num_true_pos[i]+1
-            #print(percent_correct)
-        #print(num_labels)
-        #print(percent_correct)
-        #num_true[i]=np.count_nonzero(test_out[past_vals:j+past_vals]>0.5)
-        #num_false[i]=np.count_nonzero(test_out[past_vals:j+past_vals]<0.5)
     num_true[i]=np.count_nonzero(test_out[:]>0.5)
     num_false[i]=np.count_nonzero(test_out[:]<=0.5)
     percent_correct[i]=1-percent_correct[i]/num_tests[0]
@@ -518,8 +482,7 @@ if __name__ == '__main__':
     # batch_size = 250
     # model_path = "/home/graspinglab/NCS_data/ExpertTrainedNet"
     # train_network(data_filename, 0.3, 5, total_steps, batch_size, model_path)
-
-    num_epoch = 10000
+    num_epoch = 100000
     batch_size = 25
     files_dir = "/home/orochi/NCS_data/"
     #files = [files_dir + "Data_Box_B_01_16_20_1728", files_dir + "Data_Box_B_01_21_20_1951", files_dir + "Data_Box_M_01_16_20_1826", files_dir + "Data_Box_M_01_21_20_2005", files_dir + "Data_Box_S_01_16_20_2335", files_dir + "Data_Box_S_01_21_20_2106",files_dir + "Data_Cylinder_B_01_16_20_1405", files_dir + "Data_Cylinder_B_01_21_20_1956", files_dir + "Data_Cylinder_M_01_16_20_1505", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_M_01_21_20_2012", files_dir + "Data_Cylinder_S_01_17_20_0009", files_dir + "Data_Cylinder_S_01_21_20_2118", files_dir + "Data_Hour_B_03_31_20_0348", files_dir + "Data_Hour_M_03_30_20_1756", files_dir + "Data_Hour_S_03_30_20_1743"]
@@ -604,28 +567,34 @@ if __name__ == '__main__':
     print(np.average(all_training_label))
     print(np.average(all_testing_label))
     #GP_net=trainGP(all_training_set,all_training_label,all_testing_set,all_testing_label)
-    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full5')
-    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full4')
-    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full3')
-    '''
-    model1 = ReducedLinearNetwork()
-    model1.load_state_dict(torch.load('trained_model_07_24_20_1728localRed.pt'))
+    best_accuracy=0
+    classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_testing_label,network='Rheyo')            
+    #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full4')
+    #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Full3')
+    #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_testing_label,network='Red5')            
+    #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Red4')
+    #classifier_net,total_percent,false_pos,true_pos=train_network(all_training_set, all_training_label, num_epoch, len(all_training_set), batch_size,all_testing_set,all_training_label,network='Red3')
+    
+    model1 = LinearNetwork3Layer()
+    model1.load_state_dict(torch.load('trained_model_09_03_20_0416localFull3.pt'))
     model1.eval()
-    model2 = ReducedLinearNetwork3Layer()
-    model2.load_state_dict(torch.load('trained_model_07_21_20_1435localRed3.pt'))
+    model2 = LinearNetwork4Layer()
+    model2.load_state_dict(torch.load('trained_model_09_03_20_0040localFull4.pt'))
     model2.eval()
-    model3 = ReducedLinearNetwork4Layer()
-    model3.load_state_dict(torch.load('trained_model_07_21_20_1319localRed4.pt'))
+    model3 = LinearNetwork()
+    model3.load_state_dict(torch.load('trained_model_09_02_20_1947localFull5.pt'))
     model3.eval()
-    model4 = LinearNetwork()
-    model4.load_state_dict(torch.load('trained_model_07_20_20_1421localFull.pt'))
+    
+    model4 = ReducedLinearNetwork()
+    model4.load_state_dict(torch.load('trained_model_09_03_20_1717localRed5.pt'))
     model4.eval()
-    model5 = LinearNetwork3Layer()
-    model5.load_state_dict(torch.load('trained_model_07_21_20_1054localFull3.pt'))
+    model5 = ReducedLinearNetwork3Layer()
+    model5.load_state_dict(torch.load('trained_model_09_04_20_0133localRed3.pt'))
     model5.eval()
-    model6 = LinearNetwork4Layer()
-    model6.load_state_dict(torch.load('trained_model_07_21_20_1304localFull4.pt'))
+    model6 = ReducedLinearNetwork4Layer()
+    model6.load_state_dict(torch.load('trained_model_09_03_20_2205localRed4.pt'))
     model6.eval()
+    
     print('models loaded')
     #output = 0.25
     
@@ -634,12 +603,14 @@ if __name__ == '__main__':
     true_pos=np.zeros([10,6,6])
     print(testing_len)
     for i in range(10):
-        total_percent[i,0],true_pos[i,:,0],false_pos[i,:,0],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model1,0.1*i+0.0)    
-        total_percent[i,1],true_pos[i,:,1],false_pos[i,:,1],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model2,0.1*i+0.0)    
-        total_percent[i,2],true_pos[i,:,2],false_pos[i,:,2],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model3,0.1*i+0.0)    
-        total_percent[i,3],true_pos[i,:,3],false_pos[i,:,3],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model4,0.1*i+0.0,False)    
-        total_percent[i,4],true_pos[i,:,4],false_pos[i,:,4],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model5,0.1*i+0.0,False)    
-        total_percent[i,5],true_pos[i,:,5],false_pos[i,:,5],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model6,0.1*i+0.0,False)    
+        total_percent[i,0],true_pos[i,:,0],false_pos[i,:,0],false_pos_indicies,false_neg_indicies=test_network(all_training_set, all_training_label,model1,0.1*i+0.0,False)    
+        total_percent[i,1],true_pos[i,:,1],false_pos[i,:,1],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model2,0.1*i+0.0,False)    
+        total_percent[i,2],true_pos[i,:,2],false_pos[i,:,2],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model3,0.1*i+0.0,False)    
+        
+        total_percent[i,3],true_pos[i,:,3],false_pos[i,:,3],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model4,0.1*i+0.0)    
+        total_percent[i,4],true_pos[i,:,4],false_pos[i,:,4],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model5,0.1*i+0.0)    
+        total_percent[i,5],true_pos[i,:,5],false_pos[i,:,5],false_pos_indicies,false_neg_indicies=test_network(all_testing_set, all_testing_label,model6,0.1*i+0.0)    
+        
         #p_show, f_show = get_false_grasps(false_pos_indicies,false_neg_indicies, all_testing_set[0:testing_len])
         #show_false_grasps(p_show,f_show,"Box","B")
     for j in range(1):
@@ -658,4 +629,4 @@ if __name__ == '__main__':
         plt.ylabel('true positive rate')
         plt.legend(('Reduced 5 Layer','Reduced 3 Layer','Reduced 4 Layer','Full 5 Layer','Full 3 Layer','Full 4 Layer'))
         plt.show()
-    '''
+    

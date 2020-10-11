@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Thu Sep  3 13:52:10 2020
+
+@author: orochi
+"""
+
+import gym
+import numpy as np
+import pdb
+from classifier_network import LinearNetwork, ReducedLinearNetwork
+import torch
+import torch.nn as nn
+import torch.nn.functional as F
+from scipy.stats import triang
+#import serial
+import matplotlib.pyplot as plt
+#import optimizer
+import csv
+import time
+
+
+def step_tests(env):
+    print('testing 4 length action')
+    env.reset()
+    env.env.step_coords='local'
+    starting_coords=env.env.Tfw[0:2,3]
+    max_coords=np.array([-900,-900])
+    min_coords=np.array([900,900])
+    for i in range(200):
+        obs, reward, done, _ = env.step(np.random.rand(4))
+        current_coords=env.env.Tfw[0:2,3]
+        max_coords=np.max([starting_coords,current_coords,max_coords],axis=0)
+        min_coords=np.min([starting_coords,current_coords,min_coords],axis=0)
+    if np.linalg.norm(max_coords-min_coords) > 0.01:
+        print('unit test failed, x and y are not in the same spot')
+    else:
+        print('4 length action test passed')
+    env.reset()
+    print('testing 6 length local action')
+
+
+
+
+
+#env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
+
+step_tests(env)
