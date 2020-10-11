@@ -198,7 +198,7 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--pre_replay_episode", default=100, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--pre_replay_episode", default=500, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
@@ -224,7 +224,7 @@ if __name__ == "__main__":
     #state_dim = env.observation_space
     #state_dim = env.get_obs(state_rep="global").shape[0]
     # TESTING ONLY _ REMOVE ONCE DONE
-    state_dim = 76
+    state_dim = 75
     print ("STATE DIM ---------", state_dim)
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
@@ -278,14 +278,14 @@ if __name__ == "__main__":
     #replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
 
     # trained policy
-    #policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
+    # policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
 
     # **Uncomment***
     #policy.load('./policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
     #policy.load('/Users/vanil/5_3_20_Heatmap/NCSGen_obj_pos_plot/gym-kinova-gripper/policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
 
     # old pid control
-    # replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
+    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
     # replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
     # replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
 
@@ -297,11 +297,11 @@ if __name__ == "__main__":
     print(action_dim)  # this is 4 by default
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
-    # replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
 
 
     # experimental replay buffer
-    replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
+    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
 
 
     #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
@@ -352,12 +352,13 @@ if __name__ == "__main__":
     writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
 
     # Pretrain (No pretraining without imitation learning)
+
     print("---- Pretraining ----")
-    num_updates = 1000
+    num_updates = 5000
     for pretrain_episode_num in range(int(num_updates)):
         print("pretrain_episode_num: ", pretrain_episode_num)
         pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
-        '''
+
         if (pretrain_episode_num + 1) % 100 == 0:
             print("\n\n***You're in evaluate pretain policy")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
@@ -368,7 +369,8 @@ if __name__ == "__main__":
             writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
             writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
             writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
-        '''
+        
+        
     pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
     print("Pre-training: Saving into {}".format(pretrain_model_save_path))
     policy.save(pretrain_model_save_path)
@@ -376,6 +378,8 @@ if __name__ == "__main__":
     print("POST PRETRAINING")
     print("replay_buffer: ",replay_buffer)
     #quit()
+
+
 
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
@@ -413,8 +417,9 @@ if __name__ == "__main__":
 
             # Store data in replay buffer
             #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)
-            print("main_DDPGfD training, replay_buffer.add state: ", state.shape())
-            replay_buffer.add(state, action, next_state, reward, done_bool)
+            replay_buffer.add(state[0:75], action, next_state[0:75], reward, done_bool)
+            #print("main_DDPGfD training, replay_buffer.add len state: ", len(state))
+            #replay_buffer.add(state, action, next_state, reward, done_bool)
             if(info["lift_reward"] > 0):
                 lift_success = True
             else:

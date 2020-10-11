@@ -19,14 +19,14 @@ class Actor(nn.Module):
 		self.l1 = nn.Linear(state_dim, 400)
 		self.l2 = nn.Linear(400, 300)
 		self.l3 = nn.Linear(300, action_dim)
-		
+
 		self.max_action = max_action
 
-	
+
 	def forward(self, state):
 		a = F.relu(self.l1(state))
 		a = F.relu(self.l2(a))
-		return self.max_action * torch.sigmoid(self.l3(a)) 
+		return self.max_action * torch.sigmoid(self.l3(a))
 
 
 class Critic(nn.Module):
@@ -71,12 +71,12 @@ class DDPGfD(object):
 	def train(self, replay_buffer, episode_step):
 		self.total_it += 1
 
-		# Sample replay buffer 
-		# state, action, next_state, reward, not_done = replay_buffer.sample()
+		# Sample replay buffer
+		state, action, next_state, reward, not_done = replay_buffer.sample()
 		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
 
 		# new sampling procedure for n step rollback
-		state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
+		#state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
 
 		print("=======================state===================")
 		print(state.shape)
@@ -91,19 +91,23 @@ class DDPGfD(object):
 		# print(action[:, -1])
 
 
-		
+
 		# episode_step = len(state) # for varying episode sets
 
 		# pdb.set_trace()
 		# Compute the target Q value
 
-		# target_Q = self.critic_target(next_state, self.actor_target(next_state))
+		# Old implementation of target Q
+		target_Q = self.critic_target(next_state, self.actor_target(next_state))
+		target_Q = reward + (self.discount * target_Q).detach()  # bellman equation
+
+		''' Newly added N step code
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
 		print("before regular")
 		print(target_Q.shape)
 		print(reward[:, 0].shape)
 		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
-
+		'''
 
 		# print("======================target_Q===================")
 		# print(target_Q.shape)
@@ -117,7 +121,7 @@ class DDPGfD(object):
 		"""
 		This is the updated version, assuming that we're sampling from a batch.
 		"""
-
+		''' Newly added N step code
 		target_action = self.actor_target(next_state[:, -1])
 		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
 
@@ -139,43 +143,48 @@ class DDPGfD(object):
 
 		print("=======================target QN")
 		print(target_QN.shape)
+		'''
 
-		# # Compute the target Q_N value
-		# rollreward = []
-		# target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
-		# for i in range(episode_step):
-		# 	if i >= (self.n - 1):
-		# 		roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
-		# 		rollreward.append(roll_reward)
-		#
-		# if len(rollreward) != episode_step - (self.n - 1):
-		# 	raise ValueError
-		#
-		# print("roll reward before reshape: ")
-		# print(rollreward)
-		# print(len(rollreward))
-		#
-		# rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
-		# print("rollreward.get_shape(): ", rollreward.size())
-		# print("target_QN.get_shape(): ", target_QN.size())
-		# print("self.discount: ", self.discount)
-		# print("self.n.: ", self.n)
+		# Old version: Compute the target Q_N value
+		rollreward = []
+		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
+		for i in range(episode_step):
+			if i >= (self.n - 1):
+				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
+				rollreward.append(roll_reward)
+
+		if len(rollreward) != episode_step - (self.n - 1):
+			raise ValueError
+
+		print("roll reward before reshape: ")
+		print(rollreward)
+		print(len(rollreward))
+
+		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
+		print("rollreward.get_shape(): ", rollreward.size())
+		print("target_QN.get_shape(): ", target_QN.size())
+		print("self.discount: ", self.discount)
+		print("self.n.: ", self.n)
 
 
 		# print("================SHAPE DUMP=============")
 		# print(rollreward.shape)
 		# print(((self.discount ** self.n) * target_QN).shape)
-		# target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation <= this is the final N step return
 
-		# Get current Q estimate
-		# current_Q = self.critic(state, action)
-		current_Q = self.critic(state[:, 0], action[:, 0])
+		# Old code: calculate target network
+		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation <= this is the final N step return
 
-		# Get current Q estimate for n-step return 
-		# current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+		# Old code: Get current Q estimate
+		current_Q = self.critic(state, action)
 
-		# Updated for new rollback method
-		current_Q_n = self.critic(state[:, -1], action[:, -1])
+		# New implementation
+		#current_Q = self.critic(state[:, 0], action[:, 0])
+
+		# Old code: Get current Q estimate for n-step return
+		current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+
+		# New Updated for new rollback method
+		#current_Q_n = self.critic(state[:, -1], action[:, -1])
 
 		print("======================Q shapes finallly==============")
 		print(current_Q.shape)
@@ -190,10 +199,10 @@ class DDPGfD(object):
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
 		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
 
-		# Total critic loss 
+		# Total critic loss
 		lambda_1 = 0.5 # hyperparameter to control n loss
 		critic_loss = critic_L1loss + lambda_1 * critic_LNloss
-		
+
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
 		critic_loss.backward()
@@ -201,8 +210,8 @@ class DDPGfD(object):
 
 		# Compute actor loss
 		actor_loss = -self.critic(state, self.actor(state)).mean()
-		
-		# Optimize the actor 
+
+		# Optimize the actor
 		self.actor_optimizer.zero_grad()
 		actor_loss.backward()
 		self.actor_optimizer.step()
@@ -227,4 +236,4 @@ class DDPGfD(object):
 		self.critic.load_state_dict(torch.load(filename + "_critic"))
 		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
 		self.actor.load_state_dict(torch.load(filename + "_actor"))
-		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))			
+		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
