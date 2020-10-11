@@ -43,3 +43,33 @@ ERROR: Expired activation key
 Tue Sep 29 22:56:02 2020
 ERROR: Expired activation key
 
+Wed Sep 30 12:39:47 2020
+ERROR: Expired activation key
+
+Wed Sep 30 12:43:17 2020
+ERROR: Expired activation key
+
+Wed Sep 30 12:43:35 2020
+ERROR: Expired activation key
+
+Wed Sep 30 12:47:45 2020
+ERROR: Expired activation key
+
+Wed Sep 30 12:47:58 2020
+ERROR: Expired activation key
+
+Wed Sep 30 12:48:11 2020
+ERROR: Expired activation key
+
+Wed Sep 30 12:48:54 2020
+ERROR: Expired activation key
+
+Wed Sep 30 14:06:51 2020
+ERROR: Expired activation key
+
+Thu Oct  1 13:15:00 2020
+ERROR: Expired activation key
+
+Tue Oct  6 21:21:50 2020
+ERROR: Expired activation key
+
