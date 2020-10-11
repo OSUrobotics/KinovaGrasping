@@ -65,7 +65,7 @@ value=0
 #ttot=np.array([])
 for k in range(20):
     #env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-    env.reset(start_pos=[0.03,0.01],obj_params=['Cube','M'],hand_orientation='not_random')
+    env.reset(start_pos=[0.03,0.01],obj_params=['Cube','B'],hand_orientation='not_random')
     x_move = np.random.rand()/10
     y_move = np.random.rand()/10
     #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])

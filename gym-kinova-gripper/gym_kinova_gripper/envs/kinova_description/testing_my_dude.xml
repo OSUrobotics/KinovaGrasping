@@ -27,7 +27,19 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
         <mesh name="Large_hourglass" file="Large_hglass.STL" scale="0.001 0.001 0.001"/>
         <mesh name="Medium_hourglass" file="Medium_hglass.STL" scale="0.001 0.001 0.001"/>
         <mesh name="Small_hourglass" file="Small_hglass.STL" scale="0.001 0.001 0.001"/>
-		<texture type="skybox" builtin="gradient" rgb1=".4 .5 .6" rgb2="1 1 1" width="100" height="100"/>
+	<mesh name="Small_vase" file="Vase2S_vert.stl" scale="0.001 0.001 0.001"/>
+	<mesh name="Big_vase" file="Vase2B_vert.stl" scale="0.001 0.001 0.001"/>
+        <mesh name="Lemon" file="Lemon_Standin.STL" scale="0.001 0.001 0.001"/>
+        <mesh name="RoundBowl" file="RoundBowl.STL" scale="0.001 0.001 0.001"/>
+	<mesh name="RectBowl" file="RectBowl.STL" scale="0.001 0.001 0.001"/>
+	<mesh name="Base" file="ShortBottleBase.STL" scale="0.00034 0.00034 0.00034"/>
+	<mesh name="Curve" file="ShortBottleCurve.STL" scale="0.00034 0.00034 0.00034"/>
+	<mesh name="Cap" file="ShortBottleCap.STL" scale="0.00034 0.00034 0.00034"/>
+	<mesh name="Neck" file="ShortBottleNeck.STL" scale="0.00034 0.00034 0.00034"/>
+	<mesh name="Middle" file="ShortBottleMiddle.STL" scale="0.00034 0.00034 0.00034"/>
+	<mesh name="ShortBottle" file="ShortBottle.STL" scale="0.000425 0.000425 0.000425"/>
+	<mesh name="TallBottle" file="TallBottle.STL" scale="0.001 0.001 0.001"/>
+		<texture type="skybox" builtin="gradient" rgb1=".2 .3 .4" rgb2="0 0 0" width="100" height="100"/>
 		<texture name="groundplane" type="2d" builtin="checker" rgb1=".25 .26 .25" 
 			rgb2=".22 .22 .22" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
 
@@ -51,10 +63,11 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     <worldbody>
     	<body name="root" pos="0 0 0">
-            <site name="site0" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="0 0 0" euler="0 0 0"/>
-            <site name="site1" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="0 0 0" euler="0 1.5707963267948966 0"/>
+    		<site name="world_origin" type="cylinder" size="0.005 0.05" rgba="25 0.5 0.7 1" pos="0.1 0.55 -0.103" euler="0 0 0"/>
+    		<site name="world_origin" type="cylinder" size="0.005 0.05" rgba="25 0.5 0.7 1" pos="0.1 0.55 -0.103" euler="1.57 0 0"/>
+    		<!-- <geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/> -->
             <camera name="camera" mode = "fixed" pos = "0 -0.1 0.1" quat = "0 90 0 0"/>
-				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.57 0.0 -1.57">
+				<body name="j2s7s300_link_7" pos="0.0 0.18 0.0654" euler="-1.67 0.073 -1.63">
 					<inertial pos="0 0 -0.06" mass="0.727" diaginertia="0.00034532 0.00034532 0.00058160" />
 					<!-- <joint name="j2s7s300_joint_7" pos="0 0 0" axis="0 0 1" limited="true" range="-3.4028 3.4028" /> -->
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.5 0.5" />
@@ -143,13 +156,24 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 <!-- 		<body name="ground" pos="0 0 -0.01">
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
-		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1" rgba="1 1 1 0.5"/>
-		<!-- <include file="/obj_hg.xml"/> -->
-		<!-- <include file="/objects.xml"/> -->
+		<geom name="ground" class="ground" pos="0 0 0" size="2 2 1"/>
 		<body name="object" pos="0 0 0">
 			<joint name="object" type="free" />
-			<geom mass="0.1" name="object" rgba="0 1 0 1" size="0.025 0.025 0.06" type="box" />
-		</body>		
+			<geom mass="0.06" name="object" type="mesh" rgba="1 0 0 1" mesh="Middle" euler="1.57 0 0"/>
+			<body name="object_cap" pos="0 0 0">
+				<geom mass="0.01" name="object_cap" type="mesh" rgba="1 0 0 1" mesh="Cap" euler="1.57 0 0"/>
+			</body>
+			<body name="object_neck" pos="0 0 0">
+				<geom mass="0.01" name="object_neck" type="mesh" rgba="1 0 0 1" mesh="Neck" euler="1.57 0 0"/>
+			</body>
+			<body name="object_curve" pos="0 0 0">
+				<geom mass="0.01" name="object_curve" type="mesh" rgba="1 0 0 1" mesh="Curve" euler="1.57 0 0"/>
+			</body>
+			<body name="object_base" pos="0 0 0">
+				<geom mass="0.01" name="object_base" type="mesh" rgba="1 0 0 1" mesh="Base" euler="1.57 0 0"/>
+			</body>
+
+		</body>				
     </worldbody>
 
 
@@ -208,7 +232,6 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 	</actuator>  -->
 	<!-- ================== Velocity actuators ==========================-->
 	<actuator>
-		<!-- <position joint="j2s7s300_joint_7" kp="10"></position>			 -->
 		<velocity joint="j2s7s300_slide_x" kv="150" ctrllimited="true" ctrlrange="-0.5 0.5"></velocity>	
 		<motor joint="j2s7s300_slide_x" gear="25"></motor>
 		<velocity joint="j2s7s300_slide_y" kv="150" ctrllimited="true" ctrlrange="-0.5 0.5"></velocity>
