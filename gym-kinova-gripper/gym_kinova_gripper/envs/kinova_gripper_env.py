@@ -305,7 +305,7 @@ class KinovaGripper_Env(gym.Env):
             else:
                 print('input not recognized, please input either Y or N. do the red bars line up with the object center Y/N?')
         print('Next test, finger positions')
-
+            
         finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
         fingers_6D_pose = []
         for joint in finger_joints:
@@ -354,9 +354,9 @@ class KinovaGripper_Env(gym.Env):
         for i in range(6):
             print(finger_joints[i], 'pose:',tests_passed[i+1])
 
-
-
-
+        
+            
+        
     # Function to return global or local transformation matrix
     def _get_obs(self, state_rep=None, test = False):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         '''
@@ -385,7 +385,7 @@ class KinovaGripper_Env(gym.Env):
         (2,) X and Z angle                                        48-50
         (17,) Rangefinder data                                    50-67
         '''
-
+        
         if state_rep == None:
             state_rep = self.state_rep
         # states rep
@@ -408,12 +408,13 @@ class KinovaGripper_Env(gym.Env):
                 self.render()
             print('')
         if state_rep == "global":#NOTE: only use local coordinates! global coordinates suck
+            finger_dot_prod=[]
             for joint in finger_joints:
                 trans = self._sim.data.get_geom_xpos(joint)
                 trans = list(trans)
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
-                finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
+            finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
             fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ dot_prod#+ [self.obj_shape]
 
         elif state_rep == "local":
@@ -439,7 +440,6 @@ class KinovaGripper_Env(gym.Env):
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod +dot_prod#+ [self.obj_shape]
-            print('joint states',joint_states)
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
@@ -448,7 +448,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to get the distance between the digits on the fingers and the object center
     # NOTE! This only takes into account the x and y differences. We might want to consider taking z into account as well for other orientations
-    def _get_finger_obj_dist(self):
+    def _get_finger_obj_dist(self): 
         finger_joints = ["f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", "f3_prox_1","f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"]
 
         obj = self._get_obj_pose()
@@ -499,12 +499,11 @@ class KinovaGripper_Env(gym.Env):
         for i in range(6):
             fingers_dot_product.append(self._get_dot_product(fingers_6D_pose[3*i:3*i+3]))
         return fingers_dot_product
-
+    
     #function to get the dot product. Only used for the pid controller
     def _get_dot_product(self,obj_state=None):
         if obj_state==None:
             obj_state=self._get_obj_pose()
-        print('object state',obj_state)
         hand_pose = self._sim.data.get_body_xpos("j2s7s300_link_7")
         obj_state_x = abs(obj_state[0] - hand_pose[0])
         obj_state_y = abs(obj_state[1] - hand_pose[1])
@@ -517,7 +516,6 @@ class KinovaGripper_Env(gym.Env):
         center_vec = np.array([center_x, center_y])
         center_vec_norm = np.linalg.norm(center_vec)
         center_unit_vec = center_vec / center_vec_norm
-        print(obj_unit_vec, center_unit_vec)
 
         dot_prod = np.dot(obj_unit_vec, center_unit_vec)
         return dot_prod**20 # cuspy to get distinct reward
@@ -797,7 +795,7 @@ class KinovaGripper_Env(gym.Env):
         self._sim = MjSim(self._model) 
         self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
         self._get_trans_mat_wrist_pose()
-
+        
     # Steph Added
     def check_obj_file_empty(self,filename):
         if os.path.exists(filename) == False:
@@ -812,7 +810,7 @@ class KinovaGripper_Env(gym.Env):
 
     def Generate_Latin_Square(self,max_elements,filename,shape_keys, test = False):
         print("GENERATE LATIN SQUARE")
-        print("shape keys: ",shape_keys)
+        #print("shape keys: ",shape_keys)
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
 
@@ -1200,7 +1198,7 @@ class KinovaGripper_Env(gym.Env):
 
         ##Testing Code
         if test:
-            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]:
+            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]: 
                 if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
                     print("Reset function is working Properly Check the render")
                     self.render()
@@ -1286,7 +1284,8 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(len(finger_velocities)):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
-        obs = self._get_obs(test=True)
+
+        obs = self._get_obs(test=False)
 
         if not graspnetwork:
             if not testfun:
@@ -1306,30 +1305,27 @@ class KinovaGripper_Env(gym.Env):
         xml_file=open(self.file_dir+self.filename,"r")
         xml_contents=xml_file.read()
         xml_file.close()
-        starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
-        site_point=xml_contents.find('\n',starting_point)
-        end_site_point=xml_contents.find('            <camera name="camera"')
-        site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
-        self.site_count+=1
-        second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
-        self.site_count+=1
-        new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
-        if keep_sites:
+        a=xml_contents.find('<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n')
+        if a!=-1:
+            starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
+            site_point=xml_contents.find('\n',starting_point)
+            site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
+            self.site_count+=1
+            second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
+            self.site_count+=1
+            new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
             new_thing=new_thing+xml_contents[site_point+1:]
-        else:
-            new_thing=new_thing+xml_contents[end_site_point:]
+            xml_file=open(self.file_dir+self.filename,"w")
+            xml_file.write(new_thing)
+            xml_file.close()
 
-        xml_file=open(self.file_dir+self.filename,"w")
-        xml_file.write(new_thing)
-        xml_file.close()
-
-        self._model = load_model_from_path(self.file_dir + self.filename)
-        self._sim = MjSim(self._model)
-        object_location=self._get_obj_size()
-        states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
-        self._set_state(np.array(states))
-        self._get_trans_mat_wrist_pose()
-
+            self._model = load_model_from_path(self.file_dir + self.filename)
+            self._sim = MjSim(self._model)
+            object_location=self._get_obj_size()
+            states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
+            self._set_state(np.array(states))
+            self._get_trans_mat_wrist_pose()
+        
     def test_self(self):
         shapes=['Cube','Cylinder','Cone1','Cone2','Bowl','Rbowl','Bottle','TBottle','Hour','Vase','Lemon']
         sizes=['S','M','B']
@@ -1345,7 +1341,7 @@ class KinovaGripper_Env(gym.Env):
         for i in range(150):
             action[0]=np.random.rand()-0.2
             self.step(action)
-        end_obs=self._get_obs(state_rep='global')
+        end_obs=self._get_obs(state_rep='global')    
         if (abs(start_obs[18]-end_obs[18])>0.001)|(abs(start_obs[19]-end_obs[19])>0.001):
             print('test failed. x/y position changed when it should not have, check step function')
         else:
@@ -1365,7 +1361,7 @@ class KinovaGripper_Env(gym.Env):
         print('no current test for 6 axis motion, step tests finished.')
         print('begining shape test')
         bad_shapes=[]
-        for shape in shapes:
+        for shape in shapes:            
             for size in sizes:
                 self.reset(obj_params=[shape,size])
                 self.render()
@@ -1379,7 +1375,7 @@ class KinovaGripper_Env(gym.Env):
             print('all shapes and sizes are accurate, tests finished')
         else:
             print('the following are shapes that were not correct. Look at the xml files.')
-            print(bad_shapes)
+            print(bad_shapes)       
     #TODO: Make a config file that makes it easy to switch action spaces and set global varriables correctly
 
     #####################################################
