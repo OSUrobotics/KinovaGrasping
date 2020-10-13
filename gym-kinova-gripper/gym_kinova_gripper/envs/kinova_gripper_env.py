@@ -885,9 +885,8 @@ class KinovaGripper_Env(gym.Env):
 
         my_file = Path(filename)
         if my_file.is_file() is True:
-            df = pd.read_csv(filename, header=None, sep='\n')
-            if (df.empty):
-                "Object file is empty!"
+            if os.stat(filename).st_size == 0:
+                print("Object file is empty!")
                 self.Generate_Latin_Square(num_objects,filename,shape_keys)
         else:
             self.Generate_Latin_Square(num_objects, filename, shape_keys)
@@ -1048,6 +1047,7 @@ class KinovaGripper_Env(gym.Env):
         if len(self.objects) == 0:
             self.objects = self.experiment(shape_keys)
         if len(self.obj_keys) == 0:
+            print("Objects file to list Reset call")
             self.objects_file_to_list(obj_list_filename,num_objects,shape_keys)
             
         if obj_params==None:
