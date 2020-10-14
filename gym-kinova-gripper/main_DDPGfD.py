@@ -259,7 +259,7 @@ if __name__ == "__main__":
         policy = DDPG.DDPG(**kwargs)
     elif args.policy_name == "DDPGfD":
         policy = DDPGfD.DDPGfD(**kwargs)
-
+    #self.actor = np.random.randn(layer_size[l], layer_size[l - 1]) * np.sqrt(2 / layer_size[l - 1])
     # Fill pre-training object list using latin square
     env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
 

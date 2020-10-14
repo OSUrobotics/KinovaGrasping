@@ -567,6 +567,8 @@ class KinovaGripper_Env(gym.Env):
 
         if not test:
             if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
+                print("obs[23]: ", obs[23])
+                print("obj_target: ", obj_target)
                 lift_reward = 50.0
                 done = True
             else:
@@ -919,7 +921,7 @@ class KinovaGripper_Env(gym.Env):
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 
-        print("random_shape: ",random_shape)
+        #print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 
@@ -1028,11 +1030,11 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,env_name="env",shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"],hand_orientation="random",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None, test = False):
+    def reset(self,env_name="env",shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None, test = False):
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
-        print("Within Reset, hand_orientation: ",hand_orientation)
+        #print("Within Reset, hand_orientation: ",hand_orientation)
 
         # Steph new code
         obj_list_filename = ""
@@ -1113,7 +1115,7 @@ class KinovaGripper_Env(gym.Env):
                 # Normal hand orientations
                 new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
                 coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
-        print("COORDS FILENAME: ",coords_filename)
+        #print("COORDS FILENAME: ",coords_filename)
         if test & np.shape(self._sim.data.site_xpos)[0]<19:
             self.add_site([0,0,0])
         self.write_xml(new_rotation)
@@ -1206,7 +1208,7 @@ class KinovaGripper_Env(gym.Env):
                 print("Reset function is not working Properly Check the render")
                 self.render()
 
-        print("IN RESET: states: ", len(states))
+        #print("IN RESET: states: ", len(states))
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
@@ -1290,11 +1292,14 @@ class KinovaGripper_Env(gym.Env):
         if not graspnetwork:
             if not testfun:
                 ### Get this reward for RL training ###
+                print("Done is set with get_reward()")
                 total_reward, info, done = self._get_reward()
             else:
+                print("Done is set with get_reward() TEST")
                 total_reward, info, done = self._get_reward(test = True)
         else:
             ### Get this reward for grasp classifier collection ###
+            print("Done is set with get_reward_DataCollection()")
             total_reward, info, done = self._get_reward_DataCollection()
 
         return obs, total_reward, done, info

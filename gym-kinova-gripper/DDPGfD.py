@@ -17,8 +17,11 @@ class Actor(nn.Module):
 		super(Actor, self).__init__()
 
 		self.l1 = nn.Linear(state_dim, 400)
+		torch.nn.init.kaiming_uniform_(self.l1.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l2 = nn.Linear(400, 300)
+		torch.nn.init.kaiming_uniform_(self.l2.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l3 = nn.Linear(300, action_dim)
+		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
 		self.max_action = max_action
 
@@ -34,8 +37,11 @@ class Critic(nn.Module):
 		super(Critic, self).__init__()
 
 		self.l1 = nn.Linear(state_dim + action_dim, 400)
+		torch.nn.init.kaiming_uniform_(self.l1.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l2 = nn.Linear(400, 300)
+		torch.nn.init.kaiming_uniform_(self.l2.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l3 = nn.Linear(300, 1)
+		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
 
 	def forward(self, state, action):
