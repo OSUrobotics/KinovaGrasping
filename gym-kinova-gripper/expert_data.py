@@ -471,12 +471,13 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     action_label = []
     total_steps = 0
     for i in range(episode_num):
+        print("******Episode: ", i)
         obs, done = env.reset(), False
-        #if done == 0:
-        #print("INIT DONE: ", done)
-        #print("obs[23]: ", obs[23])
-        #print("total steps: ", total_steps)
-        #env.render()
+        if done == 0:
+            print("INIT DONE: ", done)
+            print("obs[23]: ", obs[23])
+            print("total steps: ", total_steps)
+            #env.render()
         controller = ExpertPIDController(obs)
         if replay_buffer != None:
             replay_buffer.add_episode(1)
@@ -485,18 +486,18 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
             action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
             action_label.append(action)
             next_obs, reward, done, _ = env.step(action)
-            #if done == 1:
-            #print("DONE: ", done)
-            #print("obs[23]: ", obs[23])
-            #print("total steps: ", total_steps)
-            #env.render()
+            if done == 1:
+                print("DONE: ", done)
+                print("obs[23]: ", obs[23])
+                print("total steps: ", total_steps)
+                #env.render()
             if replay_buffer != None:
                 replay_buffer.add(obs[0:81], action, next_obs[0:81], reward, float(done))
             obs = next_obs
             total_steps += 1
         if replay_buffer != None:
             replay_buffer.add_episode(0)
-        # print(i)
+
     if save:
         filename = "expertdata"
         print("Saving...")
@@ -562,4 +563,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-GenerateExpertPID_JointVel(10)
+#GenerateExpertPID_JointVel(10)

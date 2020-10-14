@@ -440,6 +440,9 @@ class KinovaGripper_Env(gym.Env):
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod +dot_prod#+ [self.obj_shape]
+            #print("fingers_6D_pose: ",fingers_6D_pose)
+            #print("wrist_pose: ",list(wrist_pose))
+            #print("obj_pose: ",list(obj_pose))
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":

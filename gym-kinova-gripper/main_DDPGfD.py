@@ -292,14 +292,14 @@ if __name__ == "__main__":
     print(action_dim)  # this is 4 by default
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
-    #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
 
 
     # experimental replay buffer
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
 
 
-    replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
+    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
     #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
     #print("REPLAY_BUFFER: ",replay_buffer)
     #print("REPLAY_BUFFER.SIZE: ", replay_buffer.size())
@@ -410,6 +410,8 @@ if __name__ == "__main__":
 
         obj_coords = env.get_obj_coords()
 
+        replay_buffer.add_episode(1)
+
         while not done:
             # if t < args.start_timesteps:
             # 	action = env.action_space.sample()
@@ -440,6 +442,8 @@ if __name__ == "__main__":
 
             state = next_state
             episode_reward += reward
+        replay_buffer.add_episode(0)
+        print("Replay buffer Size: ",replay_buffer.size)
 
         # Train agent after collecting sufficient data:
         if episode_num > 10:
