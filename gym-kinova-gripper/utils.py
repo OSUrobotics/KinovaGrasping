@@ -310,7 +310,7 @@ class ReplayBuffer_episode(object):
 			prob = "expert"
 
 		# sample expert episode
-		if prob	== "expert":
+		if prob	== "expert" and self.expert_episode > 0:
 			random_episode = np.random.randint(1, self.expert_episode + 1, size=1)
 		else:
 		# sample agent episode

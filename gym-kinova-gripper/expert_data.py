@@ -491,7 +491,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
             #print("total steps: ", total_steps)
             #env.render()
             if replay_buffer != None:
-                replay_buffer.add(obs[0:75], action, next_obs[0:75], reward, float(done))
+                replay_buffer.add(obs[0:81], action, next_obs[0:81], reward, float(done))
             obs = next_obs
             total_steps += 1
         if replay_buffer != None:

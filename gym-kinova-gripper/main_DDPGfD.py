@@ -79,7 +79,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
-                action = policy.select_action(np.array(state[0:75]))
+                action = policy.select_action(np.array(state[0:81]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -134,7 +134,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
-                action = policy.select_action(np.array(state[0:75]))
+                action = policy.select_action(np.array(state[0:81]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     #state_dim = env.observation_space
     #state_dim = env.get_obs(state_rep="global").shape[0]
     # TESTING ONLY _ REMOVE ONCE DONE
-    state_dim = 75
+    state_dim = 81
     print ("STATE DIM ---------", state_dim)
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
@@ -292,15 +292,15 @@ if __name__ == "__main__":
     print(action_dim)  # this is 4 by default
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
-    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+    #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
 
 
     # experimental replay buffer
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
 
 
-    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
-    replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
+    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
     #print("REPLAY_BUFFER: ",replay_buffer)
     #print("REPLAY_BUFFER.SIZE: ", replay_buffer.size())
 
@@ -350,9 +350,9 @@ if __name__ == "__main__":
     writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
 
     # Pretrain (No pretraining without imitation learning)
-
+    '''
     print("---- Pretraining ----")
-    num_updates = 5000
+    num_updates = 5
     for pretrain_episode_num in range(int(num_updates)):
         print("pretrain_episode_num: ", pretrain_episode_num)
         pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
@@ -376,6 +376,7 @@ if __name__ == "__main__":
     print("POST PRETRAINING")
     print("replay_buffer: ",replay_buffer)
     #quit()
+    '''
 
 
     # ##Testing Code##
@@ -429,7 +430,7 @@ if __name__ == "__main__":
 
             # Store data in replay buffer
             #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)
-            replay_buffer.add(state[0:75], action, next_state[0:75], reward, done_bool)
+            replay_buffer.add(state[0:81], action, next_state[0:81], reward, done_bool)
             #print("main_DDPGfD training, replay_buffer.add len state: ", len(state))
             #replay_buffer.add(state, action, next_state, reward, done_bool)
             if(info["lift_reward"] > 0):
