@@ -169,13 +169,13 @@ class DDPGfD(object):
 				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
 				rollreward.append(roll_reward)
 
-		if state.shape[0] > self.n:
-			if len(rollreward) != episode_step - (self.n - 1):
-				raise ValueError
 
-		print("roll reward before reshape: ")
-		print(rollreward)
-		print(len(rollreward))
+		if len(rollreward) != episode_step - (self.n - 1):
+			raise ValueError
+
+		#print("roll reward before reshape: ")
+		#print(rollreward)
+		#print(len(rollreward))
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
 		print("rollreward.get_shape(): ", rollreward.size())

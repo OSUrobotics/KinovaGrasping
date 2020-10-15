@@ -255,7 +255,9 @@ class ReplayBuffer_VarStepsEpisode(object):
 
 		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
 		# sample episode 
-		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0]+1, 1])
+		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
+		print("self.episodes[episode[0], 0]: ", self.episodes[episode[0], 0])
+		print("self.episodes[episode[0], 1]: ", self.episodes[episode[0], 1])
 
 		print("episodes: ", self.episodes)
 		print("ind: ",ind.astype(int))

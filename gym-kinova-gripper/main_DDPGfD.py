@@ -439,7 +439,7 @@ if __name__ == "__main__":
             if done_bool == 1:
                 print("DONE: ", done_bool)
                 print("Done timestep: ", timestep)
-                env.render()
+                #env.render()
 
             # Store data in replay buffer
             #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)

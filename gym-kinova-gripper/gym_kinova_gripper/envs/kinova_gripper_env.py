@@ -415,14 +415,14 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
             finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
-            print("GLOBAL In get_obs - obj_pose: ", obj_pose)
-            print("GLOBAL In get_obs - len(fingers_6D_pose): ", len(fingers_6D_pose))
-            print("GLOBAL In get_obs - len(self.wrist_pose): ", len(self.wrist_pose))
-            print("GLOBAL In get_obs - len(obj_pose): ", len(obj_pose))
-            print("GLOBAL pre- fingers_6D_pose: ", fingers_6D_pose)
+            #print("GLOBAL In get_obs - obj_pose: ", obj_pose)
+            #print("GLOBAL In get_obs - len(fingers_6D_pose): ", len(fingers_6D_pose))
+            #print("GLOBAL In get_obs - len(self.wrist_pose): ", len(self.wrist_pose))
+            #print("GLOBAL In get_obs - len(obj_pose): ", len(obj_pose))
+            #print("GLOBAL pre- fingers_6D_pose: ", fingers_6D_pose)
             fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ [dot_prod]#+ [self.obj_shape]
-            print("GLOBAL AFTER fingers_6D_pose: ", fingers_6D_pose)
-            print("GLOBAL fingers_6D_pose[23] After: ", fingers_6D_pose[23])
+            #print("GLOBAL AFTER fingers_6D_pose: ", fingers_6D_pose)
+            #print("GLOBAL fingers_6D_pose[23] After: ", fingers_6D_pose[23])
         elif state_rep == "local":
             finger_dot_prod=[]
             for joint in finger_joints:
@@ -445,7 +445,7 @@ class KinovaGripper_Env(gym.Env):
             obj_pose = obj_for_roation[0:3]
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
-            print("LOCAL In get_obs - obj_pose: ", obj_pose)
+            #print("LOCAL In get_obs - obj_pose: ", obj_pose)
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod + [dot_prod]#+ [self.obj_shape]
             #print("fingers_6D_pose: ",fingers_6D_pose)
             #print("wrist_pose: ",list(wrist_pose))
@@ -1220,7 +1220,7 @@ class KinovaGripper_Env(gym.Env):
                 print("Reset function is not working Properly Check the render")
                 self.render()
 
-        #print("IN RESET: states: ", len(states))
+        print("IN RESET: states: ", len(states))
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
@@ -1305,7 +1305,7 @@ class KinovaGripper_Env(gym.Env):
         if not graspnetwork:
             if not testfun:
                 ### Get this reward for RL training ###
-                print("Done is set with get_reward()")
+                #print("Done is set with get_reward()")
                 total_reward, info, done = self._get_reward()
             else:
                 print("Done is set with get_reward() TEST")
