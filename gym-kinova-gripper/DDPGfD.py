@@ -154,13 +154,24 @@ class DDPGfD(object):
 		# Old version: Compute the target Q_N value
 		rollreward = []
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
+
+		'''
+		# Checks episode size versus value of n (In case n is larger than the number of timesteps)
+		if state.shape[0] < 3:
+			for i in range(state.shape[0]):
+				roll_reward = (self.discount) * reward[i].item()
+				rollreward.append(roll_reward)
+		else:
+		'''
+		print("state.shape[0]: ", state.shape[0])
 		for i in range(episode_step):
 			if i >= (self.n - 1):
 				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
 				rollreward.append(roll_reward)
 
-		if len(rollreward) != episode_step - (self.n - 1):
-			raise ValueError
+		if state.shape[0] > self.n:
+			if len(rollreward) != episode_step - (self.n - 1):
+				raise ValueError
 
 		print("roll reward before reshape: ")
 		print(rollreward)

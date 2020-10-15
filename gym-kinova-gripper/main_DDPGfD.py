@@ -79,7 +79,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
-                action = policy.select_action(np.array(state[0:81]))
+                action = policy.select_action(np.array(state[0:82]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -134,7 +134,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             obj_coords = eval_env.get_obj_coords()
 
             while not done:
-                action = policy.select_action(np.array(state[0:81]))
+                action = policy.select_action(np.array(state[0:82]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -219,7 +219,7 @@ if __name__ == "__main__":
     #state_dim = env.observation_space
     #state_dim = env.get_obs(state_rep="global").shape[0]
     # TESTING ONLY _ REMOVE ONCE DONE
-    state_dim = 81
+    state_dim = 82
     print ("STATE DIM ---------", state_dim)
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
@@ -292,7 +292,12 @@ if __name__ == "__main__":
     print(action_dim)  # this is 4 by default
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
-    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
+    num_expert_episodes = args.pre_replay_episode
+    do_pretraining = 0
+    if do_pretraining == 0:
+        num_expert_episodes = 0
+
+    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
 
 
     # experimental replay buffer
@@ -406,13 +411,14 @@ if __name__ == "__main__":
         noise.reset()
         expl_noise.reset()
         episode_reward = 0
-        print("*** Episode Num: ",episode_num)
+        print("\n*** Episode Num: ",episode_num)
 
         obj_coords = env.get_obj_coords()
 
         replay_buffer.add_episode(1)
-
+        timestep = 0
         while not done:
+            timestep = timestep + 1
             # if t < args.start_timesteps:
             # 	action = env.action_space.sample()
             # else:
@@ -430,9 +436,14 @@ if __name__ == "__main__":
             # env.render()
             done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
+            if done_bool == 1:
+                print("DONE: ", done_bool)
+                print("Done timestep: ", timestep)
+                env.render()
+
             # Store data in replay buffer
             #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)
-            replay_buffer.add(state[0:81], action, next_state[0:81], reward, done_bool)
+            replay_buffer.add(state[0:82], action, next_state[0:82], reward, done_bool)
             #print("main_DDPGfD training, replay_buffer.add len state: ", len(state))
             #replay_buffer.add(state, action, next_state, reward, done_bool)
             if(info["lift_reward"] > 0):
@@ -444,7 +455,8 @@ if __name__ == "__main__":
             episode_reward += reward
         replay_buffer.add_episode(0)
         print("Replay buffer Size: ",replay_buffer.size)
-
+        print("Replay buffer Size: ", replay_buffer.size)
+        print("Total timesteps: ", timestep)
         # Train agent after collecting sufficient data:
         if episode_num > 10:
             for learning in range(100):
