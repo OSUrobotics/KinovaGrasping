@@ -529,13 +529,14 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         while not done:
             obs_label.append(obs)
             # Nudge controller strategy
-            #action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
-
+            action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
+            '''
             # Naive controller, where np.array([wrist, f1, f2, f3])
             if total_steps > max_timesteps:
                 action = np.array([0.6, 0.15, 0.15, 0.15])
             else:
                 action = np.array([0, 0.8, 0.8, 0.8])
+            '''
 
             action_label.append(action)
             next_obs, reward, done, info = env.step(action)
@@ -640,4 +641,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-GenerateExpertPID_JointVel(20000)
+#GenerateExpertPID_JointVel(20000)

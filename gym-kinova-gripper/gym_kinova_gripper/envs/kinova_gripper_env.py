@@ -925,7 +925,7 @@ class KinovaGripper_Env(gym.Env):
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 
-        #print("random_shape: ",random_shape)
+        print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 

@@ -62,6 +62,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #eval_env = gym.make(env_name)
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
+            # Sets number of timesteps per episode (counted from each step() call)
+            eval_env._max_episode_steps = 200
             while not done:
                 action = GenerateTestPID_JointVel(np.array(state),eval_env)
                 state, reward, done, _ = eval_env.step(action)
@@ -74,11 +76,15 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
             cumulative_reward = 0
+            # Sets number of timesteps per episode (counted from each step() call)
+            eval_env._max_episode_steps = 200
 
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
 
+            timestep_count = 0
             while not done:
+                timestep_count += 1
                 action = policy.select_action(np.array(state[0:82]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
@@ -90,6 +96,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # pdb.set_trace()
             print('Policy net reward:',cumulative_reward)
             num_success[0]+=success
+            print("Eval timestep count: ",timestep_count)
 
 
             # Save initial object coordinate as success/failure
@@ -129,11 +136,14 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #eval_env = gym.make(env_name)
             state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
             cumulative_reward = 0
+            # Sets number of timesteps per episode (counted from each step() call)
+            eval_env._max_episode_steps = 200
             
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
-
+            timestep_count = 0
             while not done:
+                timestep_count += 1
                 action = policy.select_action(np.array(state[0:82]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
@@ -145,6 +155,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # pdb.set_trace()
             # print(cumulative_reward)
             num_success+=success
+            print("Eval timestep count: ",timestep_count)
 
             # Save initial object coordinate as success/failure
             if(success):
@@ -193,7 +204,7 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--pre_replay_episode", default=500, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--pre_replay_episode", default=20000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
@@ -400,6 +411,8 @@ if __name__ == "__main__":
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
         env = gym.make(args.env_name)
+        # Sets number of timesteps per episode (counted from each step() call)
+        env._max_episode_steps = 200
         episode_num += 1
 
         # Fill training object list using latin square
@@ -443,6 +456,7 @@ if __name__ == "__main__":
             state = next_state
             episode_reward += reward
         replay_buffer.add_episode(0)
+        print("timestep: ",timestep)
 
         # Train agent after collecting sufficient data:
         if episode_num > 10:
