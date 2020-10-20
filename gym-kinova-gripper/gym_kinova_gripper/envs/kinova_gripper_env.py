@@ -373,6 +373,8 @@ class KinovaGripper_Env(gym.Env):
         (3,) Object location based on rangefinder data                70-73
         (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
         (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
+        (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
+        (1, ) Dot product (wrist) 81
         '''
         '''
         Global obs, all in global coordinates (from simulator 0,0,0)
@@ -415,14 +417,9 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
             finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
-            #print("GLOBAL In get_obs - obj_pose: ", obj_pose)
-            #print("GLOBAL In get_obs - len(fingers_6D_pose): ", len(fingers_6D_pose))
-            #print("GLOBAL In get_obs - len(self.wrist_pose): ", len(self.wrist_pose))
-            #print("GLOBAL In get_obs - len(obj_pose): ", len(obj_pose))
-            #print("GLOBAL pre- fingers_6D_pose: ", fingers_6D_pose)
+
             fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ [dot_prod]#+ [self.obj_shape]
-            #print("GLOBAL AFTER fingers_6D_pose: ", fingers_6D_pose)
-            #print("GLOBAL fingers_6D_pose[23] After: ", fingers_6D_pose[23])
+
         elif state_rep == "local":
             finger_dot_prod=[]
             for joint in finger_joints:
@@ -445,11 +442,9 @@ class KinovaGripper_Env(gym.Env):
             obj_pose = obj_for_roation[0:3]
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
-            #print("LOCAL In get_obs - obj_pose: ", obj_pose)
+
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod + [dot_prod]#+ [self.obj_shape]
-            #print("fingers_6D_pose: ",fingers_6D_pose)
-            #print("wrist_pose: ",list(wrist_pose))
-            #print("obj_pose: ",list(obj_pose))
+
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
@@ -577,8 +572,6 @@ class KinovaGripper_Env(gym.Env):
 
         if not test:
             if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
-                print("obs[23]: ", obs[23])
-                print("obj_target: ", obj_target)
                 lift_reward = 50.0
                 done = True
             else:
@@ -595,6 +588,7 @@ class KinovaGripper_Env(gym.Env):
         #finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
+
         info = {"lift_reward":lift_reward}
 
         if test:
@@ -937,14 +931,16 @@ class KinovaGripper_Env(gym.Env):
 
     # Get the initial object position
     def sample_initial_valid_object_pos(self,shapeName,coords_filename):
+        data = []
         with open(coords_filename) as csvfile:
             checker=csvfile.readline()
             if ',' in checker:
                 delim=','
             else:
                 delim=' '
-            for i in csv.reader(csvfile, delimiter= delim):
-                data = [(float(i[0]), float(i[1]), float(i[2]))]
+            reader = csv.reader(csvfile, delimiter=delim)
+            for i in reader:
+                data.append([float(i[0]), float(i[1]), float(i[2])])
         rand_coord = random.choice(data)
         x = rand_coord[0]
         y = rand_coord[1]
@@ -1040,11 +1036,12 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,env_name="env",shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None, test = False):
+    def reset(self,env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None, test = False):
+        # All possible shape keys - default shape keys will be used for expert data generation
+        # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
-
-        #print("Within Reset, hand_orientation: ",hand_orientation)
 
         # Steph new code
         obj_list_filename = ""
@@ -1067,10 +1064,6 @@ class KinovaGripper_Env(gym.Env):
         else:
             random_shape = self.obj_shape_generator(obj_params)
 
-        #coords_filename = "gym_kinova_gripper/envs/kinova_description/shape_coords/" + random_shape + ".txt"
-
-        # End of stephs new code
-
         shapes=list(self.objects.keys())
         #print(shapes[0])
         #self._get_jacobian()
@@ -1084,7 +1077,6 @@ class KinovaGripper_Env(gym.Env):
         #-1.57,0,-1.57 is side normal
         #-1.57, 0, 0 is side tilted
         #0,0,-1.57 is top down
-
 
         if self.filename=="/kinova_description/j2s7s300_end_effector.xml":
             new_rotation=np.array([0,0,0])+hand_rotation
@@ -1125,7 +1117,7 @@ class KinovaGripper_Env(gym.Env):
                 # Normal hand orientations
                 new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
                 coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
-        print("COORDS FILENAME: ",coords_filename)
+        #print("COORDS FILENAME: ",coords_filename)
         if test & np.shape(self._sim.data.site_xpos)[0]<19:
             self.add_site([0,0,0])
         self.write_xml(new_rotation)
@@ -1157,10 +1149,8 @@ class KinovaGripper_Env(gym.Env):
                   # Check for coords text file
                   if self.check_obj_file_empty(coords_filename) == False:
                       x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
-                      print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
-                      print("YOU CHOSE sample_initial_valid_object_pos: ",x,",",y,",",z)
                 else:
                   if self.check_obj_file_empty(coords_filename) == False:
                       x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
@@ -1188,6 +1178,7 @@ class KinovaGripper_Env(gym.Env):
         else:
             self.set_sim_state(qpos,start_pos)
             x, y, z = start_pos[0], start_pos[1], start_pos[2]
+
         states = self._get_obs(test=False)
         obj_pose=self._get_obj_pose()
         deltas=[x-obj_pose[0],y-obj_pose[1],z-obj_pose[2]]
@@ -1207,9 +1198,6 @@ class KinovaGripper_Env(gym.Env):
         self.set_obj_coords(x,y,z)
         self._get_trans_mat_wrist_pose()
 
-        print("object coordinates - x: ",x," y: "," z: ",z)
-
-
         ##Testing Code
         if test:
             if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]: 
@@ -1220,7 +1208,6 @@ class KinovaGripper_Env(gym.Env):
                 print("Reset function is not working Properly Check the render")
                 self.render()
 
-        print("IN RESET: states: ", len(states))
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.

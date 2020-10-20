@@ -182,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
-    parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
+    parser.add_argument("--max_episode", default=100, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
     parser.add_argument("--batch_size", default=250, type=int)			# Batch size for both actor and critic
@@ -383,7 +383,6 @@ if __name__ == "__main__":
     #quit()
     '''
 
-
     # ##Testing Code##
     # env = gym.make(args.env_name)
     # env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes, test = True)
@@ -416,13 +415,11 @@ if __name__ == "__main__":
         obj_coords = env.get_obj_coords()
 
         replay_buffer.add_episode(1)
+        # timestep counter only used for testing purposes
         timestep = 0
         while not done:
             timestep = timestep + 1
-            # if t < args.start_timesteps:
-            # 	action = env.action_space.sample()
-            # else:
-            # policy.select_action(np.array(state[0:48]))
+
             action = (
                 policy.select_action(np.array(state))
                 + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
@@ -433,19 +430,11 @@ if __name__ == "__main__":
 
             # Perform action obs, total_reward, done, info
             next_state, reward, done, info = env.step(action)
-            # env.render()
             done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
-            if done_bool == 1:
-                print("DONE: ", done_bool)
-                print("Done timestep: ", timestep)
-                #env.render()
-
             # Store data in replay buffer
-            #replay_buffer.add(state[0:48], action, next_state[0:48], reward, done_bool)
             replay_buffer.add(state[0:82], action, next_state[0:82], reward, done_bool)
-            #print("main_DDPGfD training, replay_buffer.add len state: ", len(state))
-            #replay_buffer.add(state, action, next_state, reward, done_bool)
+
             if(info["lift_reward"] > 0):
                 lift_success = True
             else:
@@ -454,9 +443,7 @@ if __name__ == "__main__":
             state = next_state
             episode_reward += reward
         replay_buffer.add_episode(0)
-        print("Replay buffer Size: ",replay_buffer.size)
-        print("Replay buffer Size: ", replay_buffer.size)
-        print("Total timesteps: ", timestep)
+
         # Train agent after collecting sufficient data:
         if episode_num > 10:
             for learning in range(100):
@@ -521,6 +508,9 @@ if __name__ == "__main__":
     train_totaly = np.append(strain_obj_posy,ftrain_obj_posy)
 
     # Save object postions from training
+    print("Success train num: ",len(strain_obj_posx))
+    print("Fail train num: ", len(ftrain_obj_posx))
+    print("Total train num: ", len(train_totalx))
     save_coordinates(strain_obj_posx,strain_obj_posy,trplot_saving_dir+"/heatmap_train_success_new")
     save_coordinates(ftrain_obj_posx,ftrain_obj_posy,trplot_saving_dir+"/heatmap_train_fail_new")
     save_coordinates(train_totalx,train_totaly,trplot_saving_dir+"/heatmap_train_total_new")

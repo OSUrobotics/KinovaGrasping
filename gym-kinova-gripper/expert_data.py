@@ -333,7 +333,9 @@ class PID(object):
         diff = err / self.sampling_time
         vel = err * self.kp + diff * self.kd
         action = (vel) * 0.3
-        if action < 0.05:
+        #if action < 0.8:
+        #    action = 0.8
+        if action < 0.05: # Old velocity
             action = 0.05
         return action
 
@@ -357,7 +359,7 @@ class ExpertPIDController(object):
         self.prev_f3jA = 0.0
         self.step = 0.0
         self.init_obj_pose = states[21]  # X position of object
-        self.init_dot_prod = states[-1]  # dot product of object wrt palm
+        self.init_dot_prod = states[81]  # dot product of object wrt palm
 
     def _count(self):
         self.step += 1
@@ -369,7 +371,7 @@ class ExpertPIDController(object):
         # obtain robot and object state
         robot_pose = np.array([states[0], states[1], states[2]])
         obj_pose = states[21]  # X position of object
-        obj_dot_prod = states[-1]  # dot product of object wrt palm
+        obj_dot_prod = states[81]  # dot product of object wrt palm
         f1_jA = states[25]
         f2_jA = states[26]
         f3_jA = states[27]
@@ -389,17 +391,17 @@ class ExpertPIDController(object):
             """
             note that the object is near the center, so we just kinda close the fingers here
             """
-            f1, f2, f3 = 0.2, 0.2, 0.2  # set constant velocity of all three fingers
+            f1, f2, f3 = 0.2, 0.2, 0.2 # Old velocity: 0.2, 0.2, 0.2  # set constant velocity of all three fingers
             if abs(obj_dot_prod - self.init_dot_prod) > 0.01:  # start lowering velocity of the three fingers
                 f1, f2, f3 = 0.2, 0.1, 0.1  # slows down to keep steady in one spot
-                if self.step > 200:
-                    wrist = 0.3  # begin to add vel to the wrist once the episode of finger movement is over (200 time steps)
+                if self.step > 100: # Old timesteps 200:
+                    wrist = 0.3 # Old velocity: 0.3  # begin to add vel to the wrist once the episode of finger movement is over (200 time steps)
         else:
             # object on right hand side, move 2-fingered side
             if self.init_obj_pose < 0.0:
                 # Pre-contact
                 if abs(obj_dot_prod - self.init_dot_prod) < 0.01:  # small difference between current finger-object distance, and initial finger-object difference - so not much work done yet!
-                    f2 = pid.touch_vel(obj_dot_prod, states[-5])  # f2 dist
+                    f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
                     f3 = f2  # other double side finger moves at same speed
                     f1 = 0.0  # frontal finger doesn't move
                     wrist = 0.0
@@ -409,23 +411,23 @@ class ExpertPIDController(object):
                         # start to close the PID stuff
                         f2 = pid.velocity(obj_dot_prod)  # get PID velocity
                         f3 = f2  # other double side finger moves at same speed
-                        f1 = 0.05  # frontal finger moves slightly
+                        f1 = 0.05 # Old velocity: 0.05  # frontal finger moves slightly
                         wrist = 0.0
                     else:  # goal is within 0.01 of being reached:
                         # start to close from the first finger
-                        f1 = pid.touch_vel(obj_dot_prod, states[-6])  # f1 dist_1
+                        f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                         f2 = 0.0
                         f3 = 0.0
                         wrist = 0.0
                     # Hand tune lift time
-                    if self.step > 400:  # if another 200 time steps pass, switch to constant finger movement
+                    if self.step > 100: # Old timesteps 400:  # if another 200 time steps pass, switch to constant finger movement
                         f1, f2, f3 = 0.3, 0.15, 0.15
-                        wrist = 0.3
+                        wrist = 0.3 # Old velocity: 0.3
             # object on left hand side, move 1-fingered side
             else:
                 # Pre-contact
                 if abs(obj_dot_prod - self.init_dot_prod) < 0.01:  # small difference between current finger-object distance, and initial finger-object difference - so not much work done yet!
-                    f1 = pid.touch_vel(obj_dot_prod, states[-6])  # f1 dist_1
+                    f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                     f2 = 0.0
                     f3 = 0.0
                     wrist = 0.0
@@ -433,21 +435,21 @@ class ExpertPIDController(object):
                 else:  # note how this is mirrored from the right hand side case above.
                     if abs(1 - obj_dot_prod) > 0.01:
                         f1 = pid.velocity(obj_dot_prod)
-                        f2 = 0.05
-                        f3 = 0.05
+                        f2 = 0.05 # Old velocity: 0.05
+                        f3 = 0.05 # Old velocity: 0.05
                         wrist = 0.0
                     else:
                         # nudge with thumb
-                        f2 = pid.touch_vel(obj_dot_prod, states[-5])
+                        f2 = pid.touch_vel(obj_dot_prod, states[79]) # f2_dist dot product to object
                         f3 = f2
                         f1 = 0.0
                         wrist = 0.0
                     # Hand tune lift time
-                    if self.step > 400:
+                    if self.step > 100: # Old timesteps 200:
                         f1, f2, f3 = 0.3, 0.15, 0.15
-                        wrist = 0.3
+                        wrist = 0.3 # Old velocity: 0.3
 
-        if self.step <= 400:
+        if self.step <= 200: # Old timesteps 400:
             label.append(0)
         else:
             label.append(1)
@@ -462,6 +464,44 @@ def GenerateTestPID_JointVel(obs,env):
     action,grasp_label=controller.NudgeController(obs, env.action_space,grasp_label)
     return action
 
+def save_coordinates(x,y,filename):
+    np.save(filename+"_x_arr", x)
+    np.save(filename+"_y_arr", y)
+
+def add_heatmap_coords(expert_success_x,expert_success_y,expert_fail_x,expert_fail_y,obj_coords,info):
+    if (info["lift_reward"] > 0):
+        print("add_heatmap_coords, lift_success TRUE")
+        lift_success = True
+    else:
+        lift_success = False
+        print("add_heatmap_coords, lift_success FALSE")
+
+    # Heatmap postion data - get starting object position and mark success/fail based on lift reward
+    if (lift_success):
+        # Get object coordinates, transform to array
+        x_val = obj_coords[0]
+        y_val = obj_coords[1]
+        x_val = np.asarray(x_val).reshape(1)
+        y_val = np.asarray(y_val).reshape(1)
+
+        # Append initial object coordinates to Successful coordinates array
+        expert_success_x = np.append(expert_success_x, x_val)
+        expert_success_y = np.append(expert_success_y, y_val)
+
+    else:
+        # Get object coordinates, transform to array
+        x_val = obj_coords[0]
+        y_val = obj_coords[1]
+        x_val = np.asarray(x_val).reshape(1)
+        y_val = np.asarray(y_val).reshape(1)
+
+        # Append initial object coordinates to Failed coordinates array
+        expert_fail_x = np.append(expert_fail_x, x_val)
+        expert_fail_y = np.append(expert_fail_y, y_val)
+
+    ret = [expert_success_x, expert_success_y, expert_fail_x, expert_fail_y]
+    return ret
+
 def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid=True
@@ -469,34 +509,55 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     obs_label = []
     grasp_label = []
     action_label = []
-    total_steps = 0
+    expert_success_x = np.array([])     # Successful object initial x-coordinates
+    expert_success_y = np.array([])     # Successful object initial y-coordinates
+    expert_fail_x = np.array([])     # Failed object initial x-coordinates
+    expert_fail_y = np.array([])     # Files object initial y-coordinates
+    max_timesteps = 60     # Maximum number of timesteps to achieve grasp
+
     for i in range(episode_num):
         print("******Episode: ", i)
+        total_steps = 0
         obs, done = env.reset(), False
-        if done == 0:
-            print("INIT DONE: ", done)
-            print("obs[23]: ", obs[23])
-            print("total steps: ", total_steps)
-            #env.render()
+        # Sets number of timesteps per episode (counted from each step() call)
+        env._max_episode_steps = 200
+        obj_coords = env.get_obj_coords()
+
         controller = ExpertPIDController(obs)
         if replay_buffer != None:
             replay_buffer.add_episode(1)
         while not done:
             obs_label.append(obs)
+            # Nudge controller strategy
             action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
+
+            '''
+            # Naive controller, where np.array([wrist, f1, f2, f3])
+            if total_steps > max_timesteps:
+                action = np.array([0.6, 0.15, 0.15, 0.15])
+            else:
+                action = np.array([0, 0.8, 0.8, 0.8])
+            '''
             action_label.append(action)
-            next_obs, reward, done, _ = env.step(action)
-            if done == 1:
-                print("DONE: ", done)
-                print("obs[23]: ", obs[23])
-                print("total steps: ", total_steps)
-                env.render()
+            next_obs, reward, done, info = env.step(action)
+
             if replay_buffer != None:
                 replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
             obs = next_obs
             total_steps += 1
+            #if done == 1:
+            #   env.render()
+
+        ret = add_heatmap_coords(expert_success_x, expert_success_y,expert_fail_x,expert_fail_y, obj_coords,info)
+        expert_success_x = ret[0]
+        expert_success_y = ret[1]
+        expert_fail_x = ret[2]
+        expert_fail_y = ret[3]
         if replay_buffer != None:
             replay_buffer.add_episode(0)
+
+    print("Final # of Successes: ", len(expert_success_x))
+    print("Final # of Failures: ", len(expert_fail_x))
 
     if save:
         filename = "expertdata"
@@ -509,6 +570,18 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
         pickle.dump(data, file)
         file.close()
+
+        # Save coordinates
+        # Folder to save heatmap coordinates
+        expert_saving_dir = "./expert_plots"
+        if not os.path.isdir(expert_saving_dir):
+            os.mkdir(expert_saving_dir)
+
+        expert_total_x = np.append(expert_success_x, expert_fail_x)
+        expert_total_y = np.append(expert_success_y, expert_fail_y)
+        save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
+        save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
+        save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
 
     return replay_buffer
     
@@ -563,4 +636,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-#GenerateExpertPID_JointVel(10)
+#GenerateExpertPID_JointVel(20000)
