@@ -560,17 +560,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     print("Final # of Failures: ", len(expert_fail_x))
 
     if save:
-        filename = "expertdata"
         print("Saving...")
-        data = {}
-        data["states"] = obs_label
-        data["grasp_success"] = grasp_label
-        data["action"] = action_label
-        data["total_steps"] = total_steps
-        file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
-        pickle.dump(data, file)
-        file.close()
-
         # Save coordinates
         # Folder to save heatmap coordinates
         expert_saving_dir = "./expert_plots"
@@ -582,6 +572,21 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
         save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
         save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
+
+        filename = "expertdata"
+        data = {}
+        data["states"] = obs_label
+        data["grasp_success"] = grasp_label
+        data["action"] = action_label
+        data["total_steps"] = total_steps
+        file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+        from sklearn.externals import joblib
+        filename = filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".sav"
+        print("trying joblib...")
+        joblib.dump(data, filename)
+        print("trying pickle...")
+        pickle.dump(data, file)
+        file.close()
 
     return replay_buffer
     
@@ -636,4 +641,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-#GenerateExpertPID_JointVel(20000)
+GenerateExpertPID_JointVel(1000)
