@@ -182,7 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
-    parser.add_argument("--max_episode", default=100, type=int)		# Max time steps to run environment for
+    parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
     parser.add_argument("--batch_size", default=250, type=int)			# Batch size for both actor and critic
