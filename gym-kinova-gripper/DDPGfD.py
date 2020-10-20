@@ -17,8 +17,11 @@ class Actor(nn.Module):
 		super(Actor, self).__init__()
 
 		self.l1 = nn.Linear(state_dim, 400)
+		torch.nn.init.kaiming_uniform_(self.l1.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l2 = nn.Linear(400, 300)
+		torch.nn.init.kaiming_uniform_(self.l2.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l3 = nn.Linear(300, action_dim)
+		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
 		self.max_action = max_action
 
@@ -34,8 +37,11 @@ class Critic(nn.Module):
 		super(Critic, self).__init__()
 
 		self.l1 = nn.Linear(state_dim + action_dim, 400)
+		torch.nn.init.kaiming_uniform_(self.l1.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l2 = nn.Linear(400, 300)
+		torch.nn.init.kaiming_uniform_(self.l2.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 		self.l3 = nn.Linear(300, 1)
+		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
 
 	def forward(self, state, action):
@@ -148,17 +154,33 @@ class DDPGfD(object):
 		# Old version: Compute the target Q_N value
 		rollreward = []
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
-		for i in range(episode_step):
+
+		'''
+		# Checks episode size versus value of n (In case n is larger than the number of timesteps)
+		if state.shape[0] < 3:
+			for i in range(state.shape[0]):
+				roll_reward = (self.discount) * reward[i].item()
+				rollreward.append(roll_reward)
+		else:
+		'''
+		print("state.shape[0]: ", state.shape[0])
+		print("episode_step: ",episode_step)
+		ep_timesteps = episode_step
+		if state.shape[0] < episode_step:
+			ep_timesteps = state.shape[0]
+
+		for i in range(ep_timesteps):
 			if i >= (self.n - 1):
 				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
 				rollreward.append(roll_reward)
 
-		if len(rollreward) != episode_step - (self.n - 1):
+
+		if len(rollreward) != ep_timesteps - (self.n - 1):
 			raise ValueError
 
-		print("roll reward before reshape: ")
-		print(rollreward)
-		print(len(rollreward))
+		#print("roll reward before reshape: ")
+		#print(rollreward)
+		#print(len(rollreward))
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
 		print("rollreward.get_shape(): ", rollreward.size())
@@ -181,7 +203,8 @@ class DDPGfD(object):
 		#current_Q = self.critic(state[:, 0], action[:, 0])
 
 		# Old code: Get current Q estimate for n-step return
-		current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+		#current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
+		current_Q_n = self.critic(state[:(ep_timesteps - (self.n - 1))], action[:(ep_timesteps - (self.n - 1))])
 
 		# New Updated for new rollback method
 		#current_Q_n = self.critic(state[:, -1], action[:, -1])

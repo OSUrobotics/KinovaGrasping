@@ -232,15 +232,23 @@ class ReplayBuffer_VarStepsEpisode(object):
 	def sample(self):
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
-		if self.episodes_count > self.expert_episode_num:
+		print("IN SAMPLE")
+		print("1) self.expert_episode_num: ", self.expert_episode_num)
+		print("episodes_count: ",self.episodes_count)
+		if self.expert_episode_num == 0:
+			expert_or_random = "agent"
+		elif self.episodes_count > self.expert_episode_num:
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p = [0.7, 0.3])
 		else:
 			expert_or_random = "expert"
 
+		print("expert_or_random: ",expert_or_random)
 		# pick the episode index based on whether its an expert or not
 		if expert_or_random == "expert":
 			episode = np.random.randint(0, self.expert_episode_num, size = 1)
 		else:
+			print("self.expert_episode_num: ", self.expert_episode_num)
+			print("episodes_count: ",self.episodes_count)
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size = 1)
 
 		#note: episode is an array (with one element). so we need to access the element with `episode[0]`
@@ -248,6 +256,12 @@ class ReplayBuffer_VarStepsEpisode(object):
 		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
 		# sample episode 
 		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
+		print("self.episodes[episode[0], 0]: ", self.episodes[episode[0], 0])
+		print("self.episodes[episode[0], 1]: ", self.episodes[episode[0], 1])
+
+		print("episodes: ", self.episodes)
+		print("ind: ",ind.astype(int))
+		print("state: ", self.state[ind.astype(int)])
 		
 		#if self.episodes_count > 10:
 		#	pdb.set_trace()
@@ -310,7 +324,7 @@ class ReplayBuffer_episode(object):
 			prob = "expert"
 
 		# sample expert episode
-		if prob	== "expert":
+		if prob	== "expert" and self.expert_episode > 0:
 			random_episode = np.random.randint(1, self.expert_episode + 1, size=1)
 		else:
 		# sample agent episode
