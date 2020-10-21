@@ -45,9 +45,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         eval_env = gym.make(env_name)
         eval_env.seed(seed + 100)
 
+        print("***Eval In Compare")
         # Generate randomized list of objects to select from
         eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
-
+        ep_count = 0
         avg_reward = 0.0
         # step = 0
         for i in range(40):
@@ -78,9 +79,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             cumulative_reward = 0
             # Sets number of timesteps per episode (counted from each step() call)
             eval_env._max_episode_steps = 200
-
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
+            ep_count += 1
+            print("***Eval episode: ",ep_count)
 
             timestep_count = 0
             while not done:
@@ -131,6 +133,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
         avg_reward = 0.0
         # step = 0
+        print("***Eval episodes total: ",eval_episodes)
         for i in range(eval_episodes):
             success=0
             #eval_env = gym.make(env_name)
@@ -138,7 +141,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             cumulative_reward = 0
             # Sets number of timesteps per episode (counted from each step() call)
             eval_env._max_episode_steps = 200
-            
+            print("***Eval episode: ", i)
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
             timestep_count = 0
@@ -204,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--pre_replay_episode", default=20000, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--pre_replay_episode", default=10, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
@@ -304,8 +307,8 @@ if __name__ == "__main__":
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
     num_expert_episodes = args.pre_replay_episode
-    do_pretraining = 0
-    if do_pretraining == 0:
+    do_pretraining = True
+    if do_pretraining is False:
         num_expert_episodes = 0
 
     replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
@@ -316,9 +319,7 @@ if __name__ == "__main__":
 
 
     #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
-    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
-    #print("REPLAY_BUFFER: ",replay_buffer)
-    #print("REPLAY_BUFFER.SIZE: ", replay_buffer.size())
+    replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
 
     # Evaluate untrained policy
     evaluations = []
@@ -366,33 +367,36 @@ if __name__ == "__main__":
     writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
 
     # Pretrain (No pretraining without imitation learning)
-    '''
-    print("---- Pretraining ----")
-    num_updates = 5
-    for pretrain_episode_num in range(int(num_updates)):
-        print("pretrain_episode_num: ", pretrain_episode_num)
-        pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
+    if do_pretraining == True:
+        pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_"+args.policy_name, args.tensorboardindex))
+        print("---- Pretraining ----")
+        # Sets number of timesteps per episode (counted from each step() call)
+        env._max_episode_steps = 200
+        num_updates = 10000
+        for pretrain_episode_num in range(int(num_updates)):
+            print("pretrain_episode_num: ", pretrain_episode_num)
+            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
 
-        if (pretrain_episode_num + 1) % 100 == 0:
-            print("\n\n***You're in evaluate pretain policy")
-            eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
-            print("\n***After eval_policy - pretain policy")
-            avg_reward = eval_ret[0]
-            writer.add_scalar("Episode reward, Avg. 100 episodes", avg_reward, pretrain_episode_num)
-            writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
-            writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
-            writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
-            writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
+            if (pretrain_episode_num + 1) % 1000 == 0:
+                print("\n\n***You're in evaluate pretain policy")
+                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
+                print("\n***After eval_policy - pretain policy")
+                avg_reward = eval_ret[0]
+                pre_writer.add_scalar("Episode reward, Avg. 100 episodes", avg_reward, pretrain_episode_num)
+                pre_writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
+                pre_writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
+                pre_writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
+                pre_writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
 
 
-    pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
-    print("Pre-training: Saving into {}".format(pretrain_model_save_path))
-    policy.save(pretrain_model_save_path)
+        pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+        print("Pre-training: Saving into {}".format(pretrain_model_save_path))
+        policy.save(pretrain_model_save_path)
 
-    print("POST PRETRAINING")
-    print("replay_buffer: ",replay_buffer)
-    #quit()
-    '''
+        print("POST PRETRAINING")
+        print("replay_buffer: ",replay_buffer)
+        #quit()
+
 
     # ##Testing Code##
     # env = gym.make(args.env_name)
@@ -423,7 +427,7 @@ if __name__ == "__main__":
         noise.reset()
         expl_noise.reset()
         episode_reward = 0
-        print("\n*** Episode Num: ",episode_num)
+        print("\n*** TRAINING Episode Num: ",episode_num)
 
         obj_coords = env.get_obj_coords()
 

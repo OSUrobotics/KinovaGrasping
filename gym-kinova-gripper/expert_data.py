@@ -516,7 +516,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     max_timesteps = 60     # Maximum number of timesteps to achieve grasp
 
     for i in range(episode_num):
-        print("******Episode: ", i)
+        print("**** Expert PID Episode: ", i)
         total_steps = 0
         obs, done = env.reset(), False
         # Sets number of timesteps per episode (counted from each step() call)
@@ -547,6 +547,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
             total_steps += 1
             #if done == 1:
             #   env.render()
+        print("Expert PID total timestep: ", total_steps)
 
         ret = add_heatmap_coords(expert_success_x, expert_success_y,expert_fail_x,expert_fail_y, obj_coords,info)
         expert_success_x = ret[0]
@@ -559,20 +560,21 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     print("Final # of Successes: ", len(expert_success_x))
     print("Final # of Failures: ", len(expert_fail_x))
 
+    print("Saving coordinates...")
+    # Save coordinates
+    # Folder to save heatmap coordinates
+    expert_saving_dir = "./expert_plots"
+    if not os.path.isdir(expert_saving_dir):
+        os.mkdir(expert_saving_dir)
+
+    expert_total_x = np.append(expert_success_x, expert_fail_x)
+    expert_total_y = np.append(expert_success_y, expert_fail_y)
+    save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
+    save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
+    save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
+
     if save:
         print("Saving...")
-        # Save coordinates
-        # Folder to save heatmap coordinates
-        expert_saving_dir = "./expert_plots"
-        if not os.path.isdir(expert_saving_dir):
-            os.mkdir(expert_saving_dir)
-
-        expert_total_x = np.append(expert_success_x, expert_fail_x)
-        expert_total_y = np.append(expert_success_y, expert_fail_y)
-        save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
-        save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
-        save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
-
         filename = "expertdata"
         data = {}
         data["states"] = obs_label
@@ -580,14 +582,17 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         data["action"] = action_label
         data["total_steps"] = total_steps
         file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
-        from sklearn.externals import joblib
+        ''' Different attempt to save data as current method gets overloaded
         filename = filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".sav"
+        from sklearn.externals import joblib
         print("trying joblib...")
         joblib.dump(data, filename)
+        '''
         print("trying pickle...")
         pickle.dump(data, file)
         file.close()
 
+    print("In expert data: replay_buffer.size: ", replay_buffer.size)
     return replay_buffer
     
 # def GenerateExpertPID_JointAngle():
