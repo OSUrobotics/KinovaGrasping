@@ -2,6 +2,70 @@ import numpy as np
 import torch
 import pdb
 
+class ReplayBuffer_Stack(object):
+	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100, n_steps=5, batch_size=64):
+		self.max_episode = max_episode
+		self.episode_ptr = 0
+		self.size = 0
+		self.expert_episode = 0
+		# self.agent_episode = expert_episode_num  # this is 100 by default
+		# self.episode_step = episode_step
+		self.expert_episode_num = expert_episode_num  # this is 100 by default
+
+		self.episodes_count = 0
+
+		# each of these are a stack
+		# TODO: bug we will have to deal with later: we need to explicitly define datatypes when initting each new numpy array. otherwise annoying typecasting shenenagains
+
+		self.state = [np.array([])]
+		self.action = [np.array([])]
+		self.next_state = [np.array([])]
+		self.reward = [np.array([])]
+		self.not_done = [np.array([])]
+
+		self.n_steps = n_steps
+		self.batch_size = batch_size
+
+		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+	def add(self, state, action, next_state, reward, done):
+
+		"""
+		Assume there's a numpy array
+		"""
+
+		# print("hi")
+		self.state[-1] = np.append(self.state[-1], state)
+		self.action[-1] = np.append(self.action[-1], action)
+		self.next_state[-1] = np.append(self.next_state[-1], next_state)
+		self.reward[-1] = np.append(self.reward[-1], reward)
+		self.not_done[-1] = np.append(self.not_done[-1], 1. - done)
+
+		self.size += 1
+
+		# if episode has terminated
+		if done:
+			# increment episode count
+			self.episodes_count += 1
+			# init new set of numpy arrays
+			# TODO: DEFINE DATA TYPES!!!
+			self.state.append(np.array([]))
+			self.action.append(np.array([]))
+			self.next_state.append(np.array([]))
+			self.reward.append(np.array([]))
+			self.not_done.append(np.array([]))
+
+			# if over max num episodes
+			if self.episodes_count > self.max_episode:
+				print(".popleft() on all the stacks and subtract 1 from episodes count ")
+
+	def add_episode(self, start):
+		"""
+		Remove old
+		Initialize np array
+		"""
+		return
+
 
 # A buffer that stores and sample based on episodes that have different step size
 class ReplayBuffer_NStep(object):
@@ -14,6 +78,8 @@ class ReplayBuffer_NStep(object):
 		self.agent_episode = expert_episode_num  # this is 100 by default
 		# self.episode_step = episode_step
 		self.expert_episode_num = expert_episode_num  # this is 100 by default
+
+		# self.oldest_episode_num = expert_episode_num
 
 		self.episodes = np.zeros((self.max_episode,
 								  2))  # keep track each episode index - inner array contains the start index (in ptr) and end index (also in ptr form)
@@ -30,13 +96,14 @@ class ReplayBuffer_NStep(object):
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	def add(self, state, action, next_state, reward, done):
+		# print("hi")
 		self.state[self.ptr] = state
 		self.action[self.ptr] = action
 		self.next_state[self.ptr] = next_state
 		self.reward[self.ptr] = reward
 		self.not_done[self.ptr] = 1. - done
 
-		self.ptr += 1
+		self.ptr = (self.ptr + 1) % self.max_size
 
 		# if self.ptr >= self.max_size:
 		# 	self.ptr =
@@ -48,7 +115,14 @@ class ReplayBuffer_NStep(object):
 
 		# call it when each episode starts
 		if start:
-			# First check if there's at least ~500 time steps left
+			# First check if there's at least ~200 time steps left
+			# if self.ptr + 200 >= self.max_size:
+			# 	self.ptr = self.episodes[self.oldest_episode_num, 0]  # begin the overwrite (this is gonna be mega buggy)
+			# 	# Note: until we change up data structure, the sampling with this method places bias on stuffs
+			#
+			# 	# increment the oldest episode num
+			# 	self.oldest_episode_num += 1
+
 			self.episodes[self.episodes_count, 0] = int(self.ptr)  # record the beginning index in the buffer (ptr)
 		# call it when each episode ends
 		else:
@@ -106,6 +180,7 @@ class ReplayBuffer_NStep(object):
 			episode = np.random.randint(0, self.expert_episode_num)
 		else:
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count)
+			# episode = np.random.randint(self.oldest_episode_num, self.episodes_count)
 
 		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
 		# sample episode
