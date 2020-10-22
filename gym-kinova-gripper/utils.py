@@ -37,13 +37,18 @@ class ReplayBuffer_NStep(object):
 		self.not_done[self.ptr] = 1. - done
 
 		self.ptr += 1
-		self.size += 1
 
-	# pdb.set_trace()
+		# if self.ptr >= self.max_size:
+		# 	self.ptr =
+		self.size = (self.size + 1) % self.max_size
 
 	def add_episode(self, start):
+
+		### TODO: check replay buffer size and delete replay buffer accordingly for batch
+
 		# call it when each episode starts
 		if start:
+			# First check if there's at least ~500 time steps left
 			self.episodes[self.episodes_count, 0] = int(self.ptr)  # record the beginning index in the buffer (ptr)
 		# call it when each episode ends
 		else:
@@ -53,22 +58,27 @@ class ReplayBuffer_NStep(object):
 	def sample(self):
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
-		if self.episodes_count > self.expert_episode_num:
+		if self.expert_episode_num == 0:
+			expert_or_random = "agent"
+		elif self.episodes_count > self.expert_episode_num:
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 		else:
 			expert_or_random = "expert"
 
+		print("expert_or_random: ", expert_or_random)
 		# pick the episode index based on whether its an expert or not
 		if expert_or_random == "expert":
 			episode = np.random.randint(0, self.expert_episode_num, size=1)
 		else:
+			print("self.expert_episode_num: ", self.expert_episode_num)
+			print("episodes_count: ", self.episodes_count)
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size=1)
 
 		# note: episode is an array (with one element). so we need to access the element with `episode[0]`
 
 		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
 		# sample episode
-		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1] + 1)
+		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
 
 		# if self.episodes_count > 10:
 		#	pdb.set_trace()
@@ -83,7 +93,9 @@ class ReplayBuffer_NStep(object):
 	def sample_one_nstep(self):
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
-		if self.episodes_count > self.expert_episode_num:
+		if self.expert_episode_num == 0:
+			expert_or_random = "agent"
+		elif self.episodes_count > self.expert_episode_num:
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 		else:
 			expert_or_random = "expert"
@@ -126,30 +138,65 @@ class ReplayBuffer_NStep(object):
 
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
-		if self.episodes_count > self.expert_episode_num:
+		if self.expert_episode_num == 0:
+			expert_or_random = "agent"
+		elif self.episodes_count > self.expert_episode_num:
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 		else:
 			expert_or_random = "expert"
 
-		# pick the episode index based on whether its an expert or not
-		if expert_or_random == "expert":
-			# episode = np.random.randint(0, self.expert_episode_num, size=1)
-			episode = np.random.randint(0, self.expert_episode_num)
-		else:
-			episode = np.random.randint(self.expert_episode_num, self.episodes_count)
+		sample_start_index = np.zeros(self.batch_size)
+		for i in range(self.batch_size):
 
-		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
-		# sample episode
-		start_index = self.episodes[episode, 0]
-		end_index = self.episodes[episode, 1]
+			# pick the episode index based on whether its an expert or not
+			if expert_or_random == "expert":
+				# episode = np.random.randint(0, self.expert_episode_num, size=1)
+				episode = np.random.randint(0, self.expert_episode_num)
+			else:
+				episode = np.random.randint(self.expert_episode_num, self.episodes_count)
 
-		sample_start_index = np.random.randint(start_index, end_index + 1 - self.n_steps, size=self.batch_size)  # exclusive of last index.
+			# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
+			# sample episode
+			start_index = self.episodes[episode, 0]
+			end_index = self.episodes[episode, 1]
+
+			# print("expert policy: ")
+			# print(expert_or_random == "expert")
+			#
+			# print("====================start index")
+			# print(start_index)
+			# print(end_index)
+			# print("----------------------------------------------end")
+
+			sample_start_index[i] = np.random.randint(start_index, end_index + 1 - self.n_steps)  # exclusive of last index.
+
+		# # pick the episode index based on whether its an expert or not
+		# if expert_or_random == "expert":
+		# 	# episode = np.random.randint(0, self.expert_episode_num, size=1)
+		# 	episode = np.random.randint(0, self.expert_episode_num)
+		# else:
+		# 	episode = np.random.randint(self.expert_episode_num, self.episodes_count)
+		#
+		#
+		# # right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
+		# # sample episode
+		# start_index = self.episodes[episode, 0]
+		# end_index = self.episodes[episode, 1]
+		#
+		# sample_start_index = np.random.randint(start_index, end_index + 1 - self.n_steps, size=self.batch_size)  # exclusive of last index.
 
 		# np.linspace(wow, wow + 4, 5).T.astype(int)
 		# What's happening here:
 		# linspace is basically np.arange but for more than one number. since it gives the ranges by each vector, we then transpose it so each individual array in the batch is it's own n step trajectory range
+		# batch_idx = np.linspace(sample_start_index, sample_start_index + self.n_steps - 1, self.n_steps).T.astype(int)
+
+		# print("==================================================testing lalalala")
+		# print(sample_start_index.shape)
 		batch_idx = np.linspace(sample_start_index, sample_start_index + self.n_steps - 1, self.n_steps).T.astype(int)
 		batch_idx = batch_idx.astype(int)
+		# print("===================================================testing lalalala")
+		# print(batch_idx.shape)
+		# print(batch_idx)
 
 		states = []
 		actions = []
@@ -174,9 +221,9 @@ class ReplayBuffer_NStep(object):
 		# if self.episodes_count > 10:
 		#	pdb.set_trace()
 
-		print("==============================================================SHAPE OF SELF.STATE INSIDE REPLAY BUFFER")
-		print(self.state.shape)
-		print(self.action.shape)
+		# print("==============================================================SHAPE OF SELF.STATE INSIDE REPLAY BUFFER")
+		# print(self.state.shape)
+		# print(self.action.shape)
 
 		return (
 			torch.FloatTensor(states).to(self.device),
@@ -217,9 +264,9 @@ class ReplayBuffer_VarStepsEpisode(object):
 		self.not_done[self.ptr] = 1. - done
 
 		self.ptr += 1
-		self.size += 1 
-		# pdb.set_trace()	
-	
+		self.size += 1
+		# pdb.set_trace()
+
 	def add_episode(self, start):
 		# call it when each episode starts
 		if start:
@@ -330,8 +377,8 @@ class ReplayBuffer_episode(object):
 		# sample agent episode
 			random_episode = np.random.randint(self.expert_episode + 1, self.agent_episode + 1, size = 1)
 
-		# sample episode 
-		ind = np.arange((random_episode[0] - 1)*self.episode_step, random_episode[0]*self.episode_step) 
+		# sample episode
+		ind = np.arange((random_episode[0] - 1)*self.episode_step, random_episode[0]*self.episode_step)
 
 		return (
 			torch.FloatTensor(self.state[ind]).to(self.device),
@@ -356,9 +403,9 @@ class ReplayBuffer_episode(object):
 			self.episode += 1
 
 	def sample_wo_expert(self):
-		# sample episode 
+		# sample episode
 		random_episode = np.random.randint(0, self.episode, size=1)
-		ind = np.arange(random_episode[0]*self.episode_step, (random_episode[0]*self.episode_step) + 100) 
+		ind = np.arange(random_episode[0]*self.episode_step, (random_episode[0]*self.episode_step) + 100)
 
 		return (
 			torch.FloatTensor(self.state[ind]).to(self.device),
