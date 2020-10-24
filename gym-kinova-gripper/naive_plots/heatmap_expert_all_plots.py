@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
-from matplotlib import pylab
 import numpy as np
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 from PIL import Image
-import glob
+import os
 
 def heatmap_freq(a,b,plot_title,plot_name):
 
@@ -205,9 +204,13 @@ def create_plots(success_datax,success_datay,fail_datax,fail_datay,total_datax,t
     make_img_transparent(img_name)
 
 def main():
-    #get_arrays()
-    #get_1000_eval()
-    #print("len(x_success): ",len(x_success))
+    heatmap_saving_dir = "./heatmap_plots"
+    if not os.path.isdir(heatmap_saving_dir):
+        os.mkdir(heatmap_saving_dir)
+
+    freq_saving_dir = "./freq_plots"
+    if not os.path.isdir(freq_saving_dir):
+        os.mkdir(freq_saving_dir)
 
     success_datax = np.load("heatmap_train_success_new_x_arr.npy")
     success_datay = np.load("heatmap_train_success_new_y_arr.npy")
@@ -219,12 +222,5 @@ def main():
     total_datay = np.load("heatmap_train_total_new_y_arr.npy")
 
     create_plots(success_datax,success_datay,fail_datax,fail_datay,total_datax,total_datay)
-
-    #heatmap_freq(a,b)
-    #heatmap_combined_fail(x_success,y_success,x_fail,y_fail,a,b,0,'fail_heatmap.png')
-
-    #img_name = 'success_plot'
-    #heatmap_combined_success(x_success,y_success,x_fail,y_fail,a,b,1,'success_plot')
-    #make_img_transparent(filename,img_name)
 
 main()
