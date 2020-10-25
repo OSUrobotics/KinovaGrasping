@@ -311,8 +311,9 @@ if __name__ == "__main__":
     if do_pretraining is False:
         num_expert_episodes = 0
 
-    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
+    # replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
 
+    replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, num_expert_episodes)
 
     # experimental replay buffer
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
@@ -465,7 +466,9 @@ if __name__ == "__main__":
         # Train agent after collecting sufficient data:
         if episode_num > 10:
             for learning in range(100):
-                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
+                # actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
+                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,
+                                                                                     env._max_episode_steps)
 
         # Heatmap postion data, get starting object position
         if(lift_success):
