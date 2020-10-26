@@ -51,7 +51,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n=5, discount=0.995, tau=0.0005):
+	def __init__(self, state_dim, action_dim, max_action, n=1, discount=0.995, tau=0.0005):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)

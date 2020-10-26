@@ -3,7 +3,7 @@ import torch
 import pdb
 
 class ReplayBuffer_Stack(object):
-	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100, n_steps=5, batch_size=64):
+	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=1000, n_steps=1, batch_size=64):
 		self.max_episode = max_episode
 		self.episode_ptr = 0
 		self.size = 0
@@ -69,7 +69,7 @@ class ReplayBuffer_Stack(object):
 
 # A buffer that stores and sample based on episodes that have different step size
 class ReplayBuffer_NStep(object):
-	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100, n_steps=5, batch_size=64):
+	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100, n_steps=1, batch_size=64):
 		self.max_episode = max_episode
 		self.max_size = max_episode * 500
 		self.ptr = 0
@@ -128,6 +128,8 @@ class ReplayBuffer_NStep(object):
 		else:
 			self.episodes[self.episodes_count, 1] = int(self.ptr)  # record the ending index in the buffer (ptr)
 			self.episodes_count += 1
+			if self.episodes_count >= self.max_episode:
+				self.episodes_count = self.expert_episode_num  # just start at beginning lol. we're destroying this replay buffer
 
 	def sample(self):
 		# deciding whether we grab expert or non expert trajectories.
@@ -146,7 +148,7 @@ class ReplayBuffer_NStep(object):
 		else:
 			print("self.expert_episode_num: ", self.expert_episode_num)
 			print("episodes_count: ", self.episodes_count)
-			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size=1)
+			episode = np.random.randint(self.expert_episode_num, self.episodes_count + 1, size=1)
 
 		# note: episode is an array (with one element). so we need to access the element with `episode[0]`
 
@@ -228,7 +230,7 @@ class ReplayBuffer_NStep(object):
 				# episode = np.random.randint(0, self.expert_episode_num, size=1)
 				episode = np.random.randint(0, self.expert_episode_num)
 			else:
-				episode = np.random.randint(self.expert_episode_num, self.episodes_count)
+				episode = np.random.randint(self.expert_episode_num, self.episodes_count + 1)
 
 			# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
 			# sample episode
@@ -243,7 +245,10 @@ class ReplayBuffer_NStep(object):
 			# print(end_index)
 			# print("----------------------------------------------end")
 
-			sample_start_index[i] = np.random.randint(start_index, end_index + 1 - self.n_steps)  # exclusive of last index.
+			# sample_start_index[i] = np.random.randint(start_index,
+			# 										  end_index + 1 - self.n_steps)  # exclusive of last index.
+			sample_start_index[i] = np.random.randint(start_index,
+													  end_index + 2 - self.n_steps)  # not exclusive of last index.
 
 		# # pick the episode index based on whether its an expert or not
 		# if expert_or_random == "expert":
