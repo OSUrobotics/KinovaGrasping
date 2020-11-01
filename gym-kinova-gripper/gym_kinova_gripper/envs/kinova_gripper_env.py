@@ -1157,6 +1157,16 @@ class KinovaGripper_Env(gym.Env):
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
             elif len(start_pos)==3:
+
+            	######################################
+            	## TO Test Real world data Uncomment##
+            	######################################
+                #start_pos.append(1)
+                #self._get_trans_mat_wrist_pose()
+                #temp_start_pos = np.matmul(self.Twf, start_pos)
+                #x, y, z = temp_start_pos[0], temp_start_pos[1], temp_start_pos[2]
+
+                ##Comment this to Test real world data
                 x, y, z = start_pos[0], start_pos[1], start_pos[2]
             elif len(start_pos)==2:
                 x, y = start_pos[0], start_pos[1]
