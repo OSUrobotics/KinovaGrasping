@@ -388,7 +388,7 @@ if __name__ == "__main__":
         pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_"+args.policy_name, args.tensorboardindex))
         print("---- Pretraining ----")
         # Sets number of timesteps per episode (counted from each step() call)
-        env._max_episode_steps = 200
+
         num_updates = 1000
         for pretrain_episode_num in range(int(num_updates)):
             print("pretrain_episode_num: ", pretrain_episode_num)
@@ -437,8 +437,6 @@ if __name__ == "__main__":
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
         env = gym.make(args.env_name)
-        # Sets number of timesteps per episode (counted from each step() call)
-        env._max_episode_steps = 200
         episode_num += 1
 
         # Fill training object list using latin square

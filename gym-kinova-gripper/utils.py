@@ -68,9 +68,9 @@ class ReplayBuffer_Queue(object):
 			self.not_done.append([])
 
 			# if over max num episodes
-			#if self.episodes_count > self.max_episode:
-			#	print(".popleft() on all the stacks and subtract 1 from episodes count ")
-			#	self.remove_episode()
+			if self.episodes_count > self.max_episode:
+				print(".popleft() on all the stacks and subtract 1 from episodes count ")
+				self.remove_episode()
 
 	def remove_episode(self):
 		"""
