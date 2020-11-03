@@ -74,11 +74,21 @@ class DDPGfD(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, replay_buffer, episode_step):
+	def train(self, episode_step, expert_replay_buffer, replay_buffer=None):
 		self.total_it += 1
 
 		# Sample replay buffer
-		state, action, next_state, reward, not_done = replay_buffer.sample()
+		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
+			expert_or_random = "agent"
+		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
+			expert_or_random = "expert"
+		else:
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
+
+		if expert_or_random == "expert":
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
+		else:
+			state, action, next_state, reward, not_done = replay_buffer.sample()
 		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
 
 		# new sampling procedure for n step rollback

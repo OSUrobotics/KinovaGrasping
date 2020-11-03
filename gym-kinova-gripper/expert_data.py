@@ -9,6 +9,7 @@ Purpose : Supervised learning for near contact grasping strategy
 import os, sys
 import numpy as np
 import gym
+from gym import  wrappers # Used for video rendering
 import argparse
 import pdb
 import pickle
@@ -339,6 +340,48 @@ class PID(object):
             action = 0.05
         return action
 
+    def check_grasp(self, f_dist_old, f_dist_new):
+        """
+        Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
+        the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
+        @param: f_dist_old: Distal finger tip x,y,z coordinate values from previous timestep
+        @param: f_dist_new: Distal finger tip x,y,z coordinate values from current timestep
+        """
+
+        # Initial check to see if previous state has been set
+        if f_dist_old is None:
+            return False
+
+        # Change in finger 1 distal x-coordinate position
+        f1_change = abs(f_dist_old[0] - f_dist_new[0])
+        f1_diff = f1_change / self.sampling_time
+        #print("f1_change: ",f1_change)
+        #print("f1_diff: ", f1_diff)
+        #print("self.sampling_time: ",self.sampling_time)
+
+        # Change in finger 2 distal x-coordinate position
+        f2_change = abs(f_dist_old[3] - f_dist_new[3])
+        f2_diff = f2_change / self.sampling_time
+
+        # Change in finger 3 distal x-coordinate position
+        f3_change = abs(f_dist_old[6] - f_dist_new[6])
+        f3_diff = f3_change / self.sampling_time
+
+        # Sum of changes in distal fingers
+        f_all_change = f1_diff + f2_diff + f3_diff
+
+        #print("f_all_change: ",f_all_change)
+
+        # If the fingers have only changed a small amount, we assume the object is grasped
+        if f_all_change < 0.00005:
+            #print("RETURN TRUE")
+            return True
+        else:
+            #print("***************************f_all_change: ", f_all_change)
+            #print("RETURN FALSE")
+            return False
+
+
 ##############################################################################
 ### PID nudge controller ###
 # 1. Obtain (noisy) initial position of an object
@@ -364,7 +407,7 @@ class ExpertPIDController(object):
     def _count(self):
         self.step += 1
 
-    def NudgeController(self, states, action_space, label):
+    def NudgeController(self, prev_states, states, action_space, label):
         # Define pid controller
         pid = PID(action_space)
 
@@ -386,6 +429,18 @@ class ExpertPIDController(object):
         f3 = 0.0  # double side finger - left of finger 1
         wrist = 0.0
 
+        # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
+        if prev_states is None: # None if on the first timestep
+            f_dist_old = None
+        else:
+            f_dist_old = prev_states[9:17]
+        f_dist_new = states[9:17]
+
+        #print("________________________")
+        #print("f_dist_old: ",f_dist_old)
+        #print("f_dist_new: ", f_dist_new)
+        #print("________________________")
+
         if abs(
                 self.init_obj_pose) <= 0.03:  # only comparing initial X position of object. because we know hand starts at the same position every time (close to origin)
             """
@@ -394,7 +449,8 @@ class ExpertPIDController(object):
             f1, f2, f3 = 0.2, 0.2, 0.2 # Old velocity: 0.2, 0.2, 0.2  # set constant velocity of all three fingers
             if abs(obj_dot_prod - self.init_dot_prod) > 0.01:  # start lowering velocity of the three fingers
                 f1, f2, f3 = 0.2, 0.1, 0.1  # slows down to keep steady in one spot
-                if self.step > 100: # Old timesteps 200:
+                #if self.step > 200: # Old timesteps 200:
+                if pid.check_grasp(f_dist_old, f_dist_new) is True:
                     wrist = 0.3 # Old velocity: 0.3  # begin to add vel to the wrist once the episode of finger movement is over (200 time steps)
         else:
             # object on right hand side, move 2-fingered side
@@ -420,7 +476,8 @@ class ExpertPIDController(object):
                         f3 = 0.0
                         wrist = 0.0
                     # Hand tune lift time
-                    if self.step > 100: # Old timesteps 400:  # if another 200 time steps pass, switch to constant finger movement
+                    #if self.step > 400: # Old timesteps 400:  # if another 200 time steps pass, switch to constant finger movement
+                    if pid.check_grasp(f_dist_old, f_dist_new) is True:
                         f1, f2, f3 = 0.3, 0.15, 0.15
                         wrist = 0.3 # Old velocity: 0.3
             # object on left hand side, move 1-fingered side
@@ -445,14 +502,15 @@ class ExpertPIDController(object):
                         f1 = 0.0
                         wrist = 0.0
                     # Hand tune lift time
-                    if self.step > 100: # Old timesteps 200:
+                    #if self.step > 200: # Old timesteps 200:
+                    if pid.check_grasp(f_dist_old, f_dist_new) is True:
                         f1, f2, f3 = 0.3, 0.15, 0.15
                         wrist = 0.3 # Old velocity: 0.3
 
-        if self.step <= 200: # Old timesteps 400:
-            label.append(0)
-        else:
-            label.append(1)
+        #if self.step <= 400: # Old timesteps 400:
+        #    label.append(0)
+        #else:
+        #    label.append(1)
         self._count()
         # print(self.step)
 
@@ -502,6 +560,48 @@ def add_heatmap_coords(expert_success_x,expert_success_y,expert_fail_x,expert_fa
     ret = [expert_success_x, expert_success_y, expert_fail_x, expert_fail_y]
     return ret
 
+def naive_check_grasp(f_dist_old, f_dist_new):
+    """
+    Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
+    the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
+    @param: f_dist_old: Distal finger tip x,y,z coordinate values from previous timestep
+    @param: f_dist_new: Distal finger tip x,y,z coordinate values from current timestep
+    """
+
+    # Initial check to see if previous state has been set
+    if f_dist_old is None:
+        return False
+    sampling_time = 4
+
+    # Change in finger 1 distal x-coordinate position
+    f1_change = abs(f_dist_old[0] - f_dist_new[0])
+    f1_diff = f1_change / sampling_time
+    #print("f1_change: ",f1_change)
+    #print("f1_diff: ", f1_diff)
+    #print("self.sampling_time: ",self.sampling_time)
+
+    # Change in finger 2 distal x-coordinate position
+    f2_change = abs(f_dist_old[3] - f_dist_new[3])
+    f2_diff = f2_change / sampling_time
+
+    # Change in finger 3 distal x-coordinate position
+    f3_change = abs(f_dist_old[6] - f_dist_new[6])
+    f3_diff = f3_change / sampling_time
+
+    # Sum of changes in distal fingers
+    f_all_change = f1_diff + f2_diff + f3_diff
+
+    #print("f_all_change: ",f_all_change)
+
+    # If the fingers have only changed a small amount, we assume the object is grasped
+    if f_all_change < 0.00005:
+        #print("RETURN TRUE")
+        return True
+    else:
+        #print("***************************f_all_change: ", f_all_change)
+        #print("RETURN FALSE")
+        return False
+
 def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid=True
@@ -515,36 +615,57 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     expert_fail_y = np.array([])     # Files object initial y-coordinates
     max_timesteps = 60     # Maximum number of timesteps to achieve grasp
 
+    prev_obs = None
+
     for i in range(episode_num):
         print("**** Expert PID Episode: ", i)
+        prev_obs = None
         total_steps = 0
         obs, done = env.reset(), False
         # Sets number of timesteps per episode (counted from each step() call)
-        env._max_episode_steps = 200
+        env._max_episode_steps = 600
         obj_coords = env.get_obj_coords()
 
         controller = ExpertPIDController(obs)
         if replay_buffer != None:
             replay_buffer.add_episode(1)
         while not done:
+            # Render image from current episode
+            if total_steps % 10 == 0:
+                env.render_img(episode_num=i, timestep_num=total_steps, obj_coords=str(obj_coords[0])+"_"+str(obj_coords[1]))
+            else:
+                env._viewer = None
             obs_label.append(obs)
             # Nudge controller strategy
-            action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
-            '''
+            #action, grasp_label = controller.NudgeController(prev_obs, obs, env.action_space, grasp_label)
+
             # Naive controller, where np.array([wrist, f1, f2, f3])
-            if total_steps > max_timesteps:
+            #if total_steps > max_timesteps:
+            # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
+            if prev_obs is None:  # None if on the first timestep
+                f_dist_old = None
+            else:
+                f_dist_old = prev_obs[9:17]
+            f_dist_new = obs[9:17]
+
+            if naive_check_grasp(f_dist_old, f_dist_new) is True:
                 action = np.array([0.6, 0.15, 0.15, 0.15])
             else:
                 action = np.array([0, 0.8, 0.8, 0.8])
-            '''
+
 
             action_label.append(action)
             next_obs, reward, done, info = env.step(action)
 
             if replay_buffer != None:
                 replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+
+            # Once current timestep is over, update prev_obs to be current obs
+            if total_steps > 0:
+                prev_obs = obs
             obs = next_obs
             total_steps += 1
+
             #if done == 1:
             #   env.render()
         print("Expert PID total timestep: ", total_steps)
@@ -591,8 +712,8 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         print("trying pickle...")
         pickle.dump(data, file)
         file.close()
-
-    print("In expert data: replay_buffer.size: ", replay_buffer.size)
+    if replay_buffer != None:
+        print("In expert data: replay_buffer.size: ", replay_buffer.size)
     return replay_buffer
     
 # def GenerateExpertPID_JointAngle():
@@ -646,4 +767,4 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-#GenerateExpertPID_JointVel(20000)
+GenerateExpertPID_JointVel(50)

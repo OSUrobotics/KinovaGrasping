@@ -207,7 +207,7 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--pre_replay_episode", default=10, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--pre_replay_episode", default=2000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
@@ -307,26 +307,42 @@ if __name__ == "__main__":
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
     num_expert_episodes = args.pre_replay_episode
-    do_pretraining = True
+    max_replay_size = 10100 # TODO: turn into arg
+    do_pretraining = False
     if do_pretraining is False:
         num_expert_episodes = 0
 
-    # replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
+    #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
 
-    replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, num_expert_episodes)
+    # Replay buffer that manages its size like a queue, popping off the oldest episodes
+    #expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, num_expert_episodes)
+    expert_replay_buffer = None
+
+    # Replay buffer that manages its size like a queue, popping off the oldest episodes
+    replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, max_replay_size)
+
+    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, num_expert_episodes)
 
     # experimental replay buffer
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
 
 
     #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
-    replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    if do_pretraining is True:
+        expert_replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, expert_replay_buffer, False)
+
+    print("*****replay_buffer.size: ",replay_buffer.size)
+    #print("*****expert_replay_buffer.size: ", expert_replay_buffer.size)
+    print("*****replay_buffer.episodes_count: ",replay_buffer.episodes_count)
+    #print("*****expert_replay_buffer.episodes_count: ", expert_replay_buffer.episodes_count)
+
 
     # Evaluate untrained policy
     evaluations = []
 
     # Fill pre-training object list using latin square
-    env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
+    #env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
 
     state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
 
@@ -373,12 +389,13 @@ if __name__ == "__main__":
         print("---- Pretraining ----")
         # Sets number of timesteps per episode (counted from each step() call)
         env._max_episode_steps = 200
-        num_updates = 10000
+        num_updates = 1000
         for pretrain_episode_num in range(int(num_updates)):
             print("pretrain_episode_num: ", pretrain_episode_num)
-            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
+            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
 
-            if (pretrain_episode_num + 1) % 1000 == 0:
+            if (pretrain_episode_num + 1) % 100 == 0:
+                print("YOU PASSED THE PRETRAIN EVAL CHECK")
                 print("\n\n***You're in evaluate pretain policy")
                 eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
                 print("\n***After eval_policy - pretain policy")
@@ -396,7 +413,11 @@ if __name__ == "__main__":
 
         print("POST PRETRAINING")
         print("replay_buffer: ",replay_buffer)
-        #quit()
+        print("pre*****replay_buffer.size: ", replay_buffer.size)
+        print("pre*****expert_replay_buffer.size: ", expert_replay_buffer.size)
+        print("pre*****replay_buffer.episodes_count: ", replay_buffer.episodes_count)
+        print("pre*****expert_replay_buffer.episodes_count: ", expert_replay_buffer.episodes_count)
+        quit()
 
 
     # ##Testing Code##
@@ -432,6 +453,7 @@ if __name__ == "__main__":
 
         obj_coords = env.get_obj_coords()
 
+        print("replay_buffer.episodes_count: ",replay_buffer.episodes_count)
         replay_buffer.add_episode(1)
         # timestep counter only used for testing purposes
         timestep = 0
@@ -466,9 +488,9 @@ if __name__ == "__main__":
         # Train agent after collecting sufficient data:
         if episode_num > 10:
             for learning in range(100):
-                # actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(replay_buffer, env._max_episode_steps)
-                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,
-                                                                                     env._max_episode_steps)
+                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer)
+                #actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,
+                #                                                                     env._max_episode_steps)
 
         # Heatmap postion data, get starting object position
         if(lift_success):

@@ -13,11 +13,12 @@
 
 from gym import utils, spaces
 import gym
+from gym import wrappers # Used to get Monitor wrapper to save rendering video
 import glfw
 from gym.utils import seeding
 # from gym.envs.mujoco import mujoco_env
 import numpy as np
-from mujoco_py import MjViewer, load_model_from_path, MjSim
+from mujoco_py import MjViewer, load_model_from_path, MjSim #, MjRenderContextOffscreen
 import mujoco_py
 # from PID_Kinova_MJ import *
 import math
@@ -39,6 +40,7 @@ import csv
 import pandas as pd
 from pathlib import Path
 import threading #oh boy this might get messy
+from PIL import Image # Used to save images from rendering simulation
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -1165,6 +1167,16 @@ class KinovaGripper_Env(gym.Env):
                 xloc,yloc,zloc,f1prox,f2prox,f3prox=start_pos[0], start_pos[1], start_pos[2],start_pos[3], start_pos[4], start_pos[5]
                 x, y, z = start_pos[6], start_pos[7], start_pos[8]
 
+            # For testing - manually set object initial x, y coordinates
+            #naive_coord_path = "./coord_fail_test/naive_output/expert_plots/"
+            #expert_coord_path = "./coord_fail_test/expert_output/expert_plots/"
+            #x_coords = np.load(expert_coord_path+"heatmap_train_fail_new_x_arr.npy")
+            #y_coords = np.load(expert_coord_path+"heatmap_train_fail_new_y_arr.npy")
+            #random_idx = random.randint(0, len(x_coords))
+            #print("random_idx: ", random_idx)
+            #print("x: ", x_coords[random_idx])
+            #print("y: ", y_coords[random_idx])
+
             #all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,objx,objy,objz]
             self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, x, y, z])
             #if coords=='local':
@@ -1212,14 +1224,69 @@ class KinovaGripper_Env(gym.Env):
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
     def render(self, mode='human'): #TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        a=False
+        setPause=False
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
-            self._viewer._paused = True
-            a=True
+            self._viewer._paused = setPause
         self._viewer.render()
-        if a:
+        if setPause:
             self._viewer._paused=True
+
+    #Function to display the current state in a video. The video is always paused when it first starts up.
+    def render_video(self,setPause=False, setRecord=True):
+        if self._viewer is None:
+            self._viewer = MjViewer(self._sim)
+            self._viewer._paused = setPause
+
+        #if renderOffscreen is True:
+        #    offscreen = MjRenderContextOffscreen(self._sim, 0)
+        if setPause:
+            self._viewer._paused=True
+
+        # Check and create directory
+        video_dir = "./video/"
+        if not os.path.isdir(video_dir):
+           os.mkdir(video_dir)
+
+        if setRecord:
+            self._viewer._video_path = video_dir + "video_1.mp4"
+            self._viewer._record_video = True
+
+        # Finally render simulation with correct settings
+        self._viewer.render()
+        #render = lambda: plt.imshow(self._viewer.render())
+        #self.reset()
+        #render()
+
+    def render_img(self, episode_num, timestep_num, obj_coords, w=1000, h=1000, cam_name=None, mode='offscreen'):
+        # print("In render_img")
+        if self._viewer is None:
+            self._viewer = MjViewer(self._sim)
+
+        video_dir = "./video/"
+        if not os.path.isdir(video_dir):
+           os.mkdir(video_dir)
+        self._viewer._record_video = True
+        self._viewer._video_path = video_dir + "video_1.mp4"
+        # self._viewer.render()
+        # self._viewer = None
+        #a = MjSim(self._model).render(width=w, height=h, depth=True, mode='offscreen')
+        a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
+
+        # Just keep rgb values, so image is shape (w,h), make to be numpy array
+        a_rgb = a[0]
+        a_rgb = np.asarray(a_rgb, dtype=np.uint8)
+
+        #episode_dir = os.path.join(video_dir,"episode_"+str(episode_num)+"/")
+        episode_dir = os.path.join(video_dir, "obj_coords_" + str(obj_coords) + "/")
+        if not os.path.isdir(episode_dir):
+           os.mkdir(episode_dir)
+
+        img = Image.fromarray(a_rgb, 'RGB')
+        # Save image
+        img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
+
+        return a_rgb
 
     #Function to close the rendering window
     def close(self): #This doesn't work right now
