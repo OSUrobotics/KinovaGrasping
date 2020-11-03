@@ -51,7 +51,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n=5, discount=0.995, tau=0.0005):
+	def __init__(self, state_dim, action_dim, max_action, n=1, discount=0.995, tau=0.0005):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -343,6 +343,113 @@ class DDPGfD(object):
 		# Total critic loss
 		lambda_1 = 0.5 # hyperparameter to control n loss
 		critic_loss = critic_L1loss + lambda_1 * critic_LNloss
+
+		# Optimize the critic
+		self.critic_optimizer.zero_grad()
+		critic_loss.backward()
+		self.critic_optimizer.step()
+
+		# Compute actor loss
+		actor_loss = -self.critic(state, self.actor(state)).mean()
+
+		# Optimize the actor
+		self.actor_optimizer.zero_grad()
+		actor_loss.backward()
+		self.actor_optimizer.step()
+
+		if self.total_it % self.network_repl_freq == 0:
+			# Update the frozen target models
+			for param, target_param in zip(self.critic.parameters(), self.critic_target.parameters()):
+				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
+				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
+
+	def train_batch_1step(self, replay_buffer, episode_step):
+		self.total_it += 1
+
+		# new sampling procedure for n step rollback
+		state, action, next_state, reward, not_done = replay_buffer.sample_batch_1step()
+
+		# print("=======================state===================")
+		# print(state.shape)
+		# print("=======================next_state===================")
+		# print(next_state.shape)
+		#
+		# print("=====================action====================")
+		# print(action.shape)
+
+		# print("==========modified states and actions==============")
+		# print(state[:, -1])
+		# print(action[:, -1])
+
+
+
+		# episode_step = len(state) # for varying episode sets
+
+
+		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
+		# print("before regular")
+		# print(target_Q.shape)
+		# print(reward[:, 0].shape)
+		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
+
+		# print("======================target_Q===================")
+		# print(target_Q.shape)
+		#
+		# print("next state smaller")
+		# print(next_state[(self.n - 1):].shape)
+		#
+		# print("number of episode steps")
+		# print(episode_step)
+
+		"""
+		This is the updated version, assuming that we're sampling from a batch.
+		"""
+		target_action = self.actor_target(next_state[:, -1])
+		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
+
+		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
+		# note: might need to pass n properly from higher state!!!
+
+		# print("================================reward shape=======================")
+		# print(reward[:, 0].shape)  # idk the shape here, please record
+
+		for i in range(1):
+			n_step_return += (self.discount ** i) * reward[:, i].squeeze(-1)
+
+		# print("====================n step return shape====================")
+		# print(n_step_return.shape)
+
+		# this is the n step return with the added value fn estimation
+		target_QN = n_step_return + (self.discount ** 1) * target_critic_val.squeeze(-1)
+		target_QN = target_QN.unsqueeze(dim=-1)
+
+		# print("=======================target QN")
+		# print(target_QN.shape)
+
+		# New implementation
+		current_Q = self.critic(state[:, 0], action[:, 0])
+
+		# New Updated for new rollback method
+		current_Q_n = self.critic(state[:, -1], action[:, -1])
+
+		# print("======================Q shapes finallly==============")
+		# print(current_Q.shape)
+		# print(target_Q.shape)
+		# print(current_Q_n.shape)
+		# print(target_QN.shape)
+		# print("==============end printing pain==================")
+
+		# L_1 loss (Loss between current state, action and reward, next state, action)
+		critic_L1loss = F.mse_loss(current_Q, target_Q)
+
+		# L_2 loss (Loss between current state, action and reward, n state, n action)
+		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
+
+		# Total critic loss
+		critic_loss = critic_L1loss
 
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()

@@ -307,7 +307,7 @@ if __name__ == "__main__":
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
     num_expert_episodes = args.pre_replay_episode
-    max_replay_size = 10100 # TODO: turn into arg
+    max_replay_size = 250  # TODO: turn into arg
     do_pretraining = False
     if do_pretraining is False:
         num_expert_episodes = 0
@@ -319,7 +319,10 @@ if __name__ == "__main__":
     expert_replay_buffer = None
 
     # Replay buffer that manages its size like a queue, popping off the oldest episodes
-    replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, max_replay_size)
+    # replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, max_replay_size)
+
+    # deprecated replay buffer
+    replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, num_expert_episodes, max_replay_size)
 
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, num_expert_episodes)
 
@@ -392,7 +395,9 @@ if __name__ == "__main__":
         num_updates = 1000
         for pretrain_episode_num in range(int(num_updates)):
             print("pretrain_episode_num: ", pretrain_episode_num)
-            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
+            # pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train_batch_1step(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
+            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train_batch_1step(replay_buffer,
+                                                                                             env._max_episode_steps)
 
             if (pretrain_episode_num + 1) % 100 == 0:
                 print("YOU PASSED THE PRETRAIN EVAL CHECK")
@@ -486,9 +491,8 @@ if __name__ == "__main__":
         # Train agent after collecting sufficient data:
         if episode_num > 10:
             for learning in range(100):
-                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer)
-                #actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,
-                #                                                                     env._max_episode_steps)
+                # actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch_1step(env._max_episode_steps,expert_replay_buffer,replay_buffer)
+                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch_1step(replay_buffer, env._max_episode_steps)
 
         # Heatmap postion data, get starting object position
         if(lift_success):

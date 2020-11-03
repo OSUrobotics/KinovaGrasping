@@ -161,7 +161,7 @@ class ReplayBuffer_Queue(object):
 
 # A buffer that stores and sample based on episodes that have different step size
 class ReplayBuffer_NStep(object):
-	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100, n_steps=5, batch_size=64):
+	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=250, n_steps=1, batch_size=64):
 		self.max_episode = max_episode
 		self.max_size = max_episode * 500
 		self.ptr = 0
@@ -199,7 +199,7 @@ class ReplayBuffer_NStep(object):
 
 		# if self.ptr >= self.max_size:
 		# 	self.ptr =
-		self.size = (self.size + 1) % self.max_size
+		self.size = min((self.size + 1), self.max_size)
 
 	def add_episode(self, start):
 
@@ -220,6 +220,8 @@ class ReplayBuffer_NStep(object):
 		else:
 			self.episodes[self.episodes_count, 1] = int(self.ptr)  # record the ending index in the buffer (ptr)
 			self.episodes_count += 1
+			if self.episodes_count >= self.max_episode:
+				self.episodes_count = self.expert_episode_num  # just start at the beginning - we're deprecating this replay buffer anyways
 
 	def sample(self):
 		# deciding whether we grab expert or non expert trajectories.
@@ -391,6 +393,55 @@ class ReplayBuffer_NStep(object):
 		# print("==============================================================SHAPE OF SELF.STATE INSIDE REPLAY BUFFER")
 		# print(self.state.shape)
 		# print(self.action.shape)
+
+		return (
+			torch.FloatTensor(states).to(self.device),
+			torch.FloatTensor(actions).to(self.device),
+			torch.FloatTensor(next_states).to(self.device),
+			torch.FloatTensor(rewards).to(self.device),
+			torch.FloatTensor(not_dones).to(self.device)
+		)
+
+	def sample_batch_1step(self):
+		"""
+		should return in shape (batch, n step length, relevant transition item's shape)
+		"""
+		# print('DFJASKLFJASDFKLJFASDKLJFASDKLJFAS')
+		# print("==============================================================SHAPE OF SELF.STATE INSIDE REPLAY BUFFER")
+		# print(self.state.shape)
+		# print(self.action.shape)
+
+
+		# deciding whether we grab expert or non expert trajectories.
+		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
+		if self.expert_episode_num == 0:
+			expert_or_random = "agent"
+		elif self.episodes_count > self.expert_episode_num:
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
+		else:
+			expert_or_random = "expert"
+
+		if expert_or_random == "expert":
+			# episode = np.random.randint(0, self.expert_episode_num)
+			episode_range = (0, self.episodes[self.expert_episode_num, 1])
+
+		else:
+			# episode = np.random.randint(self.expert_episode_num, self.episodes_count)
+			episode_range = (self.episodes[self.expert_episode_num, 1] + 1, self.max_size)
+
+		episode_indices = np.random.randint(episode_range[0], episode_range[1], size=self.batch_size)
+
+		states = self.state[episode_indices]
+		actions = self.action[episode_indices]
+		next_states = self.next_state[episode_indices]
+		rewards = self.reward[episode_indices]
+		not_dones = self.not_done[episode_indices]
+
+		states = np.expand_dims(states, axis=1)
+		actions = np.expand_dims(actions, axis=1)
+		next_states = np.expand_dims(next_states, axis=1)
+		rewards = np.expand_dims(rewards, axis=1)
+		not_dones = np.expand_dims(not_dones, axis=1)
 
 		return (
 			torch.FloatTensor(states).to(self.device),
