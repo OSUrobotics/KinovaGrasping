@@ -631,16 +631,16 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
             replay_buffer.add_episode(1)
         while not done:
             # Render image from current episode
-            if total_steps % 10 == 0:
-                env.render_img(episode_num=i, timestep_num=total_steps, obj_coords=str(obj_coords[0])+"_"+str(obj_coords[1]))
-            else:
-                env._viewer = None
+            #if total_steps % 10 == 0:
+            #    env.render_img(episode_num=i, timestep_num=total_steps, obj_coords=str(obj_coords[0])+"_"+str(obj_coords[1]))
+            #else:
+            #    env._viewer = None
             obs_label.append(obs)
             # Nudge controller strategy
-            #action, grasp_label = controller.NudgeController(prev_obs, obs, env.action_space, grasp_label)
+            action, grasp_label = controller.NudgeController(prev_obs, obs, env.action_space, grasp_label)
 
             # Naive controller, where np.array([wrist, f1, f2, f3])
-            #if total_steps > max_timesteps:
+            '''
             # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
             if prev_obs is None:  # None if on the first timestep
                 f_dist_old = None
@@ -652,7 +652,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
                 action = np.array([0.6, 0.15, 0.15, 0.15])
             else:
                 action = np.array([0, 0.8, 0.8, 0.8])
-
+            '''
 
             action_label.append(action)
             next_obs, reward, done, info = env.step(action)

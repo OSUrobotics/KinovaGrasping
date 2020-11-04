@@ -207,12 +207,13 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--pre_replay_episode", default=2000, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--pre_replay_episode", default=10000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with (train, test, etc.)
-    parser.add_argument("--agent_replay_size", default=10100, type=int)
+    parser.add_argument("--agent_replay_size", default=10100, type=int) # Maximum size of agent's replay buffer
+    parser.add_argument("--do_pretraining", action='store', default=0, type=int) # Determine whether or not to do pretraining/expert replay
 
     args = parser.parse_args()
 
@@ -311,35 +312,33 @@ if __name__ == "__main__":
     expert_replay_size = args.pre_replay_episode # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size # Maximum number of episodes to be stored in agent replay buffer
     
-    do_pretraining = False
+    do_pretraining = bool(args.do_pretraining)
+    print("Do pretraining: ",args.do_pretraining)
     if do_pretraining is False:
         expert_replay_size = 0
+        expert_replay_buffer = None
 
+    # Replay buffer that can use multiple n-steps
     #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, expert_replay_size)
+    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, expert_replay_size)
 
-    # Replay buffer that manages its size like a queue, popping off the oldest episodes
-    #expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    expert_replay_buffer = None
+    # Experimental replay buffer
+    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
+
+    # Replay buffer that samples only one episode
+    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
+    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
 
     # Replay buffer that manages its size like a queue, popping off the oldest episodes
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
-    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, expert_replay_size)
-
-    # experimental replay buffer
-    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
-
-
-    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
-    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
     if do_pretraining is True:
-        expert_replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, expert_replay_buffer, False)
+        # Replay buffer that manages its size like a queue, popping off the oldest episodes
+        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+        expert_replay_buffer = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, False)
 
     print("*****replay_buffer.size: ",replay_buffer.size)
-    #print("*****expert_replay_buffer.size: ", expert_replay_buffer.size)
     print("*****replay_buffer.episodes_count: ",replay_buffer.episodes_count)
-    #print("*****expert_replay_buffer.episodes_count: ", expert_replay_buffer.episodes_count)
-
 
     # Evaluate untrained policy
     evaluations = []
@@ -387,17 +386,17 @@ if __name__ == "__main__":
     writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
 
     # Pretrain (No pretraining without imitation learning)
-    if do_pretraining == True:
+    if do_pretraining is True:
         pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_"+args.policy_name, args.tensorboardindex))
         print("---- Pretraining ----")
         # Sets number of timesteps per episode (counted from each step() call)
 
-        num_updates = 1000
+        num_updates = 10000
         for pretrain_episode_num in range(int(num_updates)):
             print("pretrain_episode_num: ", pretrain_episode_num)
             pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
 
-            if (pretrain_episode_num + 1) % 100 == 0:
+            if (pretrain_episode_num + 1) % 1000 == 0:
                 print("YOU PASSED THE PRETRAIN EVAL CHECK")
                 print("\n\n***You're in evaluate pretain policy")
                 eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
