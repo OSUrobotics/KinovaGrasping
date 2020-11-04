@@ -7,12 +7,12 @@ class ReplayBuffer_Queue(object):
 	def __init__(self, state_dim, action_dim, max_episode=10100, n_steps=5, batch_size=64):
 		self.max_episode = max_episode		# Maximum number of episodes, limit to when we remove old episodes
 		self.size = 0				# Full size of the replay buffer (number of entries over all episodes)
-		self.episodes_count = 0		# Number of episodes currently in the replay buffer
-		self.episodes = np.zeros((self.max_episode, 2))		# Keep track of episode start/finish indexes
+		self.episodes_count = 0		# Number of episodes that have occurred (may be more than max replay buffer side)
+		self.replay_ep_num = 0		# Number of episodes currently in the replay buffer
+		self.episodes = [[]]		# Keep track of episode start/finish indexes
 		self.timesteps_count = 0		# Keeps track of the number of timesteps within an episode for sampling purposed
-		# each of these are a stack
-		# TODO: bug we will have to deal with later: we need to explicitly define datatypes when initting each new numpy array. otherwise annoying typecasting shenenagains
 
+		# each of these are a queue
 		self.state = [[]]
 		self.action = [[]]
 		self.next_state = [[]]
@@ -29,15 +29,6 @@ class ReplayBuffer_Queue(object):
 		"""
 		Assume there's a numpy array
 		"""
-
-		# print("hi")
-		#if self.episodes_count is 0:
-		#	self.state.append(state)
-		#	self.action.append(action)
-		#	self.next_state.append(next_state)
-		#	self.reward.append(reward)
-		#	self.not_done.append(1. - done)
-		#else:
 		self.state[-1].append(state)
 		self.action[-1].append(action)
 		self.next_state[-1].append(next_state)
@@ -46,20 +37,13 @@ class ReplayBuffer_Queue(object):
 
 		self.size += 1
 		self.timesteps_count += 1
-		#print("in ADD, timesteps_count: ",self.timesteps_count)
 
 		# if episode has terminated
 		if done:
-			print("In add, episode is DONE")
-			print("self.timesteps_count: ",self.timesteps_count)
-			print("len(self.state): ",len(self.state))
-			print("len(self.state[episodes_count]): ", len(self.state[self.episodes_count]))
-			print("len(self.state[episodes_count][0]): ", len(self.state[self.episodes_count][0]))
-			print("len(self.state[episodes_count][1]): ", len(self.state[self.episodes_count][1]))
 			# increment episode count
 			self.episodes_count += 1
-			# init new set of numpy arrays
-			# TODO: DEFINE DATA TYPES!!!
+			self.replay_ep_num += 1
+
 			# Append empty list to start new row for an episode
 			self.state.append([])
 			self.action.append([])
@@ -67,20 +51,23 @@ class ReplayBuffer_Queue(object):
 			self.reward.append([])
 			self.not_done.append([])
 
-			# if over max num episodes
-			if self.episodes_count > self.max_episode:
-				print(".popleft() on all the stacks and subtract 1 from episodes count ")
+			# If over max number of episodes for replay buffer
+			if self.replay_ep_num >= self.max_episode:
 				self.remove_episode()
 
 	def remove_episode(self):
 		"""
 		Remove the oldest episode from the replay buffer (FIFO)
 		"""
+		print("IN REMOVE EPISODE ******")
 		self.state.pop(0)
 		self.action.pop(0)
 		self.next_state.pop(0)
 		self.reward.pop(0)
 		self.not_done.pop(0)
+		self.episodes.pop(0)
+
+		self.replay_ep_num -= 1
 
 	def add_episode(self, start):
 		"""
@@ -89,66 +76,22 @@ class ReplayBuffer_Queue(object):
 		"""
 		# call it when each episode starts
 		if start:
-			print("in ADD EPISODE start: ",self.episodes_count)
-			print("in ADD EPISODE start: self.max_episode", self.max_episode)
-			print("in ADD EPISODE start: len(self.episodes)", len(self.episodes))
-			print("in ADD EPISODE start, self.timesteps_count: ", self.timesteps_count)
-			self.episodes[self.episodes_count, 0] = self.timesteps_count  # record the beginning index in the buffer (ptr)
+			self.episodes[-1].append(self.timesteps_count)
 		# call it when each episode ends
 		else:
-			print("in ADD EPISODE end: ", self.episodes_count-1)
-			print("in ADD EPISODE end, self.timesteps_count: ",self.timesteps_count)
-			self.episodes[self.episodes_count-1, 1] = self.timesteps_count  # record the ending index in the buffer (ptr)
-			#self.episodes_count += 1
-			print("len(self.episodes): ",len(self.episodes))
+			self.episodes[-1].append(self.timesteps_count)
+			self.episodes.append([])
 			self.timesteps_count = 0  # Reset count of timesteps within an episode
 		return
 
 	def sample(self):
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
-		print("IN STACK SAMPLE")
-		#print("1) self.expert_episode_num: ", self.expert_episode_num)
-		print("episodes_count: ", self.episodes_count)
 
-		episode_idx = random.choice(np.arange(0, self.episodes_count)) # Choose one random episode between [0,episode_count)
-
-		#print("episode_idx[0]: ", episode_idx[0])
-		# note: episode is an array (with one element). so we need to access the element with `episode[0]`
-		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
-		# sample episode
-		#ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
+		episode_idx = random.choice(np.arange(0, self.replay_ep_num)) # Choose one random episode between [0,episode_count)
 
 		# Get the beginning timestep index and the ending timestep index within an episode
-		ind = np.arange(self.episodes[episode_idx, 0], self.episodes[episode_idx, 1])
-		print("self.episodes[episode_idx, 0]: ", self.episodes[episode_idx, 0])
-		print("self.episodes[episode_idx, 1]: ", self.episodes[episode_idx, 1])
-
-		#print("episodes: ", self.episodes)
-		#print("ind: ", ind.astype(int))
-		#print("state: ", self.state[ind.astype(int)])
-
-		print("len(self.state[0]): ", len(self.state[0]))
-		print("***IN SAMPLE episode_idx: ",episode_idx)
-
-		# if self.episodes_count > 10:
-		#torch.FloatTensor(self.state[episode_idx][ind.astype(int)]).to(self.device),
-		#torch.FloatTensor(self.action[episode_idx][ind.astype(int)]).to(self.device),
-		#torch.FloatTensor(self.next_state[episode_idx][ind.astype(int)]).to(self.device),
-		#torch.FloatTensor(self.reward[episode_idx][ind.astype(int)]).to(self.device),
-		#torch.FloatTensor(self.not_done[episode_idx][ind.astype(int)]).to(self.device)
-		#	pdb.set_trace()
-
-		#print("in SAMPLE self.episodes_count: ",self.episodes_count)
-		#ep_states = self.state[episode_idx[0]]
-		#print("len(ep_states): ",len(ep_states))
-		#sampled_state = [ep_states[i] for i in ind.astype(int)]
-		#print("len(sampled_state): ", len(sampled_state))
-
-		#sampled_action = np.array(self.action)[episode_idx]
-		#sampled_next_state = np.array(self.next_state)[episode_idx]
-		#sampled_reward = np.array(self.reward)[episode_idx]
-		#sampled_done = np.array(self.not_done)[episode_idx]
+		#ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
 
 		return (
 			torch.FloatTensor(self.state[episode_idx]).to(self.device),

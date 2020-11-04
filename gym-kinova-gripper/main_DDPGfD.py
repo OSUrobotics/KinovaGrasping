@@ -209,9 +209,10 @@ if __name__ == "__main__":
     parser.add_argument("--model", default=1, type=int)	# save model index
     parser.add_argument("--pre_replay_episode", default=2000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
-    parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
+    parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with (train, test, etc.)
+    parser.add_argument("--agent_replay_size", default=10100, type=int)
 
     args = parser.parse_args()
 
@@ -306,22 +307,24 @@ if __name__ == "__main__":
     print(action_dim)  # this is 4 by default
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
-    num_expert_episodes = args.pre_replay_episode
-    max_replay_size = 10100 # TODO: turn into arg
+    
+    expert_replay_size = args.pre_replay_episode # Number of expert episodes for expert the replay buffer
+    agent_replay_size = args.agent_replay_size # Maximum number of episodes to be stored in agent replay buffer
+    
     do_pretraining = False
     if do_pretraining is False:
-        num_expert_episodes = 0
+        expert_replay_size = 0
 
-    #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
+    #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, expert_replay_size)
 
     # Replay buffer that manages its size like a queue, popping off the oldest episodes
-    #expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, num_expert_episodes)
+    #expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
     expert_replay_buffer = None
 
     # Replay buffer that manages its size like a queue, popping off the oldest episodes
-    replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, max_replay_size)
+    replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
-    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, num_expert_episodes)
+    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, expert_replay_size)
 
     # experimental replay buffer
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
