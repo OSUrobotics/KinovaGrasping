@@ -307,7 +307,7 @@ if __name__ == "__main__":
     print("args.pre_replay_episode =================================")
     print(args.pre_replay_episode)  # this is 100 by defualt
     num_expert_episodes = args.pre_replay_episode
-    max_replay_size = 250  # TODO: turn into arg
+    max_replay_size = 10100  # TODO: turn into arg
     do_pretraining = False
     if do_pretraining is False:
         num_expert_episodes = 0

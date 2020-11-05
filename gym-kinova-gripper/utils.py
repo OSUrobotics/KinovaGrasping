@@ -161,7 +161,7 @@ class ReplayBuffer_Queue(object):
 
 # A buffer that stores and sample based on episodes that have different step size
 class ReplayBuffer_NStep(object):
-	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=250, n_steps=1, batch_size=64):
+	def __init__(self, state_dim, action_dim, expert_episode_num, max_episode=10100, n_steps=1, batch_size=64):
 		self.max_episode = max_episode
 		self.max_size = max_episode * 500
 		self.ptr = 0
@@ -442,6 +442,14 @@ class ReplayBuffer_NStep(object):
 		next_states = np.expand_dims(next_states, axis=1)
 		rewards = np.expand_dims(rewards, axis=1)
 		not_dones = np.expand_dims(not_dones, axis=1)
+
+		# print("=============testing")
+		# print(states.shape)
+		# print(actions.shape)
+		# print(next_states.shape)
+		# print(rewards.shape)
+		# print(not_dones.shape)
+		# print("stop")
 
 		return (
 			torch.FloatTensor(states).to(self.device),

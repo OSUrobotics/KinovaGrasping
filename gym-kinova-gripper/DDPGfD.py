@@ -449,7 +449,8 @@ class DDPGfD(object):
 		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
 
 		# Total critic loss
-		critic_loss = critic_L1loss
+		lambda_1 = 1  # hyperparameter to control n loss
+		critic_loss = critic_L1loss + lambda_1 * critic_LNloss
 
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
