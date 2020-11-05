@@ -91,15 +91,26 @@ class ReplayBuffer_Queue(object):
 		episode_idx = random.choice(np.arange(0, self.replay_ep_num)) # Choose one random episode between [0,episode_count)
 
 		# Get the beginning timestep index and the ending timestep index within an episode
-		#ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
+		ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
+
+		# Randomly select 100 timesteps from the episode
+		selected_indexes = random.choices(ind, k=100)
 
 		return (
+			torch.FloatTensor([self.state[episode_idx][x] for x in selected_indexes]).to(self.device),
+			torch.FloatTensor([self.action[episode_idx][x] for x in selected_indexes]).to(self.device),
+			torch.FloatTensor([self.next_state[episode_idx][x] for x in selected_indexes]).to(self.device),
+			torch.FloatTensor([self.reward[episode_idx][x] for x in selected_indexes]).to(self.device),
+			torch.FloatTensor([self.not_done[episode_idx][x] for x in selected_indexes]).to(self.device)
+		)
+
+	'''
 			torch.FloatTensor(self.state[episode_idx]).to(self.device),
 			torch.FloatTensor(self.action[episode_idx]).to(self.device),
 			torch.FloatTensor(self.next_state[episode_idx]).to(self.device),
 			torch.FloatTensor(self.reward[episode_idx]).to(self.device),
 			torch.FloatTensor(self.not_done[episode_idx]).to(self.device)
-		)
+	'''
 
 
 # A buffer that stores and sample based on episodes that have different step size
