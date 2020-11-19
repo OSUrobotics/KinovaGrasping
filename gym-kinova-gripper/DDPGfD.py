@@ -258,11 +258,26 @@ class DDPGfD(object):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
-	def train_batch(self, replay_buffer, episode_step):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer=None):
 		self.total_it += 1
 
-		# new sampling procedure for n step rollback
-		state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
+		# Sample replay buffer
+		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
+			expert_or_random = "agent"
+		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
+			expert_or_random = "expert"
+		else:
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
+
+		if expert_or_random == "expert":
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch()
+		else:
+			state, action, next_state, reward, not_done = replay_buffer.sample_batch()
+	# def train_batch(self, replay_buffer, episode_step):
+	# 	self.total_it += 1
+	#
+	# 	# new sampling procedure for n step rollback
+	# 	state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
 
 		# print("=======================state===================")
 		# print(state.shape)
@@ -271,6 +286,15 @@ class DDPGfD(object):
 		#
 		# print("=====================action====================")
 		# print(action.shape)
+		#
+		# print("===============reward===========")
+		# print(reward.shape)
+		#
+		# print("==============not done===========")
+		# print(not_done.shape)
+
+		reward = reward.unsqueeze(-1)
+		not_done = not_done.unsqueeze(-1)
 
 		# print("==========modified states and actions==============")
 		# print(state[:, -1])

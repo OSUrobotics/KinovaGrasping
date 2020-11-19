@@ -394,7 +394,7 @@ if __name__ == "__main__":
         num_updates = 10000
         for pretrain_episode_num in range(int(num_updates)):
             print("pretrain_episode_num: ", pretrain_episode_num)
-            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
+            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train_batch(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
 
             if (pretrain_episode_num + 1) % 1000 == 0:
                 print("YOU PASSED THE PRETRAIN EVAL CHECK")
@@ -488,7 +488,7 @@ if __name__ == "__main__":
         # Train agent after collecting sufficient data:
         if episode_num > 10:
             for learning in range(100):
-                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer)
+                actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,expert_replay_buffer,replay_buffer)
                 #actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,
                 #                                                                     env._max_episode_steps)
 

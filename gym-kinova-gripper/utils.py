@@ -29,11 +29,11 @@ class ReplayBuffer_Queue(object):
 		"""
 		Assume there's a numpy array
 		"""
-		self.state[-1].append(state)
-		self.action[-1].append(action)
-		self.next_state[-1].append(next_state)
-		self.reward[-1].append(reward)
-		self.not_done[-1].append(1. - done)
+		self.state[-1].append(np.array(state))
+		self.action[-1].append(np.array(action))
+		self.next_state[-1].append(np.array(next_state))
+		self.reward[-1].append(np.array(reward))
+		self.not_done[-1].append(np.array(1. - done))
 
 		self.size += 1
 		self.timesteps_count += 1
@@ -111,6 +111,72 @@ class ReplayBuffer_Queue(object):
 			torch.FloatTensor(self.reward[episode_idx]).to(self.device),
 			torch.FloatTensor(self.not_done[episode_idx]).to(self.device)
 	'''
+
+	def sample_batch(self):
+
+		# init arrs
+		state_arr = []
+		action_arr = []
+		next_state_arr = []
+		reward_arr = []
+		not_done_arr = []
+
+		# array of random indices to call on the episodes array
+		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=self.batch_size)
+
+		for idx in episode_idx_arr:
+			# get episode len
+			# print(len(self.state[idx]))
+			episode_len = len(self.state[idx])
+
+			if episode_len - self.n_steps <= 1:
+				print("oh god we are about to crash")
+				print(episode_len)
+
+			# get the ceiling idx. note the stagger b/c of n steps. the 1 is so that we don't pick 0 as an index (see next part)
+			ceiling = np.random.randint(1, episode_len - self.n_steps)
+
+			# print("episode len minus n steps: ", episode_len - self.n_steps)
+			# print("ceiling value: ", ceiling)
+			start_idx = np.random.randint(ceiling)
+
+			# get the array idx
+			trajectory_arr_idx = np.arange(start_idx, start_idx + self.n_steps)
+
+			# quick hack - we'll fix this later with for loops. we're gonna use double the space rn to just make our indexing work with numpy slicing.
+			temp_state = np.array(self.state[idx])
+			temp_action = np.array(self.action[idx])
+			temp_next_state = np.array(self.next_state[idx])
+			temp_reward = np.array(self.reward[idx])
+			temp_not_done = np.array(self.not_done[idx])
+
+			state_trajectory = temp_state[trajectory_arr_idx]
+			action_trajectory = temp_action[trajectory_arr_idx]
+			next_state_trajectory = temp_next_state[trajectory_arr_idx]
+			reward_trajectory = temp_reward[trajectory_arr_idx]
+			not_done_trajectory = temp_not_done[trajectory_arr_idx]
+
+			# # get trajectories
+			# state_trajectory = self.state[idx][trajectory_arr_idx]
+			# action_trajectory = self.action[idx][trajectory_arr_idx]
+			# next_state_trajectory = self.next_state[idx][trajectory_arr_idx]
+			# reward_trajectory = self.reward[idx][trajectory_arr_idx]
+			# not_done_trajectory = self.not_done[idx][trajectory_arr_idx]
+
+			state_arr.append(state_trajectory)
+			action_arr.append(action_trajectory)
+			next_state_arr.append(next_state_trajectory)
+			reward_arr.append(reward_trajectory)
+			not_done_arr.append(not_done_trajectory)
+
+
+		return (
+			torch.FloatTensor(state_arr).to(self.device),
+			torch.FloatTensor(action_arr).to(self.device),
+			torch.FloatTensor(next_state_arr).to(self.device),
+			torch.FloatTensor(reward_arr).to(self.device),
+			torch.FloatTensor(not_done_arr).to(self.device)
+		)
 
 
 # A buffer that stores and sample based on episodes that have different step size
