@@ -62,6 +62,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #eval_env = gym.make(env_name)
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
+            # Sets number of timesteps per episode (counted from each step() call)
+            eval_env._max_episode_steps = 200
             while not done:
                 action = GenerateTestPID_JointVel(np.array(state),eval_env)
                 state, reward, done, _ = eval_env.step(action)
@@ -74,12 +76,16 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
             cumulative_reward = 0
+            # Sets number of timesteps per episode (counted from each step() call)
+            eval_env._max_episode_steps = 200
 
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
 
+            timestep_count = 0
             while not done:
-                action = policy.select_action(np.array(state[0:48]))
+                timestep_count += 1
+                action = policy.select_action(np.array(state[0:82]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -90,6 +96,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # pdb.set_trace()
             print('Policy net reward:',cumulative_reward)
             num_success[0]+=success
+            print("Eval timestep count: ",timestep_count)
 
 
             # Save initial object coordinate as success/failure
@@ -129,12 +136,15 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #eval_env = gym.make(env_name)
             state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
             cumulative_reward = 0
+            # Sets number of timesteps per episode (counted from each step() call)
+            eval_env._max_episode_steps = 200
             
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
-
+            timestep_count = 0
             while not done:
-                action = policy.select_action(np.array(state[0:48]))
+                timestep_count += 1
+                action = policy.select_action(np.array(state[0:82]))
                 state, reward, done, _ = eval_env.step(action)
                 avg_reward += reward
                 cumulative_reward += reward
@@ -145,6 +155,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # pdb.set_trace()
             # print(cumulative_reward)
             num_success+=success
+            print("Eval timestep count: ",timestep_count)
 
             # Save initial object coordinate as success/failure
             if(success):
@@ -176,31 +187,31 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--policy_name", default="DDPGfD")                # Policy name
-    parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")            # OpenAI gym environment name
-    parser.add_argument("--seed", default=2, type=int)                    # Sets Gym, PyTorch and Numpy seeds
-    parser.add_argument("--start_timesteps", default=100, type=int)        # How many time steps purely random policy is run for
-    parser.add_argument("--eval_freq", default=100, type=float)            # How often (time steps) we evaluate
-    parser.add_argument("--max_timesteps", default=1e6, type=int)        # Max time steps to run environment for
-    parser.add_argument("--max_episode", default=20000, type=int)        # Max time steps to run environment for
-    parser.add_argument("--save_models", action="store_true")            # Whether or not models are saved
-    parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
-    parser.add_argument("--batch_size", default=250, type=int)            # Batch size for both actor and critic
-    parser.add_argument("--discount", default=0.995, type=float)            # Discount factor
-    parser.add_argument("--tau", default=0.0005, type=float)                # Target network update rate
-    parser.add_argument("--policy_noise", default=0.01, type=float)        # Noise added to target policy during critic update
-    parser.add_argument("--noise_clip", default=0.05, type=float)        # Range to clip target policy noise
-    parser.add_argument("--policy_freq", default=2, type=int)            # Frequency of delayed policy updates
-    parser.add_argument("--tensorboardindex", default="new")    # tensorboard log name
-    parser.add_argument("--model", default=1, type=int)    # save model index
-    parser.add_argument("--pre_replay_episode", default=100, type=int)    # Number of episode for loading expert trajectories
-    parser.add_argument("--saving_dir", default="new")    # Number of episode for loading expert trajectories
+    parser.add_argument("--policy_name", default="DDPGfD")				# Policy name
+    parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
+    parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
+    parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
+    parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
+    parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
+    parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
+    parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
+    parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
+    parser.add_argument("--batch_size", default=250, type=int)			# Batch size for both actor and critic
+    parser.add_argument("--discount", default=0.995, type=float)			# Discount factor
+    parser.add_argument("--tau", default=0.0005, type=float)				# Target network update rate
+    parser.add_argument("--policy_noise", default=0.01, type=float)		# Noise added to target policy during critic update
+    parser.add_argument("--noise_clip", default=0.05, type=float)		# Range to clip target policy noise
+    parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
+    parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
+    parser.add_argument("--model", default=1, type=int)	# save model index
+    parser.add_argument("--pre_replay_episode", default=20000, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with (train, test, etc.)
 
     args = parser.parse_args()
-    
+
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
     print("---------------------------------------")
     print("Settings: {file_name}")
@@ -215,8 +226,12 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    state_dim = env.observation_space.shape[0]
-    #print ("STATE DIM ---------", state_dim)
+    #state_dim = env.observation_space.shape[0]
+    #state_dim = env.observation_space
+    #state_dim = env.get_obs(state_rep="global").shape[0]
+    # TESTING ONLY _ REMOVE ONCE DONE
+    state_dim = 82
+    print ("STATE DIM ---------", state_dim)
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
     max_action_trained = env.action_space.high # a vector of max actions
@@ -255,32 +270,55 @@ if __name__ == "__main__":
         policy = DDPG.DDPG(**kwargs)
     elif args.policy_name == "DDPGfD":
         policy = DDPGfD.DDPGfD(**kwargs)
-
+    #self.actor = np.random.randn(layer_size[l], layer_size[l - 1]) * np.sqrt(2 / layer_size[l - 1])
+    # Fill pre-training object list using latin square
+    env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
 
     # Initialize replay buffer with expert demo
     print("----Generating {} expert episodes----".format(args.pre_replay_episode))
     # Not being used (commented out in other files)
-    #from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
+    from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
 
-    # from pretrain_from_RL import pretrain_from_agent
-    # expert_policy = DDPGfD.DDPGfD(**kwargs)
-    # replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
+    #from pretrain_from_RL import pretrain_from_agent
+    #expert_policy = DDPGfD.DDPGfD(**kwargs)
+    #replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
 
     # trained policy
-    #policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
+    # policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
 
     # **Uncomment***
-    policy.load('./policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
+    #policy.load('./policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
     #policy.load('/Users/vanil/5_3_20_Heatmap/NCSGen_obj_pos_plot/gym-kinova-gripper/policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
 
     # old pid control
-    replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
+    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
     # replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
     # replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
 
     # new pid control
-    # replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, args.pre_replay_episode)
-    # replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    ## this is it
+    print("state dimension FOR REPLAY BUFFER ================================")
+    print(state_dim)  # this is 48 by default
+    print("action dimension FOR REPLAY BUFFER ================================")
+    print(action_dim)  # this is 4 by default
+    print("args.pre_replay_episode =================================")
+    print(args.pre_replay_episode)  # this is 100 by defualt
+    num_expert_episodes = args.pre_replay_episode
+    do_pretraining = 0
+    if do_pretraining == 0:
+        num_expert_episodes = 0
+
+    replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, num_expert_episodes)
+
+
+    # experimental replay buffer
+    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
+
+
+    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
+    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    #print("REPLAY_BUFFER: ",replay_buffer)
+    #print("REPLAY_BUFFER.SIZE: ", replay_buffer.size())
 
     # Evaluate untrained policy
     evaluations = []
@@ -306,19 +344,10 @@ if __name__ == "__main__":
     expl_noise = OUNoise(4, sigma=0.001)
     expl_noise.reset()
 
-    # Initialize SummaryWriter
-    writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
-
-    # Pretrain (No pretraining without imitation learning)
-    # print("---- Pretraining ----")
-    # num_updates = 1000
-    # for k in range(int(num_updates)):
-    #     policy.train(replay_buffer, env._max_episode_steps)
-
     # Check and create directory
     trplot_saving_dir = "./train_plots"
     if not os.path.isdir(trplot_saving_dir):
-        os.mkdir(trplot_saving_dir)
+       os.mkdir(trplot_saving_dir)
 
     # Heatmap initial object coordinates
     strain_obj_posx = np.array([])
@@ -333,6 +362,37 @@ if __name__ == "__main__":
     total_evalx = np.array([])
     total_evaly = np.array([])
 
+    # Initialize SummaryWriter
+    writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
+
+    # Pretrain (No pretraining without imitation learning)
+    '''
+    print("---- Pretraining ----")
+    num_updates = 5
+    for pretrain_episode_num in range(int(num_updates)):
+        print("pretrain_episode_num: ", pretrain_episode_num)
+        pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(replay_buffer,env._max_episode_steps)
+
+        if (pretrain_episode_num + 1) % 100 == 0:
+            print("\n\n***You're in evaluate pretain policy")
+            eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
+            print("\n***After eval_policy - pretain policy")
+            avg_reward = eval_ret[0]
+            writer.add_scalar("Episode reward, Avg. 100 episodes", avg_reward, pretrain_episode_num)
+            writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
+            writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
+            writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
+            writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
+
+
+    pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    print("Pre-training: Saving into {}".format(pretrain_model_save_path))
+    policy.save(pretrain_model_save_path)
+
+    print("POST PRETRAINING")
+    print("replay_buffer: ",replay_buffer)
+    #quit()
+    '''
 
     # ##Testing Code##
     # env = gym.make(args.env_name)
@@ -351,6 +411,8 @@ if __name__ == "__main__":
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
         env = gym.make(args.env_name)
+        # Sets number of timesteps per episode (counted from each step() call)
+        env._max_episode_steps = 200
         episode_num += 1
 
         # Fill training object list using latin square
@@ -361,16 +423,18 @@ if __name__ == "__main__":
         noise.reset()
         expl_noise.reset()
         episode_reward = 0
-        print("*** Episode Num: ",episode_num)
+        print("\n*** Episode Num: ",episode_num)
 
         obj_coords = env.get_obj_coords()
 
+        replay_buffer.add_episode(1)
+        # timestep counter only used for testing purposes
+        timestep = 0
         while not done:
-            # if t < args.start_timesteps:
-            #     action = env.action_space.sample()
-            # else:
+            timestep = timestep + 1
+
             action = (
-                policy.select_action(np.array(state[0:48]))
+                policy.select_action(np.array(state))
                 + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
             ).clip(-max_action, max_action)
 
@@ -379,11 +443,11 @@ if __name__ == "__main__":
 
             # Perform action obs, total_reward, done, info
             next_state, reward, done, info = env.step(action)
-            env.render()
             done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
             # Store data in replay buffer
-            replay_buffer.add_wo_expert(state[0:48], action, next_state[0:48], reward, done_bool)
+            replay_buffer.add(state[0:82], action, next_state[0:82], reward, done_bool)
+
             if(info["lift_reward"] > 0):
                 lift_success = True
             else:
@@ -391,6 +455,8 @@ if __name__ == "__main__":
 
             state = next_state
             episode_reward += reward
+        replay_buffer.add_episode(0)
+        print("timestep: ",timestep)
 
         # Train agent after collecting sufficient data:
         if episode_num > 10:
@@ -456,6 +522,9 @@ if __name__ == "__main__":
     train_totaly = np.append(strain_obj_posy,ftrain_obj_posy)
 
     # Save object postions from training
+    print("Success train num: ",len(strain_obj_posx))
+    print("Fail train num: ", len(ftrain_obj_posx))
+    print("Total train num: ", len(train_totalx))
     save_coordinates(strain_obj_posx,strain_obj_posy,trplot_saving_dir+"/heatmap_train_success_new")
     save_coordinates(ftrain_obj_posx,ftrain_obj_posy,trplot_saving_dir+"/heatmap_train_fail_new")
     save_coordinates(train_totalx,train_totaly,trplot_saving_dir+"/heatmap_train_total_new")
