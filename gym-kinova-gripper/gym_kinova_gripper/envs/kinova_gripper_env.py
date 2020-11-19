@@ -415,7 +415,7 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
             finger_dot_prod=self._get_fingers_dot_product(fingers_6D_pose)
-            fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ dot_prod#+ [self.obj_shape]
+            fingers_6D_pose = fingers_6D_pose + list(self.wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data +finger_dot_prod+ [dot_prod]#+ [self.obj_shape]
 
         elif state_rep == "local":
             finger_dot_prod=[]
@@ -439,7 +439,7 @@ class KinovaGripper_Env(gym.Env):
             obj_pose = obj_for_roation[0:3]
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
-            fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod +dot_prod#+ [self.obj_shape]
+            fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod +[dot_prod]#+ [self.obj_shape]
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
@@ -1160,7 +1160,7 @@ class KinovaGripper_Env(gym.Env):
             self.Grasp_Reward=False
             self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.00, 0.0, 0.055])
             self.all_states = [self.all_states_1 , self.all_states_2]
-
+            
             self._set_state(self.all_states[0])
         else:
             self.set_sim_state(qpos,start_pos)
@@ -1225,14 +1225,19 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork = False, testfun = False): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork = True, testfun = False): #TODO: fix this so that we can rotate the hand
         total_reward = 0
         self._get_trans_mat_wrist_pose()
         if len(action)==4:
             action=[0,0,action[0],action[1],action[2],action[3]]
-
+        if action[0]==0:
+            self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
+        if action[1]==0:
+            self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
+        if action[2]==0:
+            self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
         if self.arm_or_hand=="hand":
-            mass=0.732
+            mass=0.733
             gear=25
             stuff=np.matmul(self.Tfw[0:3,0:3],[0,0,mass*10/gear])
             stuff[0]=-stuff[0]
@@ -1274,7 +1279,7 @@ class KinovaGripper_Env(gym.Env):
                 self._sim.step()
         
         obs = self._get_obs(test=False)
-
+        #print('obs in step',obs)
         if not graspnetwork:
             if not testfun:
                 ### Get this reward for RL training ###

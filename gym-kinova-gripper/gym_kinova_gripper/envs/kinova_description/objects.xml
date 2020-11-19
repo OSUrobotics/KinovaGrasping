@@ -1,7 +1,8 @@
 <mujoco> --&gt;
+
 	<body name="object" pos="0 0 0">
 		<joint name="object" type="free" />
-		<geom mass="0.1" name="object" rgba="1 0 0 1" size="0.017499999999999998 0.017499999999999998 0.050000249999999996" type="box" />
+		<geom mass="0.1" name="object" rgba="0 1 0 1" size="0.017499999999999998 0.017499999999999998 0.050000249999999996" type="box" material="BrightMaterial"/>
 	</body>
 </mujoco>
 
