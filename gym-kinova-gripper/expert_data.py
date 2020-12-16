@@ -9,6 +9,7 @@ Purpose : Supervised learning for near contact grasping strategy
 import os, sys
 import numpy as np
 import gym
+from gym import  wrappers # Used for video rendering
 import argparse
 import pdb
 import pickle
@@ -17,6 +18,7 @@ from NCS_nn import NCS_net, GraspValid_net
 import torch 
 from copy import deepcopy
 # from gen_new_env import gen_new_obj
+import matplotlib.pyplot as plt
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -337,7 +339,50 @@ class PID(object):
         #    action = 0.8
         if action < 0.05: # Old velocity
             action = 0.05
+        print("TOUCH VEL, action: ",action)
         return action
+
+    def check_grasp(self, f_dist_old, f_dist_new):
+        """
+        Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
+        the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
+        @param: f_dist_old: Distal finger tip x,y,z coordinate values from previous timestep
+        @param: f_dist_new: Distal finger tip x,y,z coordinate values from current timestep
+        """
+
+        # Initial check to see if previous state has been set
+        if f_dist_old is None:
+            return False
+
+        # Change in finger 1 distal x-coordinate position
+        f1_change = abs(f_dist_old[0] - f_dist_new[0])
+        f1_diff = f1_change / self.sampling_time
+        #print("f1_change: ",f1_change)
+        #print("f1_diff: ", f1_diff)
+        #print("self.sampling_time: ",self.sampling_time)
+
+        # Change in finger 2 distal x-coordinate position
+        f2_change = abs(f_dist_old[3] - f_dist_new[3])
+        f2_diff = f2_change / self.sampling_time
+
+        # Change in finger 3 distal x-coordinate position
+        f3_change = abs(f_dist_old[6] - f_dist_new[6])
+        f3_diff = f3_change / self.sampling_time
+
+        # Sum of changes in distal fingers
+        f_all_change = f1_diff + f2_diff + f3_diff
+
+        #print("f_all_change: ",f_all_change)
+
+        # If the fingers have only changed a small amount, we assume the object is grasped
+        if f_all_change < 0.00005:
+            #print("RETURN TRUE")
+            return True
+        else:
+            #print("***************************f_all_change: ", f_all_change)
+            #print("RETURN FALSE")
+            return False
+
 
 ##############################################################################
 ### PID nudge controller ###
@@ -359,18 +404,23 @@ class ExpertPIDController(object):
         self.prev_f3jA = 0.0
         self.step = 0.0
         self.init_obj_pose = states[21]  # X position of object
+        #self.init_obj_pose = self._sim.data.get_geom_xpos(object)
         self.init_dot_prod = states[81]  # dot product of object wrt palm
+        self.f1_vels = []
+        self.f2_vels = []
+        self.f3_vels = []
+        self.wrist_vels = []
 
     def _count(self):
         self.step += 1
 
-    def NudgeController(self, states, action_space, label):
+    def NudgeController(self, prev_states, states, action_space, label):
         # Define pid controller
         pid = PID(action_space)
 
         # obtain robot and object state
         robot_pose = np.array([states[0], states[1], states[2]])
-        obj_pose = states[21]  # X position of object
+        #obj_pose = states[21]  # X position of object
         obj_dot_prod = states[81]  # dot product of object wrt palm
         f1_jA = states[25]
         f2_jA = states[26]
@@ -386,77 +436,148 @@ class ExpertPIDController(object):
         f3 = 0.0  # double side finger - left of finger 1
         wrist = 0.0
 
-        if abs(
-                self.init_obj_pose) <= 0.03:  # only comparing initial X position of object. because we know hand starts at the same position every time (close to origin)
+        # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
+        if prev_states is None: # None if on the first timestep
+            f_dist_old = None
+        else:
+            f_dist_old = prev_states[9:17]
+        f_dist_new = states[9:17]
+
+        #print("________________________")
+        #print("f_dist_old: ",f_dist_old)
+        #print("f_dist_new: ", f_dist_new)
+        #print("________________________")
+
+        #print("***NUDGE CONTROLLER self.init_obj_pos: ", self.init_obj_pose)
+        ready_for_lift = False
+
+        # Check if the object is near the center area (less than x-axis 0.03)
+        if abs(self.init_obj_pose) <= 0.03:
+            # only comparing initial X position of object. because we know
+            # the hand starts at the same position every time (close to origin)
             """
             note that the object is near the center, so we just kinda close the fingers here
             """
+            #print("CHECK 1: Object is near the center")
             f1, f2, f3 = 0.2, 0.2, 0.2 # Old velocity: 0.2, 0.2, 0.2  # set constant velocity of all three fingers
+
+            # Check if change in object dot product to wrist center versus the initial dot product is greater than 0.01
             if abs(obj_dot_prod - self.init_dot_prod) > 0.01:  # start lowering velocity of the three fingers
+                #print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
                 f1, f2, f3 = 0.2, 0.1, 0.1  # slows down to keep steady in one spot
-                if self.step > 100: # Old timesteps 200:
-                    wrist = 0.3 # Old velocity: 0.3  # begin to add vel to the wrist once the episode of finger movement is over (200 time steps)
+
+                # Check if object is grasped - distal finger distance hasn't moved
+                if pid.check_grasp(f_dist_old, f_dist_new) is True:
+                    #print("Check 2A: Object is grasped, now lifting")
+                    #wrist, f1, f2, f3 = 0.6, 0.15, 0.3, 0.3
+                    #f1, f2, f3 = 0.3, 0.15, 0.15
+                    #wrist = 0.3
+                    ready_for_lift = True
         else:
+            #print("CHECK 3: Object is on extreme left OR right sides")
             # object on right hand side, move 2-fingered side
-            if self.init_obj_pose < 0.0:
+            # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
+            if self.init_obj_pose > 0.0:
+                #print("CHECK 4: Object is on RIGHT side")
                 # Pre-contact
-                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:  # small difference between current finger-object distance, and initial finger-object difference - so not much work done yet!
+                # Only Small change in object dot prod to wrist from initial position, must move more
+                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
+                    #print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
                     f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
                     f3 = f2  # other double side finger moves at same speed
                     f1 = 0.0  # frontal finger doesn't move
                     wrist = 0.0
                 # Post-contact
                 else:  # now finger-object distance has been changed a decent amount.
-                    if abs(1 - obj_dot_prod) > 0.01:  # goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors.
+                    #print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
+                    # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
+                    if abs(1 - obj_dot_prod) > 0.01:
+                        #print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
                         # start to close the PID stuff
                         f2 = pid.velocity(obj_dot_prod)  # get PID velocity
                         f3 = f2  # other double side finger moves at same speed
                         f1 = 0.05 # Old velocity: 0.05  # frontal finger moves slightly
                         wrist = 0.0
                     else:  # goal is within 0.01 of being reached:
+                        #print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
                         # start to close from the first finger
                         f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                         f2 = 0.0
                         f3 = 0.0
                         wrist = 0.0
-                    # Hand tune lift time
-                    if self.step > 100: # Old timesteps 400:  # if another 200 time steps pass, switch to constant finger movement
-                        f1, f2, f3 = 0.3, 0.15, 0.15
-                        wrist = 0.3 # Old velocity: 0.3
+
+                    #print("Check 9a: Check for grasp (small distal finger movement)")
+                    # Check for a good grasp (small distal finger movement)
+                    if pid.check_grasp(f_dist_old, f_dist_new) is True:
+                        #print("CHECK 9: Yes! Good grasp, move ALL fingers")
+                        #wrist, f1, f2, f3 = 0.6, 0.15, 0.3, 0.3
+                        #f1, f2, f3 = 0.3, 0.15, 0.15
+                        #wrist = 0.3
+                        ready_for_lift = True
+
             # object on left hand side, move 1-fingered side
+            # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
+                #print("CHECK 10: Object is on the LEFT side")
                 # Pre-contact
-                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:  # small difference between current finger-object distance, and initial finger-object difference - so not much work done yet!
+                # Only Small change in object dot prod to wrist from initial position, must move more
+                if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
+                    #print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
                     f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                     f2 = 0.0
                     f3 = 0.0
                     wrist = 0.0
                 # Post-contact
-                else:  # note how this is mirrored from the right hand side case above.
+                else:  # now finger-object distance has been changed a decent amount.
+                    #print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
+                    # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
                     if abs(1 - obj_dot_prod) > 0.01:
+                        #print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
                         f1 = pid.velocity(obj_dot_prod)
-                        f2 = 0.05 # Old velocity: 0.05
-                        f3 = 0.05 # Old velocity: 0.05
+                        f2 = 0.05
+                        f3 = 0.05
                         wrist = 0.0
                     else:
+                        # Goal is within 0.01 of being reached:
+                        #print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
+                        # start to close from the first finger
                         # nudge with thumb
                         f2 = pid.touch_vel(obj_dot_prod, states[79]) # f2_dist dot product to object
                         f3 = f2
                         f1 = 0.0
                         wrist = 0.0
-                    # Hand tune lift time
-                    if self.step > 100: # Old timesteps 200:
-                        f1, f2, f3 = 0.3, 0.15, 0.15
-                        wrist = 0.3 # Old velocity: 0.3
 
-        if self.step <= 200: # Old timesteps 400:
-            label.append(0)
-        else:
-            label.append(1)
+                    #print("Check 15a: Check for grasp (small distal finger movement)")
+                    # Check for a good grasp (small distal finger movement)
+                    if pid.check_grasp(f_dist_old, f_dist_new) is True:
+                        #print("CHECK 15: Good grasp - moving ALL fingers")
+                        wrist, f1, f2, f3 = 0.6, 0.15, 0.3, 0.3
+                        #f1, f2, f3 = 0.3, 0.15, 0.15
+                        #wrist = 0.3
+                        ready_for_lift = True
+
+        #if self.step <= 400: # Old timesteps 400:
+        #    label.append(0)
+        #else:
+        #    label.append(1)
         self._count()
         # print(self.step)
 
-        return np.array([wrist, f1, f2, f3]), label  # action, grasp label
+        #f1 *= 2
+        #f2 *= 2
+        #f3 *= 2
+
+        f1 *= 3
+        f2 *= 3
+        f3 *= 3
+
+        #print("f1: ",f1," f2: ",f2," f3: ",f3," wrist: ",wrist)
+        self.f1_vels.append(f1)
+        self.f2_vels.append(f2)
+        self.f3_vels.append(f3)
+        self.wrist_vels.append(f3)
+
+        return np.array([wrist, f1, f2, f3]), label, ready_for_lift, self.f1_vels, self.f2_vels, self.f3_vels, self.wrist_vels  # action, grasp label, ready for lift
 
 def GenerateTestPID_JointVel(obs,env):
     grasp_label=[]
@@ -502,6 +623,57 @@ def add_heatmap_coords(expert_success_x,expert_success_y,expert_fail_x,expert_fa
     ret = [expert_success_x, expert_success_y, expert_fail_x, expert_fail_y]
     return ret
 
+def naive_check_grasp(f_dist_old, f_dist_new):
+    """
+    Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
+    the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
+    @param: f_dist_old: Distal finger tip x,y,z coordinate values from previous timestep
+    @param: f_dist_new: Distal finger tip x,y,z coordinate values from current timestep
+    """
+
+    # Initial check to see if previous state has been set
+    if f_dist_old is None:
+        return False
+    sampling_time = 4
+
+    # Change in finger 1 distal x-coordinate position
+    f1_change = abs(f_dist_old[0] - f_dist_new[0])
+    f1_diff = f1_change / sampling_time
+    #print("f1_change: ",f1_change)
+    #print("f1_diff: ", f1_diff)
+    #print("self.sampling_time: ",self.sampling_time)
+
+    # Change in finger 2 distal x-coordinate position
+    f2_change = abs(f_dist_old[3] - f_dist_new[3])
+    f2_diff = f2_change / sampling_time
+
+    # Change in finger 3 distal x-coordinate position
+    f3_change = abs(f_dist_old[6] - f_dist_new[6])
+    f3_diff = f3_change / sampling_time
+
+    # Sum of changes in distal fingers
+    f_all_change = f1_diff + f2_diff + f3_diff
+
+    #print("f_all_change: ",f_all_change)
+
+    # If the fingers have only changed a small amount, we assume the object is grasped
+    if f_all_change < 0.00005:
+        #print("RETURN TRUE")
+        return True
+    else:
+        #print("***************************f_all_change: ", f_all_change)
+        #print("RETURN FALSE")
+        return False
+
+#def check_object_in_center(state):
+# Define ranges of xa values to be interpolated
+# Define center range based on interpolated x values
+# Check if point is within center range
+# -0.04 to -0.02, 0.02 to 0.04
+#if -0.04 <= state[21] <= 0.04:
+# Return True if object position is within center range
+# Return False if object position is on outer edges
+
 def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid=True
@@ -513,40 +685,123 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     expert_success_y = np.array([])     # Successful object initial y-coordinates
     expert_fail_x = np.array([])     # Failed object initial x-coordinates
     expert_fail_y = np.array([])     # Files object initial y-coordinates
-    max_timesteps = 60     # Maximum number of timesteps to achieve grasp
+    all_timesteps = np.array([])     # Keeps track of all timesteps to determine average timesteps needed
+    success_timesteps = np.array([]) # Successful episode timesteps count distribution
+    fail_timesteps = np.array([])    # Failed episode timesteps count distribution
+
+    print("----Generating {} expert episodes----".format(episode_num))
 
     for i in range(episode_num):
-        print("******Episode: ", i)
+        print("**** Expert PID Episode: ", i)
+        prev_obs = None # State observation of the previous state
+        ready_for_lift = False # Signals if ready for lift, from check_grasp()
         total_steps = 0
         obs, done = env.reset(), False
         # Sets number of timesteps per episode (counted from each step() call)
-        env._max_episode_steps = 200
+        env._max_episode_steps = 400
         obj_coords = env.get_obj_coords()
 
         controller = ExpertPIDController(obs)
         if replay_buffer != None:
             replay_buffer.add_episode(1)
         while not done:
+            # Render image from current episode
+            if total_steps % 10 == 0:
+                env.render_img(episode_num=i, timestep_num=total_steps, obj_coords=str(obj_coords[0])+"_"+str(obj_coords[1]))
+            #else:
+            #    env._viewer = None
+
+            # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
+            if prev_obs is None:  # None if on the first timestep
+                f_dist_old = None
+            else:
+                f_dist_old = prev_obs[9:17]
+            f_dist_new = obs[9:17]
+
             obs_label.append(obs)
-            # Nudge controller strategy
-            action, grasp_label = controller.NudgeController(obs, env.action_space, grasp_label)
-            '''
+            object_x_coord = obs[21] # Object x coordinate position
+
+            #print("\nobject_x_coord: ", object_x_coord)
+            # If object x position is on outer edges, do expert pid
+            if object_x_coord < -0.04 or object_x_coord > 0.04:
+                # Expert Nudge controller strategy
+                action, grasp_label, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(prev_obs, obs, env.action_space, grasp_label)
+                # Do not lift until after 50 steps
+                if total_steps < 50:
+                    action[0] = 0
+            # Object x position within the side-middle ranges, interpolate expert/naive velocity output
+            elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
+                # Interpolate between naive and expert velocities
+                if naive_check_grasp(f_dist_old, f_dist_new) is True:
+                    naive_action = np.array([0.6, 0.15, 0.15, 0.15])
+                else:
+                    naive_action = np.array([0, 0.8, 0.8, 0.8])
+
+                # Expert PID
+                expert_action, grasp_label, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(prev_obs, obs, env.action_space, grasp_label)
+
+                if naive_action[0] == 0:
+                    wrist_vel = 0
+                else:
+                    wrist_vel = naive_action[0] + expert_action[0] / 2
+                #print("naive_action[0]: ",naive_action[0])
+                #print("exper_action[0]",expert_action[0])
+                #print("wrist_vel: ",wrist_vel)
+                finger_vels = np.interp(np.arange(1,4),naive_action[1:3],expert_action[1:3])
+                #print("naive_action[1:3]: ",naive_action[1:3])
+                #print("expert_action[1:3]: ", expert_action[1:3])
+                #print("finger_vels: ",finger_vels)
+
+                # Only start to lift if we've had some timesteps to adjust hand
+                if total_steps < 50:
+                    wrist_vel = 0
+
+                action = np.array([wrist_vel,finger_vels[0],finger_vels[1],finger_vels[2]])
+                #print("action: ",action,"\n")
+
+            # Object x position is within center area, so use naive controller
+            else:
+                if naive_check_grasp(f_dist_old, f_dist_new) is True and total_steps > 50:
+                    action = np.array([0.6, 0.15, 0.15, 0.15])
+                else:
+                    action = np.array([0, 0.8, 0.8, 0.8])
             # Naive controller, where np.array([wrist, f1, f2, f3])
-            if total_steps > max_timesteps:
+            '''
+            if naive_check_grasp(f_dist_old, f_dist_new) is True:
                 action = np.array([0.6, 0.15, 0.15, 0.15])
             else:
                 action = np.array([0, 0.8, 0.8, 0.8])
             '''
+
+            scale = 1
+            #print("BEFORE action: ", action)
+            action = action * scale
+            #print("AFTER action: ", action,"\n")
 
             action_label.append(action)
             next_obs, reward, done, info = env.step(action)
 
             if replay_buffer != None:
                 replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+
+            # Once current timestep is over, update prev_obs to be current obs
+            if total_steps > 0:
+                prev_obs = obs
             obs = next_obs
             total_steps += 1
-            #if done == 1:
-            #   env.render()
+
+        all_timesteps = np.append(all_timesteps,total_steps)
+
+        print("Expert PID total timestep: ", total_steps)
+        lift_success=None
+        if (info["lift_reward"] > 0):
+            lift_success = 'success'
+            success_timesteps = np.append(success_timesteps, total_steps)
+        else:
+            lift_success = 'fail'
+            fail_timesteps = np.append(fail_timesteps, total_steps)
+        if total_steps % 10 == 0:
+            env.render_img(episode_num=i, timestep_num=total_steps,obj_coords=str(obj_coords[0])+"_"+str(obj_coords[1]),final_episode_type=lift_success)
 
         ret = add_heatmap_coords(expert_success_x, expert_success_y,expert_fail_x,expert_fail_y, obj_coords,info)
         expert_success_x = ret[0]
@@ -559,74 +814,227 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     print("Final # of Successes: ", len(expert_success_x))
     print("Final # of Failures: ", len(expert_fail_x))
 
-    if save:
+    print("Saving coordinates...")
+    # Save coordinates
+    # Folder to save heatmap coordinates
+    expert_saving_dir = "./21_1_expert_plots"
+    if not os.path.isdir(expert_saving_dir):
+        os.mkdir(expert_saving_dir)
+
+    np.save(expert_saving_dir + "/success_timesteps",success_timesteps)
+    np.save(expert_saving_dir + "/fail_timesteps", fail_timesteps)
+    np.save(expert_saving_dir + "/all_timesteps", all_timesteps)
+
+    expert_total_x = np.append(expert_success_x, expert_fail_x)
+    expert_total_y = np.append(expert_success_y, expert_fail_y)
+    save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
+    save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
+    save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
+
+    print("Plotting timestep distribution...")
+    plot_timestep_distribution(success_timesteps,fail_timesteps,all_timesteps, expert_saving_dir)
+
+    save = False
+    print("Save is: ",str(save))
+    save_filepath = None
+    if save and replay_buffer is not None:
         print("Saving...")
-        # Save coordinates
-        # Folder to save heatmap coordinates
-        expert_saving_dir = "./expert_plots"
-        if not os.path.isdir(expert_saving_dir):
-            os.mkdir(expert_saving_dir)
-
-        expert_total_x = np.append(expert_success_x, expert_fail_x)
-        expert_total_y = np.append(expert_success_y, expert_fail_y)
-        save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
-        save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
-        save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
-
-        filename = "expertdata"
-        data = {}
-        data["states"] = obs_label
-        data["grasp_success"] = grasp_label
-        data["action"] = action_label
-        data["total_steps"] = total_steps
-        file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
-        from sklearn.externals import joblib
+        # Check and create directory
+        expert_replay_saving_dir = "./expert_replay_data"
+        if not os.path.isdir(expert_replay_saving_dir):
+            os.mkdir(expert_replay_saving_dir)
+        #data = {}
+        #data["states"] = obs_label
+        #data["grasp_success"] = grasp_label
+        #data["action"] = action_label
+        #data["total_steps"] = total_steps
+        #file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
+        ''' Different attempt to save data as current method gets overloaded
         filename = filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".sav"
+        from sklearn.externals import joblib
         print("trying joblib...")
         joblib.dump(data, filename)
-        print("trying pickle...")
-        pickle.dump(data, file)
-        file.close()
+        '''
+        #print("trying pickle...")
+        #pickle.dump(data, file)
+        #file.close()
 
-    return replay_buffer
+        #data = {}
+        #data["states"] = replay_buffer.state
+        #data["action"] = replay_buffer.action
+        #data["next_states"] = replay_buffer.next_state
+        #data["reward"] = replay_buffer.reward
+        #data["done"] = replay_buffer.not_done
+
+        curr_save_dir = "Expert_data_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M")
+
+        if not os.path.exists(os.path.join(expert_replay_saving_dir, curr_save_dir)):
+            os.makedirs(os.path.join(expert_replay_saving_dir, curr_save_dir))
+
+        save_filepath = expert_replay_saving_dir + "/" + curr_save_dir + "/"
+        print("save_filepath: ",save_filepath)
+        np.save(save_filepath + "state", replay_buffer.state)
+        np.save(save_filepath + "action", replay_buffer.action)
+        np.save(save_filepath + "next_state", replay_buffer.next_state)
+        np.save(save_filepath + "reward", replay_buffer.reward)
+        np.save(save_filepath + "not_done", replay_buffer.not_done)
+
+        np.save(save_filepath + "episodes", replay_buffer.episodes) # Keep track of episode start/finish indexes
+        np.save(save_filepath + "episodes_info", [replay_buffer.max_episode, replay_buffer.size, replay_buffer.episodes_count, replay_buffer.replay_ep_num])
+        # max_episode: Maximum number of episodes, limit to when we remove old episodes
+        # size: Full size of the replay buffer (number of entries over all episodes)
+        # episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
+        # replay_ep_num: Number of episodes currently in the replay buffer
+
+        print("*** Saved replay buffer to location: ",save_filepath)
+        print("In expert data: replay_buffer.size: ", replay_buffer.size)
+    return replay_buffer, save_filepath
     
 # def GenerateExpertPID_JointAngle():
 
-def store_saved_data_into_replay(replay_buffer, num_episode):
-    filename = "/home/graspinglab/NCSGen/gym-kinova-gripper/collect_jA_12_27_19_1458"
-    file = open(filename + ".pkl", "rb")
-    data = pickle.load(file)
-    obs = data["obs"]
-    action = data["action"]
-    next_obs = data["next_obs"]
-    reward = data["reward"]
-    done = data["done"]
-    file.close()    
-    # pdb.set_trace()
+def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
 
-    # env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+    if all_timesteps is None:
+        success_timesteps = np.load(expert_saving_dir + "/success_timesteps.npy")
+        fail_timesteps = np.load(expert_saving_dir + "/fail_timesteps.npy")
+        all_timesteps = np.load(expert_saving_dir + "/all_timesteps.npy")
 
+    n_bins = 40
+    # We can set the number of bins with the `bins` kwarg
+    plt.hist(all_timesteps, bins=n_bins, color="g")
+    plt.title("Total time steps distribution for all episodes (3x speed)", weight='bold')
+    plt.xlabel('# of time steps per episode')
+    plt.ylabel('# of episodes with the time step count')
+    plt.xlim(0, 800)
+    plt.savefig(expert_saving_dir + "/total_timestep_distribution")
+    plt.clf()
 
-    for i in range(num_episode):
-        obs_episode = obs[i][:]
-        action_episode = action[i][:]
-        next_obs_episode = next_obs[i][:]
-        reward_episode = reward[i][:]
-        done_episode = done[i][:]
-        # env.reset()
-        # t_r = 0.0
-        for j in range(100):
-            # ob, re, do, _ = env.step(action_episode[j])
-            # env.render()
-            replay_buffer.add(obs_episode[j], action_episode[j], next_obs_episode[j], reward_episode[j], done_episode[j]) # store joint angles as actions
-            # t_r += re
-            # print(action_episode[j])
-        # print(t_r)
-        # pdb.set_trace()
+    plt.hist(success_timesteps, bins=n_bins, color="b")
+    plt.title("Time steps distribution for Successful episodes (3x speed)", weight='bold')
+    plt.xlabel('# of time steps per episode')
+    plt.ylabel('# of episodes with the time step count')
+    plt.savefig(expert_saving_dir + "/success_timestep_distribution")
+    plt.clf()
+
+    plt.hist(fail_timesteps, bins=n_bins, color="r")
+    plt.title("Time steps distribution for Failed episodes (3x speed)", weight='bold')
+    plt.xlabel('# of time steps per episode')
+    plt.ylabel('# of episodes with the time step count')
+    plt.savefig(expert_saving_dir + "/fail_timestep_distribution")
+    plt.clf()
+'''
+def plot_average_velocity(replay_buffer,num_timesteps):
+    """ Plot the average velocity over a certain number of episodes """
+    velocity_dir = "./expert_average_velocity"
+    if not os.path.isdir(velocity_dir):
+        os.mkdir(velocity_dir)
+
+    #num_episodes = len(f1_vels)
+
+    #plt.plot(np.arrange(len(f1_vels)), f1_vels)
+
+    max_timesteps = 30
+    timestep_vel_count = np.zeros(max_timesteps)
+    wrist_avg_vels = np.zeros(max_timesteps)
+    f1_avg_vels = np.zeros(max_timesteps)
+    f2_avg_vels = np.zeros(max_timesteps)
+    f3_avg_vels = np.zeros(max_timesteps)
+
+    for episode_actions in replay_buffer.action:
+        for timestep_idx in range(len(episode_actions)):
+            timestep_vel_count[timestep_idx] += 1
+            wrist_avg_vels[timestep_idx] = (wrist_avg_vels[timestep_idx] + episode_actions[timestep_idx][0]) / timestep_vel_count[timestep_idx]
+            f1_avg_vels[timestep_idx] = (f1_avg_vels[timestep_idx] + episode_actions[timestep_idx][1]) / \
+                                       timestep_vel_count[timestep_idx]
+            f2_avg_vels[timestep_idx] = (f2_avg_vels[timestep_idx] + episode_actions[timestep_idx][2]) / \
+                                       timestep_vel_count[timestep_idx]
+            f3_avg_vels[timestep_idx] = (f3_avg_vels[timestep_idx] + episode_actions[timestep_idx][3]) / \
+                                       timestep_vel_count[timestep_idx]
+
+    num_episodes = len(replay_buffer.action)
+    print("replay_buffer.action: ",replay_buffer.action)
+    print("f1_avg_vels: ",f1_avg_vels)
+    plt.plot(np.arange(num_timesteps), f1_avg_vels, color="r", label="Finger1")
+    plt.plot(np.arange(num_timesteps), f2_avg_vels, color="b", label="Finger2")
+    plt.plot(np.arange(num_timesteps), f3_avg_vels, color="g", label="Finger3")
+    plt.plot(np.arange(num_timesteps), wrist_avg_vels, color="y", label="Wrist")
+    plt.legend()
+
+    plt.title("Average velocity over "+str(num_episodes)+" episodes", weight='bold')
+    plt.xlabel('Timestep within an episode')
+    plt.ylabel('Average Velocity at Timestep')
+    #plt.savefig(velocity_dir + "/velocity_plot")
+    #plt.clf()
+    plt.show()
+'''
+def store_saved_data_into_replay(replay_buffer,filepath):
+
+    print("#### Getting expert replay buffer from SAVED location: ",filepath)
+
+    expert_state = np.load(filepath + "state.npy", allow_pickle=True).astype('object')
+    expert_action = np.load(filepath + "action.npy", allow_pickle=True).astype('object')
+    expert_next_state = np.load(filepath + "next_state.npy", allow_pickle=True).astype('object')
+    expert_reward = np.load(filepath + "reward.npy", allow_pickle=True).astype('object')
+    expert_not_done = np.load(filepath + "not_done.npy", allow_pickle=True).astype('object')
+
+    expert_episodes = np.load(filepath + "episodes.npy", allow_pickle=True).astype('object')  # Keep track of episode start/finish indexes
+    expert_episodes_info = np.load(filepath + "episodes_info.npy", allow_pickle=True)
+
+    # Convert numpy array to list and set to replay buffer
+    replay_buffer.state = expert_state.tolist()
+    replay_buffer.action = expert_action.tolist()
+    replay_buffer.next_state = expert_next_state.tolist()
+    replay_buffer.reward = expert_reward.tolist()
+    replay_buffer.not_done = expert_not_done.tolist()
+    replay_buffer.episodes = expert_episodes.tolist()
+
+    replay_buffer.max_episode = expert_episodes_info[0]
+    replay_buffer.size = expert_episodes_info[1]
+    replay_buffer.episodes_count = expert_episodes_info[2]
+    replay_buffer.replay_ep_num = expert_episodes_info[3]
+
+    # max_episode: Maximum number of episodes, limit to when we remove old episodes
+    # size: Full size of the replay buffer (number of entries over all episodes)
+    # episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
+    # replay_ep_num: Number of episodes currently in the replay buffer
+
+    #num_episodes = len(expert_state)
+    num_episodes = replay_buffer.replay_ep_num
+    print("num_episodes: ", num_episodes)
 
     return replay_buffer
 
-# def generate_closing_data(env, num_episode, filename):
+
+def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
+
+    if all_timesteps is None:
+        success_timesteps = np.load(expert_saving_dir + "/success_timesteps.npy")
+        fail_timesteps = np.load(expert_saving_dir + "/fail_timesteps.npy")
+        all_timesteps = np.load(expert_saving_dir + "/all_timesteps.npy")
+
+    n_bins = 40
+    # We can set the number of bins with the `bins` kwarg
+    plt.hist(all_timesteps, bins=n_bins, color="g")
+    plt.title("Total time steps distribution for all episodes (3x speed)", weight='bold')
+    plt.xlabel('# of time steps per episode')
+    plt.ylabel('# of episodes with the time step count')
+    plt.xlim(0, 800)
+    plt.savefig(expert_saving_dir + "/total_timestep_distribution")
+    plt.clf()
+
+    plt.hist(success_timesteps, bins=n_bins, color="b")
+    plt.title("Time steps distribution for Successful episodes (3x speed)", weight='bold')
+    plt.xlabel('# of time steps per episode')
+    plt.ylabel('# of episodes with the time step count')
+    plt.savefig(expert_saving_dir + "/success_timestep_distribution")
+    plt.clf()
+
+    plt.hist(fail_timesteps, bins=n_bins, color="r")
+    plt.title("Time steps distribution for Failed episodes (3x speed)", weight='bold')
+    plt.xlabel('# of time steps per episode')
+    plt.ylabel('# of episodes with the time step count')
+    plt.savefig(expert_saving_dir + "/fail_timestep_distribution")
+    plt.clf()
 
 # Command line
 '''
@@ -641,4 +1049,5 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-#GenerateExpertPID_JointVel(20000)
+replay_buffer, save_filepath = GenerateExpertPID_JointVel(30)
+#plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")

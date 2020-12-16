@@ -13,11 +13,12 @@
 
 from gym import utils, spaces
 import gym
+from gym import wrappers # Used to get Monitor wrapper to save rendering video
 import glfw
 from gym.utils import seeding
 # from gym.envs.mujoco import mujoco_env
 import numpy as np
-from mujoco_py import MjViewer, load_model_from_path, MjSim
+from mujoco_py import MjViewer, load_model_from_path, MjSim #, MjRenderContextOffscreen
 import mujoco_py
 # from PID_Kinova_MJ import *
 import math
@@ -39,6 +40,8 @@ import csv
 import pandas as pd
 from pathlib import Path
 import threading #oh boy this might get messy
+from PIL import Image # Used to save images from rendering simulation
+import shutil
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -193,19 +196,19 @@ class KinovaGripper_Env(gym.Env):
 
     # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
     def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
-        self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm')) 
+        self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
         Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
         temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
         temp=np.transpose(temp)
         Tfa=np.zeros([4,4])
         Tfa[0:3,0:3]=temp
-        Tfa[3,3]=1       
+        Tfa[3,3]=1
         Tfw=np.zeros([4,4])
         Tfw[0:3,0:3]=temp
         Tfw[3,3]=1
         self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
         Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
-        self.Tfw=Tfw 
+        self.Tfw=Tfw
         self.Twf=np.linalg.inv(Tfw)
 
     def experimental_sensor(self,rangedata,finger_pose,gravity):
@@ -305,7 +308,7 @@ class KinovaGripper_Env(gym.Env):
             else:
                 print('input not recognized, please input either Y or N. do the red bars line up with the object center Y/N?')
         print('Next test, finger positions')
-            
+
         finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
         fingers_6D_pose = []
         for joint in finger_joints:
@@ -354,9 +357,9 @@ class KinovaGripper_Env(gym.Env):
         for i in range(6):
             print(finger_joints[i], 'pose:',tests_passed[i+1])
 
-        
-            
-        
+
+
+
     # Function to return global or local transformation matrix
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         '''
@@ -387,7 +390,7 @@ class KinovaGripper_Env(gym.Env):
         (2,) X and Z angle                                        48-50
         (17,) Rangefinder data                                    50-67
         '''
-        
+
         if state_rep == None:
             state_rep = self.state_rep
         # states rep
@@ -429,7 +432,7 @@ class KinovaGripper_Env(gym.Env):
                     fingers_6D_pose.append(trans[i])
             wrist_for_rotation=np.append(self.wrist_pose,1)
             wrist_for_rotation=np.matmul(self.Tfw,wrist_for_rotation)
-            
+
             wrist_pose = wrist_for_rotation[0:3]
             obj_for_roation=np.append(obj_pose,1)
             obj_for_roation=np.matmul(self.Tfw,obj_for_roation)
@@ -445,7 +448,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to get the distance between the digits on the fingers and the object center
     # NOTE! This only takes into account the x and y differences. We might want to consider taking z into account as well for other orientations
-    def _get_finger_obj_dist(self): 
+    def _get_finger_obj_dist(self):
         finger_joints = ["f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", "f3_prox_1","f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"]
 
         obj = self._get_obj_pose()
@@ -490,13 +493,13 @@ class KinovaGripper_Env(gym.Env):
         x_dot = np.dot(obj_wrist[1:3],center_line[1:3])
         x_angle = np.arccos(x_dot/np.linalg.norm(obj_wrist[1:3]))
         return x_angle,z_angle
-    
+
     def _get_fingers_dot_product(self, fingers_6D_pose):
         fingers_dot_product = []
         for i in range(6):
             fingers_dot_product.append(self._get_dot_product(fingers_6D_pose[3*i:3*i+3]))
         return fingers_dot_product
-    
+
     #function to get the dot product. Only used for the pid controller
     def _get_dot_product(self,obj_state=None):
         if obj_state==None:
@@ -748,10 +751,10 @@ class KinovaGripper_Env(gym.Env):
             rand_x=np.sin(theta)*r
             rand_y=np.cos(theta)*r
         z = size[-1]/2
-        return rand_x, rand_y, z 
+        return rand_x, rand_y, z
 
     def write_xml(self,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
-                                        #self.file_dir and self.filename to that rotation. It then sets up the simulator with the object 
+                                        #self.file_dir and self.filename to that rotation. It then sets up the simulator with the object
                                         #incredibly far from the hand to prevent collisions and recalculates the rotation matrices of the hand
         xml_file=open(self.file_dir+self.filename,"r")
         xml_contents=xml_file.read()
@@ -778,10 +781,10 @@ class KinovaGripper_Env(gym.Env):
         xml_file.write(xml_contents)
         xml_file.close()
         self._model = load_model_from_path(self.file_dir + self.filename)
-        self._sim = MjSim(self._model) 
+        self._sim = MjSim(self._model)
         self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
         self._get_trans_mat_wrist_pose()
-        
+
     # Steph Added
     def check_obj_file_empty(self,filename):
         if os.path.exists(filename) == False:
@@ -942,7 +945,7 @@ class KinovaGripper_Env(gym.Env):
         elif obj_params[0] == "Cylinder":
             if obj_params[1] == "B":
                 obj=3
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"          
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
             elif obj_params[1] == "M":
                 obj=4
                 self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
@@ -1023,6 +1026,12 @@ class KinovaGripper_Env(gym.Env):
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
+        # Pretraining and training will have the same coordinate files
+        print("In reset, checking mode")
+        if mode == "pre-train" or mode == "rand_train":
+            print("Switching to train")
+            mode = "train"
+
         # Steph new code
         obj_list_filename = ""
         num_objects = 200
@@ -1036,9 +1045,8 @@ class KinovaGripper_Env(gym.Env):
         if len(self.objects) == 0:
             self.objects = self.experiment(shape_keys)
         if len(self.obj_keys) == 0:
-            print("Objects file to list Reset call")
             self.objects_file_to_list(obj_list_filename,num_objects,shape_keys)
-            
+
         if obj_params==None:
             random_shape, self.filename = self.get_object(obj_list_filename)
         else:
@@ -1102,7 +1110,7 @@ class KinovaGripper_Env(gym.Env):
         elif orientation_type > 0.667:
             self.orientation = 'top'
             size=self._get_obj_size()
-            
+
             if self.obj_size=='b':
                 Z=0.15
             elif self.obj_size=='m':
@@ -1149,6 +1157,16 @@ class KinovaGripper_Env(gym.Env):
                 xloc,yloc,zloc,f1prox,f2prox,f3prox=start_pos[0], start_pos[1], start_pos[2],start_pos[3], start_pos[4], start_pos[5]
                 x, y, z = start_pos[6], start_pos[7], start_pos[8]
 
+            # For testing - manually set object initial x, y coordinates
+            #naive_coord_path = "./coord_fail_test/naive_output/expert_plots/"
+            #expert_coord_path = "./coord_fail_test/expert_output/expert_plots/"
+            #x_coords = np.load(expert_coord_path+"heatmap_train_fail_new_x_arr.npy")
+            #y_coords = np.load(expert_coord_path+"heatmap_train_fail_new_y_arr.npy")
+            #random_idx = random.randint(0, len(x_coords))
+            #print("random_idx: ", random_idx)
+            #print("x: ", x_coords[random_idx])
+            #print("y: ", y_coords[random_idx])
+
             #all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,objx,objy,objz]
             self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, x, y, z])
             #if coords=='local':
@@ -1184,7 +1202,7 @@ class KinovaGripper_Env(gym.Env):
         ##Testing Code
         '''
         if test:
-            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]: 
+            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]:
                 if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
                     print("Reset function is working Properly Check the render")
                     self.render()
@@ -1196,14 +1214,84 @@ class KinovaGripper_Env(gym.Env):
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
     def render(self, mode='human'): #TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        a=False
+        setPause=False
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
-            self._viewer._paused = True
-            a=True
+            self._viewer._paused = setPause
         self._viewer.render()
-        if a:
+        if setPause:
             self._viewer._paused=True
+
+    #Function to display the current state in a video. The video is always paused when it first starts up.
+    def render_video(self,setPause=False, setRecord=True):
+        if self._viewer is None:
+            self._viewer = MjViewer(self._sim)
+            self._viewer._paused = setPause
+
+        #if renderOffscreen is True:
+        #    offscreen = MjRenderContextOffscreen(self._sim, 0)
+        if setPause:
+            self._viewer._paused=True
+
+        # Check and create directory
+        video_dir = "./video/"
+        if not os.path.isdir(video_dir):
+           os.mkdir(video_dir)
+
+        if setRecord:
+            self._viewer._video_path = video_dir + "video_1.mp4"
+            self._viewer._record_video = True
+
+        # Finally render simulation with correct settings
+        self._viewer.render()
+        #render = lambda: plt.imshow(self._viewer.render())
+        #self.reset()
+        #render()
+
+    def render_img(self, episode_num, timestep_num, obj_coords, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
+        # print("In render_img")
+        if self._viewer is None:
+            self._viewer = MjViewer(self._sim)
+
+        video_dir = "./video/"
+        if not os.path.isdir(video_dir):
+           os.mkdir(video_dir)
+
+        success_dir = os.path.join(video_dir, "Success/")
+        if not os.path.isdir(success_dir):
+           os.mkdir(success_dir)
+
+        fail_dir = os.path.join(video_dir, "Fail/")
+        if not os.path.isdir(fail_dir):
+           os.mkdir(fail_dir)
+
+        episode_coords = "obj_coords_" + str(obj_coords) + "/"
+        episode_dir = os.path.join(video_dir, episode_coords)
+        if not os.path.isdir(episode_dir):
+            os.mkdir(episode_dir)
+
+        source = episode_dir
+        if final_episode_type != None:
+            if final_episode_type == 'success':
+                destination = os.path.join(success_dir,episode_coords)
+            else:
+                destination = os.path.join(fail_dir,episode_coords)
+            if not os.path.isdir(destination):
+                dest = shutil.move(source, destination)
+        else:
+            self._viewer._record_video = True
+            self._viewer._video_path = video_dir + "video_1.mp4"
+            a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
+
+            # Just keep rgb values, so image is shape (w,h), make to be numpy array
+            a_rgb = a[0]
+            a_rgb = np.asarray(a_rgb, dtype=np.uint8)
+
+            img = Image.fromarray(a_rgb, 'RGB')
+            # Save image
+            img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
+
+            return a_rgb
 
     #Function to close the rendering window
     def close(self): #This doesn't work right now
@@ -1304,7 +1392,7 @@ class KinovaGripper_Env(gym.Env):
             states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
             self._set_state(np.array(states))
             self._get_trans_mat_wrist_pose()
-        
+
     def test_self(self):
         shapes=['Cube','Cylinder','Cone1','Cone2','Bowl','Rbowl','Bottle','TBottle','Hour','Vase','Lemon']
         sizes=['S','M','B']
@@ -1325,7 +1413,7 @@ class KinovaGripper_Env(gym.Env):
         for i in range(150):
             action[0]=np.random.rand()-0.2
             self.step(action)
-        end_obs=self._get_obs(state_rep='global')    
+        end_obs=self._get_obs(state_rep='global')
         if (abs(start_obs[18]-end_obs[18])>0.001)|(abs(start_obs[19]-end_obs[19])>0.001):
             print('test failed. x/y position changed when it should not have, check step function')
         else:
@@ -1345,7 +1433,7 @@ class KinovaGripper_Env(gym.Env):
         print('no current test for 6 axis motion, step tests finished.')
         print('begining shape test')
         bad_shapes=[]
-        for shape in shapes:            
+        for shape in shapes:
             for size in sizes:
                 self.reset(obj_params=[shape,size])
                 self.render()
@@ -1359,7 +1447,7 @@ class KinovaGripper_Env(gym.Env):
             print('all shapes and sizes are accurate, tests finished')
         else:
             print('the following are shapes that were not correct. Look at the xml files.')
-            print(bad_shapes)       
+            print(bad_shapes)
     #TODO: Make a config file that makes it easy to switch action spaces and set global varriables correctly
 
     #####################################################
@@ -1433,4 +1521,3 @@ class GraspValid_net(nn.Module):
         a = F.relu(self.l2(a))
         a =    torch.sigmoid(self.l3(a))
         return a
-    
