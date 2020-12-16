@@ -46,7 +46,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 
 		<material name="MatViz" specular="1" shininess=".1" reflectance="0.5" rgba=".07 .07 .1 1"/>
-		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".1" reflectance="0.00001" rgba="1 1 1 0.5"/>
+		<material name="MatGnd" texture="groundplane"  texrepeat="5 5" specular="1" shininess=".3" reflectance="0.00001" rgba="1 1 1 0.5"/>
+		<material name="BrightMaterial" specular="1" emission = "0.3" shininess=".1" reflectance="0.1" rgba="0 1 0 1"/>
     </asset>
 
 	<default>
@@ -156,69 +157,72 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 <!-- 		<body name="ground" pos="0 0 -0.01">
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
 		</body> -->
-		<geom name="ground" class="ground" pos="0 0 0" size="2 0.15 1"/>
+
+		<geom name="ground" class="ground" pos="0 0 0" size="2 0.15 1" rgba="1 1 1 0.3"/>
+ 
 		<body name="object" pos="0 0 0">
 			<joint name="object" type="free" />
-			<geom mass="0.06" name="object" type="mesh" rgba="0 1 0 1" mesh="Cylinder" euler="1.57 0 0"/>
+			<geom mass="0.06" name="object" type="mesh" rgba="0 1 0 1" mesh="Cylinder" euler="1.57 0 0" material="BrightMaterial"/>
 			<body name="object_cap" pos="0 0 0">
-				<geom mass="0.01" name="object_cap" type="mesh" rgba="0 1 0 1" mesh="Cap" euler="1.57 0 0"/>
+				<geom mass="0.01" name="object_cap" type="mesh" rgba="0 1 0 1" mesh="Cap" euler="1.57 0 0" material="BrightMaterial"/>
 			</body>
 			<body name="object_neck" pos="0 0 0">
-				<geom mass="0.01" name="object_neck" type="mesh" rgba="0 1 0 1" mesh="Neck" euler="1.57 0 0"/>
+				<geom mass="0.01" name="object_neck" type="mesh" rgba="0 1 0 1" mesh="Neck" euler="1.57 0 0" material="BrightMaterial"/>
 			</body>
 			<body name="object_bnt" pos="0 0 0">
-				<geom mass="0.01" name="object_bnt" type="mesh" rgba="0 1 0 1" mesh="BNT" euler="1.57 0 0"/>
+				<geom mass="0.01" name="object_bnt" type="mesh" rgba="0 1 0 1" mesh="BNT" euler="1.57 0 0" material="BrightMaterial"/>
 			</body>
 			<body name="object_base" pos="0 0 0">
-				<geom mass="0.01" name="object_base" type="mesh" rgba="0 1 0 1" mesh="Base" euler="1.57 0 0"/>
+				<geom mass="0.01" name="object_base" type="mesh" rgba="0 1 0 1" mesh="Base" euler="1.57 0 0" material="BrightMaterial"/>
 			</body>
 
-		</body>	
+		</body>	<!--
 		<body name="object2" pos="0.1 0.0 0.1">
 			<joint name="object2" type="free" />
-			<geom mass="0.1" name="object2" type="mesh" rgba="0 1 0 1" mesh="Lemon" euler="1.57 0 0"/>
+			<geom mass="0.1" name="object2" type="mesh" rgba="0 1 0 1" mesh="Lemon" euler="1.57 0 0" material="BrightMaterial"/>
 		</body>
-
-		<body name="object3" pos="0.25 0.08 0.1">
+-->
+		<body name="object3" pos="0.15 0.08 0.1">
 			<joint name="object3" type="free" />
-			<geom mass="0.1" name="object3" type="mesh" rgba="0 1 0 1" mesh="RoundBowl" euler="1.57 0 0"/>
+			<geom mass="0.1" name="object3" type="mesh" rgba="0 1 0 1" mesh="RoundBowl" euler="1.57 0 0" material="BrightMaterial"/>
 		</body>
-		<body name="object4" pos="0.38 0.08 0.1">
+		<body name="object4" pos="0.28 0.08 0.1">
 			<joint name="object4" type="free" />
-			<geom mass="0.1" name="object4" type="mesh" rgba="0 1 0 1" mesh="RectBowl" euler="1.57 0 0"/>
+			<geom mass="0.1" name="object4" type="mesh" rgba="0 1 0 1" mesh="RectBowl" euler="1.57 0 0" material="BrightMaterial"/>
 		</body>		
-		<body name="object5" pos="0.5 0.02 0.1">
+		<body name="object5" pos="0.4 0.02 0.1">
 			<joint name="object5" type="free" />
-			<geom mass="0.1" name="object5" type="mesh" rgba="0 1 0 1" mesh="ShortBottle" euler="1.57 0 0"/>
+			<geom mass="0.1" name="object5" type="mesh" rgba="0 1 0 1" mesh="ShortBottle" euler="1.57 0 0" material="BrightMaterial"/>
 		</body>
 
-		<body name="object6" pos="0.6 0.0 0.1">
+		<body name="object6" pos="0.5 0.0 0.1">
 			<joint name="object6" type="free" />
-			<geom mass="0.1" name="object6" type="mesh" rgba="0 1 0 1" mesh="Medium_hourglass" euler="1.57 0 0"/>
+			<geom mass="0.1" name="object6" type="mesh" rgba="0 1 0 1" mesh="Medium_hourglass" euler="1.57 0 0" material="BrightMaterial"/>
 		</body>
-		<body name="object7" pos="0.83 0.0 0.1">
+		<body name="object7" pos="0.73 0.0 0.1">
 			<joint name="object7" type="free" />
-			<geom mass="0.1" name="object7" type="mesh" rgba="0 1 0 1" mesh="Medium_vase" euler="0 0 0"/>
+			<geom mass="0.1" name="object7" type="mesh" rgba="0 1 0 1" mesh="Medium_vase" euler="0 0 0" material="BrightMaterial"/>
 		</body>	
-		<body name="object8" pos="0.9 0.0 0.1">
+		<body name="object8" pos="0.8 0.0 0.1">
 			<joint name="object8" type="free" />
-			<geom mass="0.1" name="object8" rgba="0 1 0 1" size="0.02125 0.055" type="cylinder" />
+			<geom mass="0.1" name="object8" rgba="0 1 0 1" size="0.02125 0.055" type="cylinder"  material="BrightMaterial"/>
 		</body>
 
-		<body name="object9" pos="1.0 0.0 0.1">
+		<body name="object9" pos="0.9 -0 0.1">
 			<joint name="object9" type="free" />
-			<geom mass="0.1" name="object9" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box" />
+			<geom mass="0.1" name="object9" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box"  material="BrightMaterial"/>
 		</body>
-
-		<body name="object10" pos="1.0 0.1 0.1">
+ <!--
+		<body name="object10" pos="0.07 -0.04 0.1">
 			<joint name="object10" type="free" />
-			<geom mass="0.1" name="object10" rgba="0 1 0 1" size="0.025 0.025 0.06" type="box" />
+			<geom mass="0.1" name="object10" rgba="0 1 0 1" size="0.025 0.025 0.06" type="box"  material="BrightMaterial"/>
 		</body>	
 
-		<body name="object11" pos="1.0 -0.1 0.1">
+		<body name="object11" pos="-0.07 -0.04 0.1">
 			<joint name="object11" type="free" />
-			<geom mass="0.1" name="object11" rgba="0 1 0 1" size="0.0175 0.0175 0.05" type="box" />
-		</body>			
+			<geom mass="0.1" name="object11" rgba="0 1 0 1" size="0.0175 0.0175 0.05" type="box"  material="BrightMaterial"/>
+		</body>	
+		-->
     </worldbody>
 
 

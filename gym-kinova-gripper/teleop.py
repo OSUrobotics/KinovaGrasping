@@ -61,52 +61,40 @@ print('model loaded')
 coords='local'
 episode_obs=[]
 value=0
-#t=time.time()
-#ttot=np.array([])
-for k in range(20):
-    #env = gym.make('gym_kinova_gripper:kinovagripper-v0')
-    env.reset(start_pos=[0.03,0.01],obj_params=['Cube','B'],hand_orientation='not_random')
-    x_move = np.random.rand()/10
-    y_move = np.random.rand()/10
-    #action = np.array([0.05-x_move,-y_move, 0.0, 0.0, 0.0, 0.0])
-    #action= np.array([1, 1, 1, 0.3, 0.3, 0.3,0.1,0.1,0.1,0.1])
-    #action= np.array([0, 0, 0.3,0.1,0.1,0.1])
-    #print(0.5-x_move, -y_move)
-    #env.randomize_initial_pos_data_collection()
-    #env.save_vid()
-    #print('reset')
-    #t3=time.time()
-    action=np.array([0,0,0,0.15, 0.3, 0.3])
-    print('reset')
-    for i in range(200):
-        
-        #print(action)
-    # read action from pyserial
-    # curr_action = ser.readline().decode('utf8').strip().split(",")
-    # for i in range(4):
-    #     curr_action[i] = float(curr_action[i])
-
-    # if np.max(np.array(prev_action) - np.array(curr_action)) < 0.01:
-    #     # keep going
-    #     obs, reward, done, _ = env.step(prev_action)
-    # else:
-    #     # update action
-    #     obs, reward, done, _ = env.step(curr_action)
-        
-        #if i == 70:
-        #    print('move in x')
-        #    action=np.array([0,0,0,0.3, 0.3, 0.3])
-        #if i == 80:
-        #    print('move in y')
-        #    action=np.array([0,-0.1,0,0.0, 0.0, 0.0])
-        if i == 150:
-            print('move in z')
-            action=np.array([0.15,0.05, 0.05, 0.05])
-            env.env.pid=True
-
-        '''
-        if i ==10:
-            action = np.array([0,0,0,0.3,0.3,0.3])
+s_or_f=[]
+last_obs=[]
+obs=[]
+act=np.array([0.3,0.3,0.3])
+thing=np.append([0,0,0],act)
+actions=[[0,0,0,0.3,0.3,0.3],[0,0,0,0.3,0.3,0],[0,0,0,0,0,0.3]]
+poses=[[0.0,-0.03],[0.02,-0.03],[-0.02,-0.03],[-0.05,0],[-0.01,-0.035],[0.01,-0.035],[0.05,0],[-0.02,0.03],[0.0,0.03],[0.02,0.03]]
+for f in range(3):
+    for k in range(10):
+        thing=np.append([0,0,0],act)
+        env.reset(obj_params=['Cube','M'],hand_orientation="random",start_pos=[1,1])
+        x_move = np.random.rand()/10
+        y_move = np.random.rand()/10
+        action=np.array(thing)
+        print('reset')
+        for i in range(200):
+            if i == 150:
+                print('move in z')
+                action=np.array([0.15,0.05, 0.05, 0.05])
+                env.env.pid=True
+                last_obs.append(obs)
+            if coords=='global':
+                temp=np.array([action[0],action[1],action[2],1])
+                action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
+            obs, reward, done, _ = env.step(action)
+            env.render()
+            network_feed=obs[21:24]
+            print('local obs',obs[21:24])
+            network_feed=np.append(network_feed,obs[27:36])
+            network_feed=np.append(network_feed,obs[49:51])
+            states=torch.zeros(1,14, dtype=torch.float)
+            #print(len(network_feed))
+            for j in range(len(network_feed)):
+                states[0][j]= network_feed[j]
             
         if i ==100:
             action = np.array([0.0,0,0.15,0.3,0.3,0.3])
@@ -135,9 +123,74 @@ for k in range(20):
         for j in range(len(network_feed)):
             states[0][j]= network_feed[j]
 
-        states=states.float()
-        
+        states=states.float()       
     env.close()
+
+##################################
+##Code To Test Real World Data ###
+##################################
+
+# episode_num = 10
+# shapeees = ["Cube", "Cylinder", "Hour", "Vase", "Cube", "Cylinder",  "Hour", "Vase",]
+# filenamess = ["Real_world_data_test/cube.txt", "Real_world_data_test/cylinder.txt", "Real_world_data_test/hglass.txt", "Real_world_data_test/vase.txt", "Real_world_data_test/SCube.txt", "Real_world_data_test/SCylinder.txt", "Real_world_data_test/Shglass_1.txt", "Real_world_data_test/SVase.txt" ]
+# for shapeee in range(len(shapeees)):
+# 	if shapeee <4:
+# 		sizze = 'B'
+# 	else:
+# 		sizze = 'S'
+# 	print("Current Shape: {}, Current Size: {}".format(shapeees[shapeee], sizze))
+# 	csv_file1 = open('Real_world_data_test/Output/'+str(shapeees[shapeee]) +str(sizze)+'.txt', 'w')
+# 	csv_file1.write('Status, Obs\n')	
+# 	for k in range(episode_num):
+# 		print("Episode No.: {}".format(k+1))
+# 		to_save_obs = []
+# 		data = []
+# 		with open(filenamess[shapeee]) as csvfile:
+# 					checker=csvfile.readline()
+# 					if ',' in checker:
+# 						delim=','
+# 					else:
+# 						delim=' '
+# 					reader = csv.reader(csvfile, delimiter=delim)
+				 
+# 					for i in reader:
+# 						if i[1] == 'pregrasp_data':
+# 							data.append(i)
+# 		current_data = data[k]
+# 		st_pos = [float(current_data[20]),float(current_data[21]),float(current_data[22])]          	
+# 		#env = gym.make('gym_kinova_gripper:kinovagripper-v0')
+# 		env.reset(start_pos=st_pos,obj_params=[shapeees[shapeee],sizze],hand_orientation='not_random')
+# 		x_move = np.random.rand()/10
+# 		y_move = np.random.rand()/10
+
+# 		action=np.array([0,0,0,0.3, 0.3, 0.3])
+# 		print('reset')
+# 		for i in range(timestep):
+
+# 			if i == pickup_time:
+# 				to_save_obs.append(obs)
+# 				print('move in z')
+# 				action=np.array([0.15,0.05, 0.05, 0.05])
+# 				env.env.pid=True
+
+# 			if coords=='global':
+# 				temp=np.array([action[0],action[1],action[2],1])
+# 				action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
+# 			#print(action)
+# 			#env.render()
+# 			obs, reward, done, info = env.step(action)
+# 			#env.render()
+# 			if (info["lift_reward"] > 0):
+# 				lift_done = True
+# 			else:
+# 				lift_done = False
+# 			if i==149:
+# 				csv_file1.write('{}, {}\n'.format(lift_done, to_save_obs))
+
+#####################
+#### Ends Here ######
+#####################
+'''
 print(value,'out of twenty')
 with open('Training_Examples.csv', 'w', newline='') as csvfile:
     spamwriter = csv.writer(csvfile, delimiter=',',
