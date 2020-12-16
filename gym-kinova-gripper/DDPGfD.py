@@ -51,7 +51,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n=5, discount=0.995, tau=0.0005):
+	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -83,7 +83,9 @@ class DDPGfD(object):
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			expert_or_random = "expert"
 		else:
-			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
+			print("PROBABILITY EXPERT OR AGENT")
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.8, 0.2])
+			#expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 
 		if expert_or_random == "expert":
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
@@ -101,17 +103,6 @@ class DDPGfD(object):
 
 		print("=====================action====================")
 		print(action.shape)
-
-		# print("==========modified states and actions==============")
-		# print(state[:, -1])
-		# print(action[:, -1])
-
-
-
-		# episode_step = len(state) # for varying episode sets
-
-		# pdb.set_trace()
-		# Compute the target Q value
 
 		# Old implementation of target Q
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
@@ -197,7 +188,6 @@ class DDPGfD(object):
 		print("target_QN.get_shape(): ", target_QN.size())
 		print("self.discount: ", self.discount)
 		print("self.n.: ", self.n)
-
 
 		# print("================SHAPE DUMP=============")
 		# print(rollreward.shape)

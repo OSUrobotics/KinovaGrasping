@@ -41,6 +41,7 @@ import pandas as pd
 from pathlib import Path
 import threading #oh boy this might get messy
 from PIL import Image # Used to save images from rendering simulation
+import shutil
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -444,9 +445,9 @@ class KinovaGripper_Env(gym.Env):
             obj_pose = obj_for_roation[0:3]
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
-
+            #print("GET_OBS LOCAL, Before fingers_6D_pose, obj_pose: ",obj_pose)
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod + [dot_prod]#+ [self.obj_shape]
-
+            #print("GET_OBS LOCAL, After fingers_6D_pose, fingers_6D_pose[21]-[23]: ", fingers_6D_pose[21],", ",fingers_6D_pose[22],", ",fingers_6D_pose[23])
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
         elif state_rep == "joint_states":
@@ -1045,6 +1046,12 @@ class KinovaGripper_Env(gym.Env):
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
+        # Pretraining and training will have the same coordinate files
+        print("In reset, checking mode")
+        if mode == "pre-train" or mode == "rand_train":
+            print("Switching to train")
+            mode = "train"
+
         # Steph new code
         obj_list_filename = ""
         num_objects = 200
@@ -1058,7 +1065,6 @@ class KinovaGripper_Env(gym.Env):
         if len(self.objects) == 0:
             self.objects = self.experiment(shape_keys)
         if len(self.obj_keys) == 0:
-            print("Objects file to list Reset call")
             self.objects_file_to_list(obj_list_filename,num_objects,shape_keys)
             
         if obj_params==None:
@@ -1258,7 +1264,7 @@ class KinovaGripper_Env(gym.Env):
         #self.reset()
         #render()
 
-    def render_img(self, episode_num, timestep_num, obj_coords, w=1000, h=1000, cam_name=None, mode='offscreen'):
+    def render_img(self, episode_num, timestep_num, obj_coords, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
         # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
@@ -1266,27 +1272,42 @@ class KinovaGripper_Env(gym.Env):
         video_dir = "./video/"
         if not os.path.isdir(video_dir):
            os.mkdir(video_dir)
-        self._viewer._record_video = True
-        self._viewer._video_path = video_dir + "video_1.mp4"
-        # self._viewer.render()
-        # self._viewer = None
-        #a = MjSim(self._model).render(width=w, height=h, depth=True, mode='offscreen')
-        a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
 
-        # Just keep rgb values, so image is shape (w,h), make to be numpy array
-        a_rgb = a[0]
-        a_rgb = np.asarray(a_rgb, dtype=np.uint8)
+        success_dir = os.path.join(video_dir, "Success/")
+        if not os.path.isdir(success_dir):
+           os.mkdir(success_dir)
 
-        #episode_dir = os.path.join(video_dir,"episode_"+str(episode_num)+"/")
-        episode_dir = os.path.join(video_dir, "obj_coords_" + str(obj_coords) + "/")
+        fail_dir = os.path.join(video_dir, "Fail/")
+        if not os.path.isdir(fail_dir):
+           os.mkdir(fail_dir)
+
+        episode_coords = "obj_coords_" + str(obj_coords) + "/"
+        episode_dir = os.path.join(video_dir, episode_coords)
         if not os.path.isdir(episode_dir):
-           os.mkdir(episode_dir)
+            os.mkdir(episode_dir)
 
-        img = Image.fromarray(a_rgb, 'RGB')
-        # Save image
-        img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
+        source = episode_dir
+        if final_episode_type != None:
+            if final_episode_type == 'success':
+                destination = os.path.join(success_dir,episode_coords)
+            else:
+                destination = os.path.join(fail_dir,episode_coords)
+            if not os.path.isdir(destination):
+                dest = shutil.move(source, destination)
+        else:
+            self._viewer._record_video = True
+            self._viewer._video_path = video_dir + "video_1.mp4"
+            a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
 
-        return a_rgb
+            # Just keep rgb values, so image is shape (w,h), make to be numpy array
+            a_rgb = a[0]
+            a_rgb = np.asarray(a_rgb, dtype=np.uint8)
+
+            img = Image.fromarray(a_rgb, 'RGB')
+            # Save image
+            img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
+
+            return a_rgb
 
     #Function to close the rendering window
     def close(self): #This doesn't work right now

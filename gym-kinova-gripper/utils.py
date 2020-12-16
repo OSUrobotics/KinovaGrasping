@@ -94,7 +94,11 @@ class ReplayBuffer_Queue(object):
 		ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
 
 		# Randomly select 100 timesteps from the episode
-		selected_indexes = random.choices(ind, k=100)
+		selected_indexes = random.choices(ind, k=800)
+
+		# Use full episode's timesteps to update network
+		#selected_indexes = ind
+		#print("Numer of timesteps sampled from: ",len(selected_indexes))
 
 		return (
 			torch.FloatTensor([self.state[episode_idx][x] for x in selected_indexes]).to(self.device),

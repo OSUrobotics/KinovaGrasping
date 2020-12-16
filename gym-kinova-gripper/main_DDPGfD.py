@@ -16,10 +16,8 @@ import pickle
 import datetime
 import csv
 import time
-from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel, GenerateTestPID_JointVel
+from expert_data import store_saved_data_into_replay, GenerateExpertPID_JointVel, GenerateTestPID_JointVel
 
-# 'gym_kinova_gripper:kinovagripper-v0'
-# from pretrain import Pretrain
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
@@ -35,6 +33,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     feval_obj_posx = np.array([])
     seval_obj_posy = np.array([])
     feval_obj_posy = np.array([])
+    total_evalx = np.array([])      # Total evaluation object coords
+    total_evaly = np.array([])
+
+    # match timesteps to expert and pre-training
+    max_num_timesteps = 150
 
     # Folder to save heatmap coordinates
     evplot_saving_dir = "./eval_plots"
@@ -64,7 +67,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
             success=0
             # Sets number of timesteps per episode (counted from each step() call)
-            eval_env._max_episode_steps = 200
+            #eval_env._max_episode_steps = 200
+            eval_env._max_episode_steps = max_num_timesteps
             while not done:
                 action = GenerateTestPID_JointVel(np.array(state),eval_env)
                 state, reward, done, _ = eval_env.step(action)
@@ -78,7 +82,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             success=0
             cumulative_reward = 0
             # Sets number of timesteps per episode (counted from each step() call)
-            eval_env._max_episode_steps = 200
+            #eval_env._max_episode_steps = 200
+            eval_env._max_episode_steps = max_num_timesteps
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
             ep_count += 1
@@ -100,22 +105,21 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             num_success[0]+=success
             print("Eval timestep count: ",timestep_count)
 
-
             # Save initial object coordinate as success/failure
-            if(success):
-                x_val = (obj_coords[0])
-                y_val = (obj_coords[1])
-                x_val = np.asarray(x_val).reshape(1)
-                y_val = np.asarray(y_val).reshape(1)
-                seval_obj_posx = np.append(seval_obj_posx,x_val)
-                seval_obj_posy = np.append(seval_obj_posy,y_val)
+            x_val = (obj_coords[0])
+            y_val = (obj_coords[1])
+            x_val = np.asarray(x_val).reshape(1)
+            y_val = np.asarray(y_val).reshape(1)
+
+            if (success):
+                seval_obj_posx = np.append(seval_obj_posx, x_val)
+                seval_obj_posy = np.append(seval_obj_posy, y_val)
             else:
-                x_val = (obj_coords[0])
-                y_val = (obj_coords[1])
-                x_val = np.asarray(x_val).reshape(1)
-                y_val = np.asarray(y_val).reshape(1)
-                feval_obj_posx = np.append(feval_obj_posx,x_val)
-                feval_obj_posy = np.append(feval_obj_posy,y_val)
+                feval_obj_posx = np.append(feval_obj_posx, x_val)
+                feval_obj_posy = np.append(feval_obj_posy, y_val)
+
+            total_evalx = np.append(total_evalx, x_val)
+            total_evaly = np.append(total_evaly, y_val)
 
         avg_reward /= eval_episodes
 
@@ -140,7 +144,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
             cumulative_reward = 0
             # Sets number of timesteps per episode (counted from each step() call)
-            eval_env._max_episode_steps = 200
+            #eval_env._max_episode_steps = 200
+            eval_env._max_episode_steps = max_num_timesteps
             print("***Eval episode: ", i)
             # Keep track of object coordinates
             obj_coords = eval_env.get_obj_coords()
@@ -161,20 +166,20 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             print("Eval timestep count: ",timestep_count)
 
             # Save initial object coordinate as success/failure
+            x_val = (obj_coords[0])
+            y_val = (obj_coords[1])
+            x_val = np.asarray(x_val).reshape(1)
+            y_val = np.asarray(y_val).reshape(1)
+
             if(success):
-                x_val = (obj_coords[0])
-                y_val = (obj_coords[1])
-                x_val = np.asarray(x_val).reshape(1)
-                y_val = np.asarray(y_val).reshape(1)
                 seval_obj_posx = np.append(seval_obj_posx,x_val)
                 seval_obj_posy = np.append(seval_obj_posy,y_val)
             else:
-                x_val = (obj_coords[0])
-                y_val = (obj_coords[1])
-                x_val = np.asarray(x_val).reshape(1)
-                y_val = np.asarray(y_val).reshape(1)
                 feval_obj_posx = np.append(feval_obj_posx,x_val)
                 feval_obj_posy = np.append(feval_obj_posy,y_val)
+
+            total_evalx = np.append(total_evalx, x_val)
+            total_evaly = np.append(total_evaly, y_val)
 
         avg_reward /= eval_episodes
 
@@ -185,6 +190,79 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     ret = [avg_reward, num_success, seval_obj_posx,seval_obj_posy,feval_obj_posx,feval_obj_posy,total_evalx,total_evaly]
     return ret
+
+def pretrain_policy(env,num_updates,replay_buffer, expert_replay_buffer,saving_dir):
+    print("---- Pretraining ----")
+
+    # Tensorboard writer for tracking loss and average reward
+    pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_" + args.policy_name, args.tensorboardindex))
+
+    # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
+    pretrain_saving_dir = "./pretrain_plots"
+    if not os.path.isdir(pretrain_saving_dir):
+        os.mkdir(pretrain_saving_dir)
+
+    # Holds heatmap coordinates for pretraining plots
+    seval_obj_posx = np.array([])   # Successful evaluation object coords
+    seval_obj_posy = np.array([])
+    feval_obj_posx = np.array([])   # Failed evaluation object coords
+    feval_obj_posy = np.array([])
+    total_evalx = np.array([])      # Total evaluation object coords
+    total_evaly = np.array([])
+
+    # Update the policy based on expert replay buffer for num_updates
+    for pretrain_episode_num in range(num_updates):
+        print("pretrain_episode_num: ", pretrain_episode_num)
+
+        # Max number of timesteps to match the expert replay grasp trials
+        env._max_episode_steps = max_num_timesteps
+
+        # Update policy using expert replay buffer
+        pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer)
+
+        # Evaluate policy every 100 policy updates
+        if (pretrain_episode_num + 1) % 100 == 0:
+            eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode="train",eval_episodes=200)
+            avg_reward = eval_ret[0]
+            num_success = eval_ret[1]
+            seval_obj_posx = np.append(seval_obj_posx,eval_ret[2])
+            seval_obj_posy = np.append(seval_obj_posy,eval_ret[3])
+            feval_obj_posx = np.append(feval_obj_posx,eval_ret[4])
+            feval_obj_posy = np.append(feval_obj_posy,eval_ret[5])
+            total_evalx = np.append(total_evalx,eval_ret[6])
+            total_evaly = np.append(total_evaly,eval_ret[7])
+
+            # Write evaulation output for tensorboard plotting
+            pre_writer.add_scalar("Episode reward, Avg. 1000 episodes", avg_reward, pretrain_episode_num)
+            pre_writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
+            pre_writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
+            pre_writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
+            pre_writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
+
+        # Save coordinates every 1000 episodes
+        if (pretrain_episode_num + 1) % 1000 == 0:
+            save_coordinates(seval_obj_posx,seval_obj_posy,pretrain_saving_dir+"/heatmap_eval_success"+str(pretrain_episode_num))
+            save_coordinates(feval_obj_posx,feval_obj_posy,pretrain_saving_dir+"/heatmap_eval_fail"+str(pretrain_episode_num))
+            save_coordinates(total_evalx,total_evaly,pretrain_saving_dir+"/heatmap_eval_total"+str(pretrain_episode_num))
+            seval_obj_posx = np.array([])
+            seval_obj_posy = np.array([])
+            feval_obj_posx = np.array([])
+            feval_obj_posy = np.array([])
+            total_evalx = np.array([])
+            total_evaly = np.array([])
+            print("Success pre-train eval num (at ",str(pretrain_episode_num)," episodes: ", len(seval_obj_posx))
+            print("Fail pre-train eval num: (at ",str(pretrain_episode_num)," episodes: ", len(feval_obj_posx))
+            print("Total pre-train eval num: (at ",str(pretrain_episode_num)," episodes: ", len(total_evalx))
+
+    # Path to save pre-trained policy
+    pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    print("Pre-training: Saving into {}".format(pretrain_model_save_path))
+    policy.save(pretrain_model_save_path)
+
+    print("POST PRETRAINING")
+    print("pre*****expert_replay_buffer.size: ", expert_replay_buffer.size)
+    print("pre*****expert_replay_buffer.episodes_count: ", expert_replay_buffer.episodes_count)
+    return pretrain_model_save_path
 
 
 if __name__ == "__main__":
@@ -207,62 +285,59 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--pre_replay_episode", default=10000, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--expert_replay_size", default=10000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
-    parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with (train, test, etc.)
+    parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with: (expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10100, type=int) # Maximum size of agent's replay buffer
-    parser.add_argument("--do_pretraining", action='store', default=0, type=int) # Determine whether or not to do pretraining/expert replay
 
     args = parser.parse_args()
+
+    """ Setup the environment, state, and action space """
 
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
     print("---------------------------------------")
     print("Settings: {file_name}")
     print("---------------------------------------")
 
-    if not os.path.exists("./results"):
-        os.makedirs("./results")
-
+    # Make initial environment
     env = gym.make(args.env_name)
-    # Set seeds
+
+    # Set seeds for randomization
     env.seed(args.seed)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    #state_dim = env.observation_space.shape[0]
-    #state_dim = env.observation_space
-    #state_dim = env.get_obs(state_rep="global").shape[0]
-    # TESTING ONLY _ REMOVE ONCE DONE
-    state_dim = 82
-    print ("STATE DIM ---------", state_dim)
+    # Set dimensions for state and action spaces - policy initialization
+    state_dim = 82  # State dimension dependent on the length of the state space
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
-    max_action_trained = env.action_space.high # a vector of max actions
+    max_action_trained = env.action_space.high  # a vector of max actions
+    n = 5   # n step look ahead for the policy
 
-    # Sets list of desired objects for experiment
-    requested_shapes = args.shapes
+    ''' Set values from command line arguments '''
+    requested_shapes = args.shapes                   # Sets list of desired objects for experiment
     requested_shapes = requested_shapes.split(',')
+    requested_orientation = args.hand_orientation   # Set the desired hand orientation (normal or random)
+    expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
+    agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
+    max_num_timesteps = 150     # Maximum number of time steps within an episode
 
-    print("args.shapes",args.shapes)
-    print("requested_shapes: ",requested_shapes)
-
-    # Set the desired hand orientation (normal or random)
-    requested_orientation = args.hand_orientation
-
-    print("Requested Hand orientation: ", requested_orientation)
+    # Fill pre-training object list using latin square method
+    env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
 
     kwargs = {
         "state_dim": state_dim,
         "action_dim": action_dim,
         "max_action": max_action,
+        "n": n,
         "discount": args.discount,
         "tau": args.tau,
         # "trained_model": "data_cube_5_trained_model_10_07_19_1749.pt"
     }
 
-    # Initialize policy
+    ''' Initialize policy '''
     if args.policy_name == "TD3":
         # Target policy smoothing is scaled wrt the action scale
         kwargs["policy_noise"] = args.policy_noise * max_action
@@ -275,152 +350,115 @@ if __name__ == "__main__":
         policy = DDPG.DDPG(**kwargs)
     elif args.policy_name == "DDPGfD":
         policy = DDPGfD.DDPGfD(**kwargs)
-    #self.actor = np.random.randn(layer_size[l], layer_size[l - 1]) * np.sqrt(2 / layer_size[l - 1])
-    # Fill pre-training object list using latin square
-    env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
 
-    # Initialize replay buffer with expert demo
-    print("----Generating {} expert episodes----".format(args.pre_replay_episode))
-    # Not being used (commented out in other files)
-    from expert_data import generate_Data, store_saved_data_into_replay, GenerateExpertPID_JointVel
+    # Print variables set based on command line input
+    print("Policy: ", args.policy_name)
+    print("Requested_shapes: ",requested_shapes)
+    print("Requested Hand orientation: ", requested_orientation)
 
-    #from pretrain_from_RL import pretrain_from_agent
-    #expert_policy = DDPGfD.DDPGfD(**kwargs)
-    #replay_buffer = pretrain_from_agent(expert_policy, env, replay_buffer, args.pre_replay_episode)
-
-    # trained policy
-    # policy.load("./policies/reward_all/DDPGfD_kinovaGrip_10_22_19_2151")
-
-    # **Uncomment***
-    #policy.load('./policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
-    #policy.load('/Users/vanil/5_3_20_Heatmap/NCSGen_obj_pos_plot/gym-kinova-gripper/policies/exp2s1_wo_graspclassifier/DDPGfD_kinovaGrip_01_14_20_1041')
-
-    # old pid control
-    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
-    # replay_buffer = generate_Data(env, args.pre_replay_episode, "random", replay_buffer)
-    # replay_buffer = store_saved_data_into_replay(replay_buffer, args.pre_replay_episode)
-
-    # new pid control
-    ## this is it
-    print("state dimension FOR REPLAY BUFFER ================================")
-    print(state_dim)  # this is 48 by default
-    print("action dimension FOR REPLAY BUFFER ================================")
-    print(action_dim)  # this is 4 by default
-    print("args.pre_replay_episode =================================")
-    print(args.pre_replay_episode)  # this is 100 by defualt
-    
-    expert_replay_size = args.pre_replay_episode # Number of expert episodes for expert the replay buffer
-    agent_replay_size = args.agent_replay_size # Maximum number of episodes to be stored in agent replay buffer
-    
-    do_pretraining = bool(args.do_pretraining)
-    print("Do pretraining: ",args.do_pretraining)
-    if do_pretraining is False:
-        expert_replay_size = 0
-        expert_replay_buffer = None
-
+    ''' Select replay buffer type
     # Replay buffer that can use multiple n-steps
     #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, expert_replay_size)
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, expert_replay_size)
 
-    # Experimental replay buffer
-    #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, args.pre_replay_episode)
-
     # Replay buffer that samples only one episode
-    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.pre_replay_episode, args.max_episode)
-    #replay_buffer = GenerateExpertPID_JointVel(args.pre_replay_episode, replay_buffer, False)
+    #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.expert_replay_size, args.max_episode)
+    #replay_buffer = GenerateExpertPID_JointVel(args.expert_replay_size, replay_buffer, False)
+    '''
 
-    # Replay buffer that manages its size like a queue, popping off the oldest episodes
+    # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
-    if do_pretraining is True:
-        # Replay buffer that manages its size like a queue, popping off the oldest episodes
-        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, False)
+    # Default expert pid file path
+    expert_file_path = "./expert_replay_data/Expert_data_11_18_20_0253/"
 
-    print("*****replay_buffer.size: ",replay_buffer.size)
-    print("*****replay_buffer.episodes_count: ",replay_buffer.episodes_count)
+    # Default pre-trained policy file path
+    pretrain_model_save_path = "./policies/exp_NO_graspclassifier_pretrain_policy_CubeS/pre_DDPGfD_kinovaGrip_11_16_20_2025"
 
-    # Evaluate untrained policy
-    evaluations = []
-
-    # Fill pre-training object list using latin square
-    #env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
-
-    state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
-
-    episode_reward = 0
-    episode_timesteps = 0
-    episode_num = 0
-
-    # Check and create directory
+    # Create directory to hold trained policy
     saving_dir = "./policies/" + args.saving_dir
     if not os.path.isdir(saving_dir):
         os.mkdir(saving_dir)
     model_save_path = saving_dir + "/DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
 
-    # Initialize OU noise
+    # Determine replay buffer/policy function calls based on mode (expert, pre-train, train, rand_train, test)
+    if args.mode == "expert":
+        print("MODE: Expert")
+        # Initialize expert replay buffer, then generate expert pid data to fill it
+        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
+        print("expert_file_path: ",expert_file_path)
+        quit()
+    # Pre-train policy using expert data, save pre-trained policy for use in training
+    elif args.mode == "pre-train":
+        print("MODE: Pre-train")
+        num_updates = 2000 #10000 # Number of expert pid grasp trials used to update policy
+        # Load expert data from saved expert pid controller replay buffer
+        expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
+        # Pre-train policy based on expert data
+        pretrain_model_save_path = pretrain_policy(env, num_updates, replay_buffer, expert_replay_buffer, saving_dir)
+        print("pretrain_model_save_path: ",pretrain_model_save_path)
+        quit()
+    elif args.mode == "train":
+        print("MODE: Train (w/ pre-trained policy")
+        # Load pre-trained policy
+        expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
+        # Load Pre-Trained policy
+        policy.load(pretrain_model_save_path)
+        print("LOADED THE Pre-trained POLICY")
+    elif args.mode == "rand_train":
+        print("MODE: Train (Random init policy)")
+        expert_replay_size = 0
+        expert_replay_buffer = None
+    elif args.mode == "test":
+        print("MODE: Test")
+        # TBD
+    else:
+        print("Invalid mode input")
+        quit()
+
+    print("*****replay_buffer.size: ",replay_buffer.size)
+    print("*****replay_buffer.episodes_count: ",replay_buffer.episodes_count)
+
+    # Fill pre-training object list using latin square
+    #env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
+    state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
+
+    episode_reward = 0      # Keeps track of reward accumulated throughout the episode
+    episode_num = 0         # Counts number of episodes done within training
+
+    # Initialize OU noise, added to action output from policy
     noise = OUNoise(4)
     noise.reset()
     expl_noise = OUNoise(4, sigma=0.001)
     expl_noise.reset()
 
-    # Check and create directory
+    ''' Plotting variables: Training and Evaluation '''
+    # Create directory to store training coordinates and plots
     trplot_saving_dir = "./train_plots"
     if not os.path.isdir(trplot_saving_dir):
        os.mkdir(trplot_saving_dir)
 
-    # Heatmap initial object coordinates
-    strain_obj_posx = np.array([])
-    ftrain_obj_posx = np.array([])
+    # Heatmap initial object coordinates for training
+    strain_obj_posx = np.array([])  # Successful initial object coordinates: training
     strain_obj_posy = np.array([])
+    ftrain_obj_posx = np.array([])  # Failed initial object coordinates: training
     ftrain_obj_posy = np.array([])
 
-    seval_obj_posx = np.array([])
+    seval_obj_posx = np.array([])   # Successful initial object coordinates: evaluation
     seval_obj_posy = np.array([])
-    feval_obj_posx = np.array([])
+    feval_obj_posx = np.array([])   # Failed initial object coordinates: evaluation
     feval_obj_posy = np.array([])
-    total_evalx = np.array([])
+    total_evalx = np.array([])      # Total initial object coordinates: evaluation
     total_evaly = np.array([])
+
+    if not os.path.exists("./results"): # Stores average reward of policy from evaluations list
+        os.makedirs("./results")
+    evaluations = []    # Keeps track of average reward from evaluation of the policy, could be used for plotting
+    ''' End of plotting variables'''
 
     # Initialize SummaryWriter
     writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
-
-    # Pretrain (No pretraining without imitation learning)
-    if do_pretraining is True:
-        pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_"+args.policy_name, args.tensorboardindex))
-        print("---- Pretraining ----")
-        # Sets number of timesteps per episode (counted from each step() call)
-
-        num_updates = 10000
-        for pretrain_episode_num in range(int(num_updates)):
-            print("pretrain_episode_num: ", pretrain_episode_num)
-            pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer=None)
-
-            if (pretrain_episode_num + 1) % 1000 == 0:
-                print("YOU PASSED THE PRETRAIN EVAL CHECK")
-                print("\n\n***You're in evaluate pretain policy")
-                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode=args.mode, eval_episodes=200)  # , compare=True)
-                print("\n***After eval_policy - pretain policy")
-                avg_reward = eval_ret[0]
-                pre_writer.add_scalar("Episode reward, Avg. 100 episodes", avg_reward, pretrain_episode_num)
-                pre_writer.add_scalar("Actor loss", pre_actor_loss, pretrain_episode_num)
-                pre_writer.add_scalar("Critic loss", pre_critic_loss, pretrain_episode_num)
-                pre_writer.add_scalar("Critic L1loss", pre_critic_L1loss, pretrain_episode_num)
-                pre_writer.add_scalar("Critic LNloss", pre_critic_LNloss, pretrain_episode_num)
-
-
-        pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
-        print("Pre-training: Saving into {}".format(pretrain_model_save_path))
-        policy.save(pretrain_model_save_path)
-
-        print("POST PRETRAINING")
-        print("replay_buffer: ",replay_buffer)
-        print("pre*****replay_buffer.size: ", replay_buffer.size)
-        print("pre*****expert_replay_buffer.size: ", expert_replay_buffer.size)
-        print("pre*****replay_buffer.episodes_count: ", replay_buffer.episodes_count)
-        print("pre*****expert_replay_buffer.episodes_count: ", expert_replay_buffer.episodes_count)
-        quit()
-
 
     # ##Testing Code##
     # env = gym.make(args.env_name)
@@ -439,24 +477,26 @@ if __name__ == "__main__":
     print("---- RL training in process ----")
     for t in range(int(args.max_episode)):
         env = gym.make(args.env_name)
-        episode_num += 1
+
+        # Max number of timesteps to match the expert replay grasp trials
+        env._max_episode_steps = max_num_timesteps
 
         # Fill training object list using latin square
-        if (env.check_obj_file_empty("objects.csv")):
+        if env.check_obj_file_empty("objects.csv"):
             env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
         state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
 
+        episode_num += 1
         noise.reset()
         expl_noise.reset()
         episode_reward = 0
-        print("\n*** TRAINING Episode Num: ",episode_num)
-
         obj_coords = env.get_obj_coords()
-
-        print("replay_buffer.episodes_count: ",replay_buffer.episodes_count)
         replay_buffer.add_episode(1)
-        # timestep counter only used for testing purposes
-        timestep = 0
+        timestep = 0 # Timestep counter is only used for testing purposes
+
+        print("\n*** TRAINING Episode Num: ",episode_num)
+        print("replay_buffer.episodes_count: ", replay_buffer.episodes_count)
+
         while not done:
             timestep = timestep + 1
 
@@ -465,23 +505,20 @@ if __name__ == "__main__":
                 + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
             ).clip(-max_action, max_action)
 
-            # Select action randomly or according to policy
-            # action = (policy.select_action(np.array(state)) + expl_noise.noise()).clip(-max_action, max_action)
-
             # Perform action obs, total_reward, done, info
             next_state, reward, done, info = env.step(action)
-            done_bool = float(done) # if episode_timesteps < env._max_episode_steps else 0
 
             # Store data in replay buffer
-            replay_buffer.add(state[0:82], action, next_state[0:82], reward, done_bool)
+            replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
 
-            if(info["lift_reward"] > 0):
+            if info["lift_reward"] > 0:
                 lift_success = True
             else:
                 lift_success = False
 
             state = next_state
             episode_reward += reward
+
         replay_buffer.add_episode(0)
         print("timestep: ",timestep)
 
@@ -489,11 +526,12 @@ if __name__ == "__main__":
         if episode_num > 10:
             for learning in range(100):
                 actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer)
-                #actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,
-                #                                                                     env._max_episode_steps)
+
+                # Call if using batch replay buffer
+                #actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,env._max_episode_steps)
 
         # Heatmap postion data, get starting object position
-        if(lift_success):
+        if lift_success is True:
             x_val = obj_coords[0]
             y_val = obj_coords[1]
             x_val = np.asarray(x_val).reshape(1)
@@ -501,7 +539,6 @@ if __name__ == "__main__":
 
             strain_obj_posx = np.append(strain_obj_posx,x_val)
             strain_obj_posy = np.append(strain_obj_posy,y_val)
-
         else:
             x_val = obj_coords[0]
             y_val = obj_coords[1]
@@ -547,8 +584,8 @@ if __name__ == "__main__":
             total_evalx = np.array([])
             total_evaly = np.array([])
 
-    train_totalx = np.append(strain_obj_posx,ftrain_obj_posx)
-    train_totaly = np.append(strain_obj_posy,ftrain_obj_posy)
+    train_totalx = np.append(strain_obj_posx, ftrain_obj_posx)
+    train_totaly = np.append(strain_obj_posy, ftrain_obj_posy)
 
     # Save object postions from training
     print("Success train num: ",len(strain_obj_posx))
