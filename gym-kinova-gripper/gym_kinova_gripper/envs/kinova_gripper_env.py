@@ -181,7 +181,7 @@ class KinovaGripper_Env(gym.Env):
         #self.Grasp_net.eval()
 
 
-        obj_list=['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
+        obj_list=['gym_kinova_gripper/envs/kinova_description/shape_coords/Normal/CubeS.txt']#['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
         self.random_poses=[[],[],[],[],[],[]]
         for i in range(len(obj_list)):
             random_poses_file=open(obj_list[i],"r")
@@ -908,7 +908,7 @@ class KinovaGripper_Env(gym.Env):
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 
-        print("random_shape: ",random_shape)
+        #print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 
@@ -1027,7 +1027,7 @@ class KinovaGripper_Env(gym.Env):
         #x, y = self.randomize_initial_pose(True) # for data collection
 
         # Pretraining and training will have the same coordinate files
-        print("In reset, checking mode")
+        #print("In reset, checking mode")
         if mode == "pre-train" or mode == "rand_train":
             print("Switching to train")
             mode = "train"
@@ -1068,7 +1068,7 @@ class KinovaGripper_Env(gym.Env):
             new_rotation=np.array([0,0,0])+hand_rotation
             if hand_orientation == 'random':
                 orientation_type=np.random.rand()
-                print("orientation_type: ",orientation_type)
+        #        print("orientation_type: ",orientation_type)
                 if orientation_type <0.333:
                     new_rotation=np.array([0,0,0])+hand_rotation
                 elif orientation_type >0.667:
@@ -1082,7 +1082,7 @@ class KinovaGripper_Env(gym.Env):
         else:
             if hand_orientation == 'random':
                 orientation_type=np.random.rand()
-                print("orientation_type: ",orientation_type)
+        #        print("orientation_type: ",orientation_type)
 
                 # Initial position
                 if orientation_type <0.333:
@@ -1357,12 +1357,12 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(len(finger_velocities)):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
-        obs = self._get_obs(test=False)
+        obs = self._get_obs()#test=False)
         if not graspnetwork:
             total_reward, info, done = self._get_reward()
         else:
             ### Get this reward for grasp classifier collection ###
-            print("Done is set with get_reward_DataCollection()")
+        #    print("Done is set with get_reward_DataCollection()")
             total_reward, info, done = self._get_reward_DataCollection()
         return obs, total_reward, done, info
 
