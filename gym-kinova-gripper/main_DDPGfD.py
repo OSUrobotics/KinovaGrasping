@@ -193,25 +193,14 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     return ret
 
 
-def update_policy(num_episodes, replay_buffer, expert_replay_buffer, saving_dir, model_path, writer, prob, type_of_training, max_num_timesteps=30):
-    # state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
-    if not os.path.exists("./results"): # Stores average reward of policy from evaluations list
-        os.makedirs("./results")
-    evaluations = []
-
-    episode_num = 0         # Counts number of episodes done within training
+def update_policy(evaluations, episode_num, num_episodes, writer, prob,
+                  type_of_training, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy, max_num_timesteps=30):
 
     # Initialize OU noise, added to action output from policy
     noise = OUNoise(4)
     noise.reset()
     expl_noise = OUNoise(4, sigma=0.001)
     expl_noise.reset()
-
-    # Heatmap initial object coordinates for training
-    strain_obj_posx = np.array([])  # Successful initial object coordinates: training
-    strain_obj_posy = np.array([])
-    ftrain_obj_posx = np.array([])  # Failed initial object coordinates: training
-    ftrain_obj_posy = np.array([])
 
     # Holds heatmap coordinates for eval plots
     seval_obj_posx = np.array([])   # Successful evaluation object coords
@@ -313,22 +302,16 @@ def update_policy(num_episodes, replay_buffer, expert_replay_buffer, saving_dir,
                 # actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,env._max_episode_steps)
 
         # Heatmap postion data, get starting object position
+        x_val = obj_coords[0]
+        y_val = obj_coords[1]
+        x_val = np.asarray(x_val).reshape(1)
+        y_val = np.asarray(y_val).reshape(1)
         if lift_success is True:
-            x_val = obj_coords[0]
-            y_val = obj_coords[1]
-            x_val = np.asarray(x_val).reshape(1)
-            y_val = np.asarray(y_val).reshape(1)
-
-            strain_obj_posx = np.append(strain_obj_posx, x_val)
-            strain_obj_posy = np.append(strain_obj_posy, y_val)
+            s_obj_posx = np.append(s_obj_posx, x_val)
+            s_obj_posy = np.append(s_obj_posy, y_val)
         else:
-            x_val = obj_coords[0]
-            y_val = obj_coords[1]
-            x_val = np.asarray(x_val).reshape(1)
-            y_val = np.asarray(y_val).reshape(1)
-
-            ftrain_obj_posx = np.append(ftrain_obj_posx, x_val)
-            ftrain_obj_posy = np.append(ftrain_obj_posy, y_val)
+            f_obj_posx = np.append(f_obj_posx, x_val)
+            f_obj_posy = np.append(f_obj_posy, y_val)
 
         # Evaluation and recording data for tensorboard
         if (t + 1) % args.eval_freq == 0:
@@ -369,28 +352,16 @@ def update_policy(num_episodes, replay_buffer, expert_replay_buffer, saving_dir,
             total_evalx = np.array([])
             total_evaly = np.array([])
 
-    train_totalx = np.append(strain_obj_posx, ftrain_obj_posx)
-    train_totaly = np.append(strain_obj_posy, ftrain_obj_posy)
-
-    # Save object postions from training
-    print("Success train num: ",len(strain_obj_posx))
-    print("Fail train num: ", len(ftrain_obj_posx))
-    print("Total train num: ", len(train_totalx))
-    save_coordinates(strain_obj_posx,strain_obj_posy,saving_dir+"/heatmap_train_success_new")
-    save_coordinates(ftrain_obj_posx,ftrain_obj_posy,saving_dir+"/heatmap_train_fail_new")
-    save_coordinates(train_totalx,train_totaly,saving_dir+"/heatmap_train_total_new")
-
-    print("Saving into {}".format(model_path))
-    policy.save(model_path)
+    return evaluations, episode_num, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy
 
 
-def pretrain_policy(env,num_updates,replay_buffer, expert_replay_buffer,saving_dir):
+def pretrain_policy(tot_episodes):
     print("---- Pretraining ----")
 
     # Tensorboard writer for tracking loss and average reward
     pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_" + args.policy_name, args.tensorboardindex))
 
-    pretrain_model_save_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    pretrain_model_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
 
     # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
     pretrain_saving_dir = "./pretrain_plots"
@@ -398,9 +369,42 @@ def pretrain_policy(env,num_updates,replay_buffer, expert_replay_buffer,saving_d
         os.mkdir(pretrain_saving_dir)
 
     prob_exp = 0.8
-    update_policy(num_updates, replay_buffer, expert_replay_buffer, pretrain_saving_dir, pretrain_model_save_path,
-                  pre_writer, prob_exp, "PRE")
-    return pretrain_model_save_path
+
+    ###HERE####
+    # state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,
+    # mode=args.mode), False
+    # if not os.path.exists("./results"): # Stores average reward of policy from evaluations list
+    #     os.makedirs("./results")
+    evals = []
+
+    curr_episode = 0         # Counts number of episodes done within training
+
+    # Heatmap initial object coordinates for training
+    s_pretrain_obj_posx = np.array([])  # Successful initial object coordinates: training
+    s_pretrain_obj_posy = np.array([])
+    f_pretrain_obj_posx = np.array([])  # Failed initial object coordinates: training
+    f_pretrain_obj_posy = np.array([])
+    ###########
+
+    evals, curr_episode, s_pretrain_obj_posx,  s_pretrain_obj_posy, f_pretrain_obj_posx,  f_pretrain_obj_posy = \
+        update_policy(evals, curr_episode, tot_episodes, pre_writer, prob_exp, "PRE", s_pretrain_obj_posx,
+                      s_pretrain_obj_posy, f_pretrain_obj_posx, f_pretrain_obj_posy)
+
+    train_totalx = np.append(s_pretrain_obj_posx, f_pretrain_obj_posx)
+    train_totaly = np.append(s_pretrain_obj_posy, f_pretrain_obj_posy)
+
+    # Save object postions from training
+    print("Success train num: ",len(s_pretrain_obj_posx))
+    print("Fail train num: ", len(f_pretrain_obj_posx))
+    print("Total train num: ", len(train_totalx))
+    save_coordinates(s_pretrain_obj_posx,s_pretrain_obj_posy,pretrain_saving_dir+"/heatmap_train_success_new")
+    save_coordinates(f_pretrain_obj_posx,f_pretrain_obj_posy,pretrain_saving_dir+"/heatmap_train_fail_new")
+    save_coordinates(train_totalx,train_totaly,pretrain_saving_dir+"/heatmap_train_total_new")
+
+    print("Saving into {}".format(pretrain_model_path))
+    policy.save(pretrain_model_path)
+
+    return pretrain_model_path
 
 
 def train_policy():
@@ -411,9 +415,43 @@ def train_policy():
     # Initialize SummaryWriter
     tr_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
     tr_prob = 0.8
-    tr_ep = args.max_episode
-    update_policy(tr_ep, replay_buffer, expert_replay_buffer, trplot_saving_dir, model_save_path, tr_writer, tr_prob,
-                  "TRAIN")
+    tr_ep = 28#args.max_episode
+    ###HERE####
+    # state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,
+    # mode=args.mode), False
+    if not os.path.exists("./results"): # Stores average reward of policy from evaluations list
+        os.makedirs("./results")
+    evals = []
+    curr_episode = 0         # Counts number of episodes done within training
+    red_expert_prob= 0.1
+
+    # Heatmap initial object coordinates for training
+    s_train_obj_posx = np.array([])  # Successful initial object coordinates: training
+    s_train_obj_posy = np.array([])
+    f_train_obj_posx = np.array([])  # Failed initial object coordinates: training
+    f_train_obj_posy = np.array([])
+    ###########
+    for i in range(4):
+        evals, curr_episode, s_train_obj_posx,  s_train_obj_posy, f_train_obj_posx,  f_train_obj_posy =\
+            update_policy(evals, curr_episode, tr_ep, tr_writer, tr_prob, "TRAIN", s_train_obj_posx, s_train_obj_posy,
+                          f_train_obj_posx, f_train_obj_posy)
+        tr_prob = tr_prob - red_expert_prob
+
+    train_totalx = np.append(s_train_obj_posx, f_train_obj_posx)
+    train_totaly = np.append(s_train_obj_posy, f_train_obj_posy)
+
+    # Save object postions from training
+    print("Success train num: ",len(s_train_obj_posx))
+    print("Fail train num: ", len(f_train_obj_posx))
+    print("Total train num: ", len(train_totalx))
+    save_coordinates(s_train_obj_posx,s_train_obj_posy, trplot_saving_dir+"/heatmap_train_success_new")
+    save_coordinates(f_train_obj_posx,f_train_obj_posy, trplot_saving_dir+"/heatmap_train_fail_new")
+    save_coordinates(train_totalx,train_totaly, trplot_saving_dir+"/heatmap_train_total_new")
+
+    print("Saving into {}".format(model_save_path))
+    policy.save(model_save_path)
+
+    return model_save_path
 
 if __name__ == "__main__":
 
@@ -546,7 +584,7 @@ if __name__ == "__main__":
         expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
         print ("SIZE:", expert_replay_buffer.size)
         # Pre-train policy based on expert data
-        pretrain_model_save_path = pretrain_policy(env, num_updates, replay_buffer, expert_replay_buffer, saving_dir)
+        pretrain_model_save_path = pretrain_policy(num_updates)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         quit()
     elif args.mode == "train":
@@ -556,10 +594,10 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5000, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
-        num_updates = 5000
-        pretrain_model_save_path = pretrain_policy(env, num_updates, replay_buffer, expert_replay_buffer, saving_dir)
+        num_updates = 5
+        pretrain_model_save_path = pretrain_policy(num_updates)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
