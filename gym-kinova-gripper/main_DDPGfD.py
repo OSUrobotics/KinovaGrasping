@@ -193,15 +193,16 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     return ret
 
 
-# def lift_hand(env_lift):
-    # action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
-    #                    finger_lift_velocity])
-    # next_state, reward, done, info = env_lift.step(action)
-    # if done:
-    #     # accumulate or replace?
-    #     replay_buffer.replace(reward, done)
+def lift_hand(env_lift):
+    action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                       finger_lift_velocity])
+    next_state, reward, done, info = env_lift.step(action)
+    if done:
+        # accumulate or replace?
+        replay_buffer.replace(reward, done)
 
-    # return done
+    return next_state, reward, done, info
+
 
 def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                   type_of_training, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy, max_num_timesteps=30):
@@ -234,7 +235,6 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
 
         prev_state_lift_check = None
         curr_state_lift_check = state
-
 
         noise.reset()
         expl_noise.reset()
@@ -279,12 +279,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 episode_reward += reward
 
             else:  # Make it happen in one time step
-                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
-                                   finger_lift_velocity])
-                next_state, reward, done, info = env.step(action)
-                if done:
-                    # accumulate or replace?
-                    replay_buffer.replace(reward, done)
+                next_state, reward, done, info = lift_hand(env)
                 check_for_lift = False
 
             state = next_state
@@ -606,15 +601,15 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(15, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5000, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
-        num_updates = 20
+        num_updates = 4000
         pretrain_model_save_path = pretrain_policy(num_updates)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
         print("LOADED THE Pre-trained POLICY")
-        tot_num_episodes = 44#args.max_episode
+        tot_num_episodes = 8000#args.max_episode
         train_policy(tot_num_episodes)
 
     elif args.mode == "rand_train":
