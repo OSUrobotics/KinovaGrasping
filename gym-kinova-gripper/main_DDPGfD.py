@@ -21,9 +21,11 @@ from expert_data import store_saved_data_into_replay, GenerateExpertPID_JointVel
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
+
 def save_coordinates(x,y,filename):
     np.save(filename+"_x_arr", x)
     np.save(filename+"_y_arr", y)
+
 
 # Runs policy for X episodes and returns average reward
 def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=200, compare=False):
@@ -45,163 +47,211 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     if not os.path.isdir(evplot_saving_dir):
         os.mkdir(evplot_saving_dir)
 
-    if compare:
-        eval_env = gym.make(env_name)
-        eval_env.seed(seed + 100)
+    # if compare:
+    #     eval_env = gym.make(env_name)
+    #     eval_env.seed(seed + 100)
+    #
+    #     print("***Eval In Compare")
+    #     # Generate randomized list of objects to select from
+    #     eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
+    #     ep_count = 0
+    #     avg_reward = 0.0
+    #     # step = 0
+    #     for i in range(40):
+    #         if i<23:
+    #             x=(i)*0.005-0.055
+    #             y=0.0
+    #         elif i>=23:
+    #             x=(i-23)*0.005-0.04
+    #             y=0.0
+    #         print('started pos', i)
+    #         cumulative_reward = 0
+    #         #eval_env = gym.make(env_name)
+    #         state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         success=0
+    #         # Sets number of timesteps per episode (counted from each step() call)
+    #         #eval_env._max_episode_steps = 200
+    #         eval_env._max_episode_steps = max_num_timesteps
+    #         while not done:
+    #             action = GenerateTestPID_JointVel(np.array(state),eval_env)
+    #             state, reward, done, _ = eval_env.step(action)
+    #             avg_reward += reward
+    #             cumulative_reward += reward
+    #             if reward > 25:
+    #                 success=1
+    #         num_success[1]+=success
+    #         print('PID net reward:',cumulative_reward)
+    #         state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         success=0
+    #         cumulative_reward = 0
+    #         # Sets number of timesteps per episode (counted from each step() call)
+    #         #eval_env._max_episode_steps = 200
+    #         eval_env._max_episode_steps = max_num_timesteps
+    #         # Keep track of object coordinates
+    #         obj_coords = eval_env.get_obj_coords()
+    #         ep_count += 1
+    #         print("***Eval episode: ",ep_count)
+    #
+    #         timestep_count = 0
+    #         while not done:
+    #             timestep_count += 1
+    #             action = policy.select_action(np.array(state[0:82]))
+    #             state, reward, done, _ = eval_env.step(action)
+    #             avg_reward += reward
+    #             cumulative_reward += reward
+    #             if reward > 25:
+    #                 success=1
+    #             # eval_env.render()
+    #             # print(reward)
+    #         # pdb.set_trace()
+    #         print('Policy net reward:',cumulative_reward)
+    #         num_success[0]+=success
+    #         print("Eval timestep count: ",timestep_count)
+    #
+    #         # Save initial object coordinate as success/failure
+    #         x_val = (obj_coords[0])
+    #         y_val = (obj_coords[1])
+    #         x_val = np.asarray(x_val).reshape(1)
+    #         y_val = np.asarray(y_val).reshape(1)
+    #
+    #         if (success):
+    #             seval_obj_posx = np.append(seval_obj_posx, x_val)
+    #             seval_obj_posy = np.append(seval_obj_posy, y_val)
+    #         else:
+    #             feval_obj_posx = np.append(feval_obj_posx, x_val)
+    #             feval_obj_posy = np.append(feval_obj_posy, y_val)
+    #
+    #         total_evalx = np.append(total_evalx, x_val)
+    #         total_evaly = np.append(total_evaly, y_val)
+    #
+    #     avg_reward /= eval_episodes
+    #
+    #     print("---------------------------------------")
+    #     # print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
+    #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
+    #     print("---------------------------------------")
+    #
+    # else:
+    eval_env = gym.make(env_name)
+    eval_env.seed(seed + 100)
 
-        print("***Eval In Compare")
-        # Generate randomized list of objects to select from
-        eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
-        ep_count = 0
-        avg_reward = 0.0
-        # step = 0
-        for i in range(40):
-            if i<23:
-                x=(i)*0.005-0.055
-                y=0.0
-            elif i>=23:
-                x=(i-23)*0.005-0.04
-                y=0.0
-            print('started pos', i)
-            cumulative_reward = 0
-            #eval_env = gym.make(env_name)
-            state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
-            success=0
-            # Sets number of timesteps per episode (counted from each step() call)
-            #eval_env._max_episode_steps = 200
-            eval_env._max_episode_steps = max_num_timesteps
-            while not done:
-                action = GenerateTestPID_JointVel(np.array(state),eval_env)
-                state, reward, done, _ = eval_env.step(action)
-                avg_reward += reward
-                cumulative_reward += reward
-                if reward > 25:
-                    success=1
-            num_success[1]+=success
-            print('PID net reward:',cumulative_reward)
-            state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
-            success=0
-            cumulative_reward = 0
-            # Sets number of timesteps per episode (counted from each step() call)
-            #eval_env._max_episode_steps = 200
-            eval_env._max_episode_steps = max_num_timesteps
-            # Keep track of object coordinates
-            obj_coords = eval_env.get_obj_coords()
-            ep_count += 1
-            print("***Eval episode: ",ep_count)
+    # Generate randomized list of objects to select from
+    eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
 
-            timestep_count = 0
-            while not done:
-                timestep_count += 1
-                action = policy.select_action(np.array(state[0:82]))
-                state, reward, done, _ = eval_env.step(action)
-                avg_reward += reward
-                cumulative_reward += reward
-                if reward > 25:
-                    success=1
-                # eval_env.render()
-                # print(reward)
-            # pdb.set_trace()
-            print('Policy net reward:',cumulative_reward)
-            num_success[0]+=success
-            print("Eval timestep count: ",timestep_count)
+    avg_reward = 0.0
+    # step = 0
+    print("***Eval episodes total: ",eval_episodes)
+    for i in range(eval_episodes):
+        success=0
+        #eval_env = gym.make(env_name)
+        state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
+        cumulative_reward = 0
+        # Sets number of timesteps per episode (counted from each step() call)
+        #eval_env._max_episode_steps = 200
+        eval_env._max_episode_steps = max_num_timesteps
+        print("***Eval episode: ", i)
+        # Keep track of object coordinates
+        obj_coords = eval_env.get_obj_coords()
+        timestep_count = 0
+        prev_state_lift_check = None
+        curr_state_lift_check = state
+        check_for_lift = True
+        ready_for_lift = False
+        skip_num_ts = 6
+        curr_reward = 0
 
-            # Save initial object coordinate as success/failure
-            x_val = (obj_coords[0])
-            y_val = (obj_coords[1])
-            x_val = np.asarray(x_val).reshape(1)
-            y_val = np.asarray(y_val).reshape(1)
-
-            if (success):
-                seval_obj_posx = np.append(seval_obj_posx, x_val)
-                seval_obj_posy = np.append(seval_obj_posy, y_val)
+        while not done:
+            timestep_count += 1
+            if timestep_count < skip_num_ts:
+                wait_for_check = False
             else:
-                feval_obj_posx = np.append(feval_obj_posx, x_val)
-                feval_obj_posy = np.append(feval_obj_posy, y_val)
-
-            total_evalx = np.append(total_evalx, x_val)
-            total_evaly = np.append(total_evaly, y_val)
-
-        avg_reward /= eval_episodes
-
-        print("---------------------------------------")
-        # print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
-        print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
-        print("---------------------------------------")
-
-    else:
-        eval_env = gym.make(env_name)
-        eval_env.seed(seed + 100)
-
-        # Generate randomized list of objects to select from
-        eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
-
-        avg_reward = 0.0
-        # step = 0
-        print("***Eval episodes total: ",eval_episodes)
-        for i in range(eval_episodes):
-            success=0
-            #eval_env = gym.make(env_name)
-            state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
-            cumulative_reward = 0
-            # Sets number of timesteps per episode (counted from each step() call)
-            #eval_env._max_episode_steps = 200
-            eval_env._max_episode_steps = max_num_timesteps
-            print("***Eval episode: ", i)
-            # Keep track of object coordinates
-            obj_coords = eval_env.get_obj_coords()
-            timestep_count = 0
-            while not done:
-                timestep_count += 1
-                action = policy.select_action(np.array(state[0:82]))
-                state, reward, done, _ = eval_env.step(action)
-                avg_reward += reward
-                cumulative_reward += reward
-                if reward > 25:
-                    success=1
-                # eval_env.render()
-                # print(reward)
-            # pdb.set_trace()
-            # print(cumulative_reward)
-            num_success+=success
-            print("Eval timestep count: ",timestep_count)
-
-            # Save initial object coordinate as success/failure
-            x_val = (obj_coords[0])
-            y_val = (obj_coords[1])
-            x_val = np.asarray(x_val).reshape(1)
-            y_val = np.asarray(y_val).reshape(1)
-
-            if(success):
-                seval_obj_posx = np.append(seval_obj_posx,x_val)
-                seval_obj_posy = np.append(seval_obj_posy,y_val)
+                wait_for_check = True
+            ##make it modular
+            ## If None, skip
+            if prev_state_lift_check is None:
+                f_dist_old = None
             else:
-                feval_obj_posx = np.append(feval_obj_posx,x_val)
-                feval_obj_posy = np.append(feval_obj_posy,y_val)
+                f_dist_old = prev_state_lift_check[9:17]
+            f_dist_new = curr_state_lift_check[9:17]
 
-            total_evalx = np.append(total_evalx, x_val)
-            total_evaly = np.append(total_evaly, y_val)
+            if check_for_lift and wait_for_check:
+                [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
 
-        avg_reward /= eval_episodes
+            #####
+            if not ready_for_lift:
+                action = policy.select_action(np.array(state[0:82]))
+                next_state, reward, done, _ = eval_env.step(action)
+                cumulative_reward += reward
+                avg_reward += reward
+                curr_reward = reward
 
-        print("---------------------------------------")
-        # print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
-        print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
-        print("---------------------------------------")
+            else:  # Make it happen in one time step
+                next_state, reward, done, _,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
+                                                                                 curr_reward)
+                check_for_lift = False
+
+            #####
+            if reward > 25:
+                success=1
+
+            state = next_state
+            prev_state_lift_check = curr_state_lift_check
+            curr_state_lift_check = state
+            # eval_env.render()
+            # print(reward)
+
+        # pdb.set_trace()
+        # print(cumulative_reward)
+        num_success+=success
+        print("Eval timestep count: ",timestep_count)
+
+        # Save initial object coordinate as success/failure
+        x_val = (obj_coords[0])
+        y_val = (obj_coords[1])
+        x_val = np.asarray(x_val).reshape(1)
+        y_val = np.asarray(y_val).reshape(1)
+
+        if(success):
+            seval_obj_posx = np.append(seval_obj_posx,x_val)
+            seval_obj_posy = np.append(seval_obj_posy,y_val)
+        else:
+            feval_obj_posx = np.append(feval_obj_posx,x_val)
+            feval_obj_posy = np.append(feval_obj_posy,y_val)
+
+        total_evalx = np.append(total_evalx, x_val)
+        total_evaly = np.append(total_evaly, y_val)
+
+    avg_reward /= eval_episodes
+
+    print("---------------------------------------")
+    # print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
+    print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
+    print("---------------------------------------")
 
     ret = [avg_reward, num_success, seval_obj_posx,seval_obj_posy,feval_obj_posx,feval_obj_posy,total_evalx,total_evaly]
     return ret
 
 
-def lift_hand(env_lift):
+def lift_hand(env_lift, tot_reward):
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
     next_state, reward, done, info = env_lift.step(action)
     if done:
         # accumulate or replace?
-        replay_buffer.replace(reward, done)
+        old_reward = replay_buffer.replace(reward, done)
+        tot_reward = tot_reward - old_reward + reward
 
-    return next_state, reward, done, info
+    return next_state, reward, done, info, tot_reward
+
+
+def eval_lift_hand(env_lift, tot_reward, curr_reward):
+    action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                       finger_lift_velocity])
+    next_state, reward, done, info = env_lift.step(action)
+    if done:
+        tot_reward = tot_reward - curr_reward + reward
+
+    return next_state, reward, done, info, tot_reward
 
 
 def update_policy(evaluations, episode_num, num_episodes, writer, prob,
@@ -279,13 +329,10 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 episode_reward += reward
 
             else:  # Make it happen in one time step
-                next_state, reward, done, info = lift_hand(env)
+                next_state, reward, done, info, episode_reward = lift_hand(env, episode_reward)
                 check_for_lift = False
-
             state = next_state
-
             # env.render()
-
             if info["lift_reward"] > 0:
                 lift_success = True
             else:
@@ -322,7 +369,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         # Evaluation and recording data for tensorboard
         if (episode_num + 1) % args.eval_freq == 0:
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=200)  # , compare=True)
+                                   mode=args.mode, eval_episodes=10)  # , compare=True)
 
             avg_reward = eval_ret[0]
             num_success = eval_ret[1]
@@ -471,7 +518,7 @@ if __name__ == "__main__":
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
     parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
-    parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
+    parser.add_argument("--eval_freq", default=20, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
     parser.add_argument("--max_episode", default=15000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
@@ -601,16 +648,16 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5000, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(11, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
-        num_updates = 4000
+        num_updates = 21
         pretrain_model_save_path = pretrain_policy(num_updates)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
         print("LOADED THE Pre-trained POLICY")
         tot_num_episodes = 8000#args.max_episode
-        train_policy(tot_num_episodes)
+        # train_policy(tot_num_episodes)
 
     elif args.mode == "rand_train":
         print("MODE: Train (Random init policy)")
