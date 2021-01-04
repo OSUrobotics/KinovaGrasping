@@ -369,7 +369,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         # Evaluation and recording data for tensorboard
         if (episode_num + 1) % args.eval_freq == 0:
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=10)  # , compare=True)
+                                   mode=args.mode, eval_episodes=200)  # , compare=True)
 
             avg_reward = eval_ret[0]
             num_success = eval_ret[1]
@@ -518,7 +518,7 @@ if __name__ == "__main__":
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
     parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
-    parser.add_argument("--eval_freq", default=20, type=float)			# How often (time steps) we evaluate
+    parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
     parser.add_argument("--max_episode", default=15000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
@@ -648,15 +648,15 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(11, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5000, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
-        num_updates = 21
+        num_updates = 5000
         pretrain_model_save_path = pretrain_policy(num_updates)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
         print("LOADED THE Pre-trained POLICY")
-        tot_num_episodes = 8000#args.max_episode
+        tot_num_episodes = 10000#args.max_episode
         # train_policy(tot_num_episodes)
 
     elif args.mode == "rand_train":
