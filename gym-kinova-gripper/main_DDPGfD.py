@@ -193,6 +193,16 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     return ret
 
 
+# def lift_hand(env_lift):
+    # action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+    #                    finger_lift_velocity])
+    # next_state, reward, done, info = env_lift.step(action)
+    # if done:
+    #     # accumulate or replace?
+    #     replay_buffer.replace(reward, done)
+
+    # return done
+
 def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                   type_of_training, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy, max_num_timesteps=30):
 
@@ -210,7 +220,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
     total_evalx = np.array([])      # Total evaluation object coords
     total_evaly = np.array([])
 
-    for t in range(num_episodes):
+    for _ in range(num_episodes):
         env = gym.make(args.env_name)
 
         # Max number of timesteps to match the expert replay grasp trials
@@ -225,7 +235,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         prev_state_lift_check = None
         curr_state_lift_check = state
 
-        episode_num += 1
+
         noise.reset()
         expl_noise.reset()
         episode_reward = 0
@@ -233,12 +243,18 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         replay_buffer.add_episode(1)
         timestep = 0  # Timestep counter is only used for testing purposes
 
-        print(type_of_training, t)
+        print(type_of_training, episode_num)
         # print("replay_buffer.episodes_count: ", replay_buffer.episodes_count)
         check_for_lift = True
+        ready_for_lift = False
+        skip_num_ts = 6
 
         while not done:
             timestep = timestep + 1
+            if timestep < skip_num_ts:
+                wait_for_check = False
+            else:
+                wait_for_check = True
             ##make it modular
             ## If None, skip
             if prev_state_lift_check is None:
@@ -247,7 +263,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 f_dist_old = prev_state_lift_check[9:17]
             f_dist_new = curr_state_lift_check[9:17]
 
-            if check_for_lift:
+            if check_for_lift and wait_for_check:
                 [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
 
             # Store data in replay buffer
@@ -262,22 +278,17 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
                 episode_reward += reward
 
-            else:  ## Make it modular, one time step
+            else:  # Make it happen in one time step
                 action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                                    finger_lift_velocity])
                 next_state, reward, done, info = env.step(action)
-                check_for_lift = False
                 if done:
-                    ##accumulate or replace?
+                    # accumulate or replace?
                     replay_buffer.replace(reward, done)
-                    # replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
-
-            ######### WITH LIFT
-            # next_state, reward, done, info = env.step(action)
-            # replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
-            # episode_reward += reward
+                check_for_lift = False
 
             state = next_state
+
             # env.render()
 
             if info["lift_reward"] > 0:
@@ -288,11 +299,11 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             curr_state_lift_check = state
             # print ("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
 
-        replay_buffer.add_episode(0)
-        # print("timestep: ",timestep)
 
+        # print("timestep: ",timestep)
+        replay_buffer.add_episode(0)
         # Train agent after collecting sufficient data:
-        if t > 10:
+        if episode_num > 10:
             for learning in range(100):
                 actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
                                                                                      expert_replay_buffer,
@@ -314,7 +325,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             f_obj_posy = np.append(f_obj_posy, y_val)
 
         # Evaluation and recording data for tensorboard
-        if (t + 1) % args.eval_freq == 0:
+        if (episode_num + 1) % args.eval_freq == 0:
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
                                    mode=args.mode, eval_episodes=200)  # , compare=True)
 
@@ -339,7 +350,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
         evplot_saving_dir = "./eval_plots"
         # Save coordinates every 1000 episodes
-        if (t + 1) % 1000 == 0:
+        if (episode_num + 1) % 1000 == 0:
             save_coordinates(seval_obj_posx, seval_obj_posy,
                              evplot_saving_dir + "/heatmap_eval_success" + str(episode_num))
             save_coordinates(feval_obj_posx, feval_obj_posy,
@@ -352,6 +363,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             total_evalx = np.array([])
             total_evaly = np.array([])
 
+        episode_num += 1
     return evaluations, episode_num, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy
 
 
@@ -407,7 +419,7 @@ def pretrain_policy(tot_episodes):
     return pretrain_model_path
 
 
-def train_policy():
+def train_policy(tot_episodes):
     trplot_saving_dir = "./train_plots"
     if not os.path.isdir(trplot_saving_dir):
        os.mkdir(trplot_saving_dir)
@@ -415,7 +427,7 @@ def train_policy():
     # Initialize SummaryWriter
     tr_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format(args.policy_name, args.tensorboardindex))
     tr_prob = 0.8
-    tr_ep = 28#args.max_episode
+    tr_ep = int(tot_episodes/4)
     ###HERE####
     # state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,
     # mode=args.mode), False
@@ -594,16 +606,16 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(15, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
-        num_updates = 5
+        num_updates = 20
         pretrain_model_save_path = pretrain_policy(num_updates)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
         print("LOADED THE Pre-trained POLICY")
-        train_policy()
-
+        tot_num_episodes = 44#args.max_episode
+        train_policy(tot_num_episodes)
 
     elif args.mode == "rand_train":
         print("MODE: Train (Random init policy)")
