@@ -184,7 +184,7 @@ class KinovaGripper_Env(gym.Env):
         obj_list=['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
         self.random_poses=[[],[],[],[],[],[]]
         for i in range(len(obj_list)):
-            random_poses_file=open(obj_list[i],"r")
+            random_poses_file=open(self.file_dir + '/../../shape_orientations/' + obj_list[i],"r")
             #temp=random_poses_file.read()
             lines_list = random_poses_file.readlines()
             temp = [[float(val) for val in line.split()] for line in lines_list[1:]]
@@ -711,6 +711,9 @@ class KinovaGripper_Env(gym.Env):
         all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
         all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
+        #Regrasping
+        all_objects["RGmBox"] = "/kinova_description/j2s7s300_end_effector_regrasp_mBox.xml"
+
         for key in shape_keys:
             self.objects[key] = all_objects[key]
 
@@ -942,6 +945,13 @@ class KinovaGripper_Env(gym.Env):
             elif obj_params[1] == "S":
                 obj=2
                 self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1.xml"
+        elif obj_params[0] == "RGCube":
+            if obj_params[1] == "B":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_regrasp_bBox.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_regrasp_bBox.xml"
+            elif obj_params[1] == "M":
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_regrasp_mBox.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_regrasp_mBox.xml"
+            elif obj_params[1] == "S":
+                self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_regrasp_sBox.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_regrasp_sBox.xml"        
         elif obj_params[0] == "Cylinder":
             if obj_params[1] == "B":
                 obj=3
@@ -1314,14 +1324,17 @@ class KinovaGripper_Env(gym.Env):
     def step(self, action, graspnetwork = True): #TODO: fix this so that we can rotate the hand
         total_reward = 0
         self._get_trans_mat_wrist_pose()
+
         if len(action)==4:
-            action=[0,0,action[0],action[1],action[2],action[3]]
+            action=[0,0,action[0],action[1],action[2],action[3],0]
+        
         if action[0]==0:
             self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
         if action[1]==0:
             self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
         if action[2]==0:
             self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
+
         if self.arm_or_hand=="hand":
             mass=0.733
             gear=25
@@ -1347,6 +1360,10 @@ class KinovaGripper_Env(gym.Env):
                     else:
                         self._sim.data.ctrl[i+6] = action[i+3]
                     self._sim.data.ctrl[i*2+1]=stuff[i]
+                
+                #Rotate wrist
+                self._sim.data.ctrl[9] = action[6]
+                
                 self._sim.step()
         else:
             for _ in range(self.frame_skip):
@@ -1357,7 +1374,7 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(len(finger_velocities)):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
-        obs = self._get_obs(test=False)
+        obs = self._get_obs()#test=False)
         if not graspnetwork:
             total_reward, info, done = self._get_reward()
         else:
@@ -1366,13 +1383,79 @@ class KinovaGripper_Env(gym.Env):
             total_reward, info, done = self._get_reward_DataCollection()
         return obs, total_reward, done, info
 
+    #Adds normalized vector as a cylinder to the object 
+    def add_vec_site(self, world_site_coords, vec):        
+        #Get current file contents
+        xml_file=open(self.file_dir+self.filename,"r")
+        xml_contents=xml_file.read()
+        xml_file.close()
+
+        object_size=self._get_obj_size()
+        cyl = np.array([0,0,1])
+        
+        #Rotations attributed to 
+        #gist.github.com/kevinmoran/b45980723e53edeb8a5a43c49f134724
+        axis = np.cross(vec, cyl)
+        cosA = np.dot(vec, cyl)
+        k = 1 / (1+cosA)
+
+        rot = np.array([(axis[0] * axis[0] * k) + cosA, 
+                (axis[1] * axis[0] * k) - axis[2],
+                (axis[2] * axis[0] * k) + axis[1],
+                (axis[0] * axis[1] * k) + axis[2],
+                (axis[1] * axis[1] * k) + cosA, 
+                (axis[2] * axis[1] * k) - axis[0],
+                (axis[0] * axis[2] * k) - axis[1],
+                (axis[1] * axis[2] * k) + axis[0], 
+                (axis[2] * axis[2] * k) + cosA]).reshape((3,3))
+        
+        VEC_SIZE = .01
+        offset = cyl.dot(rot) * VEC_SIZE
+        roll = np.arctan2(rot[2][1], rot[2][2])
+        pitch = np.arctan2(-rot[2][0], np.sqrt(np.square(rot[2][1]) + np.square(rot[2][2])))
+        yaw = np.arctan2(rot[1][0], rot[0][0])
+
+        #XML text to be input
+        vec_size_text = "0.001 " + str(VEC_SIZE) #thickness, half height in meters
+        site_text=f'            <site name="obj_vec" type="cylinder" size="{vec_size_text}" rgba="1 0.5 0.5 1"'
+        pos_text =f' pos="{world_site_coords[0]-offset[0]} {world_site_coords[1]-offset[1]} {world_site_coords[2]+object_size[2]+offset[2]}"'
+        angle_text = f' euler="{roll} {pitch} {yaw}"/>\n'
+
+        found=xml_contents.find(site_text)
+
+        #Where to put the new site
+        starting_point=xml_contents.find('<body name="object" pos="0 0 0">')
+        site_point=xml_contents.find('\n',starting_point)
+        
+        #Add new site to current XML 
+        if found >= 0:
+            next_line=xml_contents.find('\n',found)
+
+            new_thing=xml_contents[0:site_point+1+len(site_text)] + pos_text + angle_text
+            new_thing+=xml_contents[next_line+1:]
+        else:
+            new_thing=xml_contents[0:site_point+1] + site_text + pos_text + angle_text
+            new_thing+=xml_contents[site_point+1:]
+        
+        #Write new site into XML
+        xml_file=open(self.file_dir+self.filename,"w")
+        xml_file.write(new_thing)
+        xml_file.close()
+
+        #Update everything to account for new site
+        self._model = load_model_from_path(self.file_dir + self.filename)
+        self._sim = MjSim(self._model)
+        states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_size[0],object_size[1],object_size[2]]
+        self._set_state(np.array(states))
+        self._get_trans_mat_wrist_pose()
+
     def add_site(self,world_site_coords,keep_sites=False):
         if not(keep_sites):
             self.site_count=0
         xml_file=open(self.file_dir+self.filename,"r")
         xml_contents=xml_file.read()
         xml_file.close()
-        a=xml_contents.find('<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n')
+        a=xml_contents.find(f'<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n')
         if a!=-1:
             starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
             site_point=xml_contents.find('\n',starting_point)
