@@ -74,7 +74,7 @@ class DDPGfD(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, episode_step, expert_replay_buffer, replay_buffer=None):
+	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.8):
 		self.total_it += 1
 
 		# Sample replay buffer
@@ -86,7 +86,7 @@ class DDPGfD(object):
 			# print("REPLAY BUFFER IS NONE")
 		else:
 			# print("PROBABILITY EXPERT OR AGENT")
-			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.8, 0.2])
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
 			#expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 
 		if expert_or_random == "expert":
