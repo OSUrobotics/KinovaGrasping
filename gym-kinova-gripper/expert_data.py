@@ -764,7 +764,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
     # Beginning of episode loop
     for i in range(episode_num):
-        print("**** Expert PID Episode: ", i)
+        print("PID ", i)
         obs, done = env.reset(), False
 
         prev_obs = None         # State observation of the previous state
@@ -801,14 +801,28 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
                                 ready_for_lift, num_consistent_grasps)
 
             # Used for the action string
-            naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+            ###After taking step###
+            [naive_ret,_] = naive_check_grasp(f_dist_old, f_dist_new)
 
             # Take action (Reinforcement Learning step)
             next_obs, reward, done, info = env.step(action)
 
             # Add experience to replay buffer
-            if replay_buffer is not None:
+            if replay_buffer is not None and not naive_ret:
                 replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+
+            if naive_ret and done:
+                replay_buffer.replace(reward, done)
+                # print ("#######REWARD#######", reward)
+                # replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+
+            # if replay_buffer is not None and not naive_ret and not done:
+            #     replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+            #
+            # if done:
+            #     # print ("#######REWARD#######", reward)
+            #     # replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+            #     replay_buffer.replace(reward, done)
 
             action_str = "Wrist: " + str(action[0]) + "\nFinger1: " + str(action[1]) + "\nFinger2: " + str(
                 action[2]) + "\nFinger3: " + str(action[3]) + "\nready_for_lift: " + str(
@@ -822,7 +836,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
         all_timesteps = np.append(all_timesteps, total_steps)
 
-        print("Expert PID total timestep: ", total_steps)
+        # print("Expert PID total timestep: ", total_steps)
         lift_success = None
         if (info["lift_reward"] > 0):
             lift_success = 'success'
@@ -830,6 +844,8 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         else:
             lift_success = 'fail'
             fail_timesteps = np.append(fail_timesteps, total_steps)
+
+        # print("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
         #if total_steps % 1 == 0:
         #    env.render_img(text_overlay=str(action), episode_num=i, timestep_num=total_steps,
         #                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
@@ -1077,7 +1093,10 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 # Training
 LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_validation 1 --filename data_cube_5_10_07_19_1612 --trained_model data_cube_5_trained_model --num_episode 5000
 '''
-
-# testing #
-#replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
-# plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
+if __name__ ==  "__main__":
+    # testing #
+    # Initialize expert replay buffer, then generate expert pid data to fill it
+    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+    replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
+    print (replay_buffer, save_filepath)
+    # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")

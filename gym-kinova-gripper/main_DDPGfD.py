@@ -3,7 +3,7 @@ import torch
 import gym
 import argparse
 import os, sys
-
+os.environ['KMP_DUPLICATE_LIB_OK']='True'
 import utils
 #import TD3
 #import OurDDPG
@@ -16,7 +16,7 @@ import pickle
 import datetime
 import csv
 import time
-from expert_data import store_saved_data_into_replay, GenerateExpertPID_JointVel, GenerateTestPID_JointVel
+from expert_data import store_saved_data_into_replay, GenerateExpertPID_JointVel, GenerateTestPID_JointVel, naive_check_grasp
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
@@ -37,7 +37,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     total_evaly = np.array([])
 
     # match timesteps to expert and pre-training
-    max_num_timesteps = 150
+    # max_num_timesteps = 150
+    max_num_timesteps = 30
 
     # Folder to save heatmap coordinates
     evplot_saving_dir = "./eval_plots"
@@ -212,7 +213,7 @@ def pretrain_policy(env,num_updates,replay_buffer, expert_replay_buffer,saving_d
 
     # Update the policy based on expert replay buffer for num_updates
     for pretrain_episode_num in range(num_updates):
-        print("pretrain_episode_num: ", pretrain_episode_num)
+        print("pretrain: ", pretrain_episode_num)
 
         # Max number of timesteps to match the expert replay grasp trials
         env._max_episode_steps = max_num_timesteps
@@ -267,6 +268,10 @@ def pretrain_policy(env,num_updates,replay_buffer, expert_replay_buffer,saving_d
 
 if __name__ == "__main__":
 
+    wrist_lift_velocity = 0.6
+    min_velocity = 0.5
+    finger_lift_velocity = min_velocity
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--policy_name", default="DDPGfD")				# Policy name
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
@@ -274,7 +279,7 @@ if __name__ == "__main__":
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=100, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
-    parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
+    parser.add_argument("--max_episode", default=22000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
     parser.add_argument("--batch_size", default=250, type=int)			# Batch size for both actor and critic
@@ -322,7 +327,8 @@ if __name__ == "__main__":
     requested_orientation = args.hand_orientation   # Set the desired hand orientation (normal or random)
     expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
-    max_num_timesteps = 150     # Maximum number of time steps within an episode
+    # max_num_timesteps = 150     # Maximum number of time steps within an episode
+    max_num_timesteps = 30     # Maximum number of time steps within an episode
 
     # Fill pre-training object list using latin square method
     env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
@@ -370,10 +376,10 @@ if __name__ == "__main__":
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
     # Default expert pid file path
-    expert_file_path = "./expert_replay_data/Expert_data_11_18_20_0253/"
+    expert_file_path = "./expert_replay_data/Expert_data_01_16_21_2315/"
 
     # Default pre-trained policy file path
-    pretrain_model_save_path = "./policies/exp_NO_graspclassifier_pretrain_policy_CubeS/pre_DDPGfD_kinovaGrip_11_16_20_2025"
+    pretrain_model_save_path = "./policies/new/pre_DDPGfD_kinovaGrip_01_14_21_0100"
 
     # Create directory to hold trained policy
     saving_dir = "./policies/" + args.saving_dir
@@ -386,15 +392,17 @@ if __name__ == "__main__":
         print("MODE: Expert")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        print("expert_file_path: ",expert_file_path)
+        # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(10, expert_replay_buffer, True)        
+        print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
         quit()
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
-        num_updates = 2000 #10000 # Number of expert pid grasp trials used to update policy
+        num_updates = 10#2000 #10000 # Number of expert pid grasp trials used to update policy
         # Load expert data from saved expert pid controller replay buffer
         expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
+        print ("SIZE:", expert_replay_buffer.size)
         # Pre-train policy based on expert data
         pretrain_model_save_path = pretrain_policy(env, num_updates, replay_buffer, expert_replay_buffer, saving_dir)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
@@ -402,10 +410,18 @@ if __name__ == "__main__":
     elif args.mode == "train":
         print("MODE: Train (w/ pre-trained policy")
         # Load pre-trained policy
-        expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
-        # Load Pre-Trained policy
-        policy.load(pretrain_model_save_path)
-        print("LOADED THE Pre-trained POLICY")
+        # expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
+        # Initialize expert replay buffer, then generate expert pid data to fill it
+        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+        # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(10, expert_replay_buffer, True)
+        print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
+        # num_updates = 10000
+        # pretrain_model_save_path = pretrain_policy(env, num_updates, replay_buffer, expert_replay_buffer, saving_dir)
+        # print("pretrain_model_save_path: ",pretrain_model_save_path)
+        # # Load Pre-Trained policy
+        # policy.load(pretrain_model_save_path)
+        # print("LOADED THE Pre-trained POLICY")
     elif args.mode == "rand_train":
         print("MODE: Train (Random init policy)")
         expert_replay_size = 0
@@ -417,8 +433,8 @@ if __name__ == "__main__":
         print("Invalid mode input")
         quit()
 
-    print("*****replay_buffer.size: ",replay_buffer.size)
-    print("*****replay_buffer.episodes_count: ",replay_buffer.episodes_count)
+    # print("*****replay_buffer.size: ",replay_buffer.size)
+    # print("*****replay_buffer.episodes_count: ",replay_buffer.episodes_count)
 
     # Fill pre-training object list using latin square
     #env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
@@ -486,6 +502,10 @@ if __name__ == "__main__":
             env.Generate_Latin_Square(args.max_episode,"objects.csv",shape_keys=requested_shapes)
         state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=args.mode), False
 
+
+        prev_state_lift_check = None
+        curr_state_lift_check = state
+
         episode_num += 1
         noise.reset()
         expl_noise.reset()
@@ -494,33 +514,65 @@ if __name__ == "__main__":
         replay_buffer.add_episode(1)
         timestep = 0 # Timestep counter is only used for testing purposes
 
-        print("\n*** TRAINING Episode Num: ",episode_num)
-        print("replay_buffer.episodes_count: ", replay_buffer.episodes_count)
+        print("TRAIN",episode_num)
+        # print("replay_buffer.episodes_count: ", replay_buffer.episodes_count)
+        check_for_lift = True
 
         while not done:
             timestep = timestep + 1
+            ##make it modular
+            ## If None, skip
+            if prev_state_lift_check is None:
+                f_dist_old = None
+            else:
+                f_dist_old = prev_state_lift_check[9:17]
+            f_dist_new = curr_state_lift_check[9:17]
 
-            action = (
-                policy.select_action(np.array(state))
-                + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
-            ).clip(-max_action, max_action)
-
-            # Perform action obs, total_reward, done, info
-            next_state, reward, done, info = env.step(action)
-
+            if check_for_lift:
+                [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
+            
             # Store data in replay buffer
-            replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
+            ######### WITHOUT LIFT
+            if not ready_for_lift:
+                action = (
+                        policy.select_action(np.array(state))
+                        + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
+                ).clip(-max_action, max_action)
+                # Perform action obs, total_reward, done, info
+                next_state, reward, done, info = env.step(action)
+                replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
+                episode_reward += reward
+
+            else:## Make it modular, one time step
+                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                   finger_lift_velocity])
+                next_state, reward, done, info = env.step(action)
+                check_for_lift == False
+                if done:
+                    ##accumulate or replace?
+                    replay_buffer.replace(reward, done)
+                    # replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
+
+            ######### WITH LIFT
+            # next_state, reward, done, info = env.step(action)
+            # replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
+            # episode_reward += reward
+            
+
+            state = next_state
+            # env.render()
 
             if info["lift_reward"] > 0:
                 lift_success = True
             else:
                 lift_success = False
+            prev_state_lift_check = curr_state_lift_check
+            curr_state_lift_check = state
+            # print ("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
 
-            state = next_state
-            episode_reward += reward
 
         replay_buffer.add_episode(0)
-        print("timestep: ",timestep)
+        # print("timestep: ",timestep)
 
         # Train agent after collecting sufficient data:
         if episode_num > 10:

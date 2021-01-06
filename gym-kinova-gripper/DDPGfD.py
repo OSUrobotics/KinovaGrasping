@@ -80,29 +80,33 @@ class DDPGfD(object):
 		# Sample replay buffer
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			expert_or_random = "agent"
+			# print("REPLAY BUFFER IS NOT NONE")
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			expert_or_random = "expert"
+			# print("REPLAY BUFFER IS NONE")
 		else:
-			print("PROBABILITY EXPERT OR AGENT")
+			# print("PROBABILITY EXPERT OR AGENT")
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.8, 0.2])
 			#expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 
 		if expert_or_random == "expert":
+			# print("IN EXPERT BUFFER")
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
+			# print("IN NORMAL BUFFER")
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
 
 		# new sampling procedure for n step rollback
 		#state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
 
-		print("=======================state===================")
-		print(state.shape)
-		print("=======================next_state===================")
-		print(next_state.shape)
-
-		print("=====================action====================")
-		print(action.shape)
+		# print("=======================state===================")
+		# print(state.shape)
+		# print("=======================next_state===================")
+		# print(next_state.shape)
+		#
+		# print("=====================action====================")
+		# print(action.shape)
 
 		# Old implementation of target Q
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
@@ -164,8 +168,8 @@ class DDPGfD(object):
 				rollreward.append(roll_reward)
 		else:
 		'''
-		print("state.shape[0]: ", state.shape[0])
-		print("episode_step: ",episode_step)
+		# print("state.shape[0]: ", state.shape[0])
+		# print("episode_step: ",episode_step)
 		ep_timesteps = episode_step
 		if state.shape[0] < episode_step:
 			ep_timesteps = state.shape[0]
@@ -184,10 +188,10 @@ class DDPGfD(object):
 		#print(len(rollreward))
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
-		print("rollreward.get_shape(): ", rollreward.size())
-		print("target_QN.get_shape(): ", target_QN.size())
-		print("self.discount: ", self.discount)
-		print("self.n.: ", self.n)
+		# print("rollreward.get_shape(): ", rollreward.size())
+		# print("target_QN.get_shape(): ", target_QN.size())
+		# print("self.discount: ", self.discount)
+		# print("self.n.: ", self.n)
 
 		# print("================SHAPE DUMP=============")
 		# print(rollreward.shape)
@@ -209,12 +213,12 @@ class DDPGfD(object):
 		# New Updated for new rollback method
 		#current_Q_n = self.critic(state[:, -1], action[:, -1])
 
-		print("======================Q shapes finallly==============")
-		print(current_Q.shape)
-		print(target_Q.shape)
-		print(current_Q_n.shape)
-		print(target_QN.shape)
-		print("==============end printing pain==================")
+		# print("======================Q shapes finallly==============")
+		# print(current_Q.shape)
+		# print(target_Q.shape)
+		# print(current_Q_n.shape)
+		# print(target_QN.shape)
+		# print("==============end printing pain==================")
 
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)

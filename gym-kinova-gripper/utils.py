@@ -43,6 +43,7 @@ class ReplayBuffer_Queue(object):
 			# increment episode count
 			self.episodes_count += 1
 			self.replay_ep_num += 1
+			# print("ADDED DONE BIT")
 
 			# Append empty list to start new row for an episode
 			self.state.append([])
@@ -53,6 +54,7 @@ class ReplayBuffer_Queue(object):
 
 			# If over max number of episodes for replay buffer
 			if self.replay_ep_num >= self.max_episode:
+				print("REMOVING EPIDODE!!")
 				self.remove_episode()
 
 	def remove_episode(self):
@@ -88,13 +90,20 @@ class ReplayBuffer_Queue(object):
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
 
+		# print("NUMBER  IS", self.replay_ep_num)
 		episode_idx = random.choice(np.arange(0, self.replay_ep_num)) # Choose one random episode between [0,episode_count)
+
 
 		# Get the beginning timestep index and the ending timestep index within an episode
 		ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
 
 		# Randomly select 100 timesteps from the episode
-		selected_indexes = random.choices(ind, k=800)
+
+		selected_indexes = random.choices(ind, k=30)
+		# print("SELECTION", (ind.shape), len(selected_indexes), selected_indexes)
+
+		a = max(selected_indexes)
+		# print("what's this?", self.reward[episode_idx][a])
 
 		# Use full episode's timesteps to update network
 		#selected_indexes = ind
@@ -106,15 +115,43 @@ class ReplayBuffer_Queue(object):
 			torch.FloatTensor([self.next_state[episode_idx][x] for x in selected_indexes]).to(self.device),
 			torch.FloatTensor([self.reward[episode_idx][x] for x in selected_indexes]).to(self.device),
 			torch.FloatTensor([self.not_done[episode_idx][x] for x in selected_indexes]).to(self.device)
+
 		)
 
-	'''
-			torch.FloatTensor(self.state[episode_idx]).to(self.device),
-			torch.FloatTensor(self.action[episode_idx]).to(self.device),
-			torch.FloatTensor(self.next_state[episode_idx]).to(self.device),
-			torch.FloatTensor(self.reward[episode_idx]).to(self.device),
-			torch.FloatTensor(self.not_done[episode_idx]).to(self.device)
-	'''
+	def replace(self, reward, done):
+		"""
+		Used to replace the last time step of an episode
+		to include lift reward and set the done bit as True
+		@param reward: The updated lift reward value
+		@param done: The updated done bit value
+		"""
+
+		if not done:
+			print("Can only replace last time step of the latest episode")
+			raise ValueError
+
+		episode_idx = self.replay_ep_num
+		idx = len(self.reward[episode_idx]) - 1
+		self.reward[episode_idx][idx] = reward
+		self.not_done[episode_idx][idx] = 1. - float(done)
+
+		# increment episode count
+		self.episodes_count += 1
+		self.replay_ep_num += 1
+		# print("ADDED DONE BIT")
+
+		# Append empty list to start new row for an episode
+		self.state.append([])
+		self.action.append([])
+		self.next_state.append([])
+		self.reward.append([])
+		self.not_done.append([])
+
+		# If over max number of episodes for replay buffer
+		if self.replay_ep_num >= self.max_episode:
+			print("REMOVING EPIDODE!!")
+			self.remove_episode()
+
 
 
 # A buffer that stores and sample based on episodes that have different step size

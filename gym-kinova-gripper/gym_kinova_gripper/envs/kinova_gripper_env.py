@@ -567,6 +567,7 @@ class KinovaGripper_Env(gym.Env):
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
             lift_reward = 50.0
+            # print("!!!!!!!!!!########### ENV LIFT REWARD: #######!!!!!!!!!!!", lift_reward)
             done = True
         else:
             lift_reward = 0.0
@@ -870,7 +871,7 @@ class KinovaGripper_Env(gym.Env):
                 writer.writerow(key)
 
     def objects_file_to_list(self,filename, num_objects,shape_keys):
-        print("FILENAME: ",filename)
+        # print("FILENAME: ",filename)
 
         my_file = Path(filename)
         if my_file.is_file() is True:
@@ -908,7 +909,7 @@ class KinovaGripper_Env(gym.Env):
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 
-        print("random_shape: ",random_shape)
+        # print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 
@@ -1027,7 +1028,7 @@ class KinovaGripper_Env(gym.Env):
         #x, y = self.randomize_initial_pose(True) # for data collection
 
         # Pretraining and training will have the same coordinate files
-        print("In reset, checking mode")
+        # print("In reset, checking mode")
         if mode == "pre-train" or mode == "rand_train":
             print("Switching to train")
             mode = "train"
@@ -1318,7 +1319,7 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork = True): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork = False): #TODO: fix this so that we can rotate the hand
         """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
             action: array of finger joint velocity values (finger1, finger1, finger3)
             graspnetwork: bool, set True to use grasping network to determine reward value
