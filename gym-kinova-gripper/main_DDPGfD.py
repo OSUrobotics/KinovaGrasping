@@ -5,9 +5,9 @@ import argparse
 import os, sys
 
 import utils
-import TD3
-import OurDDPG
-import DDPG
+#import TD3
+#import OurDDPG
+#import DDPG
 import DDPGfD
 import pdb
 from tensorboardX import SummaryWriter
@@ -285,7 +285,7 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
     parser.add_argument("--model", default=1, type=int)	# save model index
-    parser.add_argument("--expert_replay_size", default=10000, type=int)	# Number of episode for loading expert trajectories
+    parser.add_argument("--expert_replay_size", default=20000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
