@@ -773,6 +773,12 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         total_steps = 0             # Total RL timesteps passed within episode
         env._max_episode_steps = 30 # Sets number of timesteps per episode (counted from each step() call)
         obj_coords = env.get_obj_coords()
+
+        # Local coordinate conversion
+        obj_local = np.append(obj_coords,1)
+        obj_local = np.matmul(env.Tfw,obj_local)
+        obj_local_pos = obj_local[0:3]
+
         action_str = None
         controller = ExpertPIDController(obs)   # Initiate expert PID controller
 
@@ -783,9 +789,9 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         # Beginning of RL time steps within the current episode
         while not done:
             # Render image from current episode
-            #if total_steps % 1 == 0:
-            #    env.render_img(text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-            #                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]))
+            if total_steps % 1 == 0:
+                env.render_img(text_overlay=action_str, episode_num=i, timestep_num=total_steps,
+                               obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]))
             # else:
             #    env._viewer = None
 
@@ -830,11 +836,15 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         else:
             lift_success = 'fail'
             fail_timesteps = np.append(fail_timesteps, total_steps)
-        #if total_steps % 1 == 0:
-        #    env.render_img(text_overlay=str(action), episode_num=i, timestep_num=total_steps,
-        #                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
+        if total_steps % 1 == 0:
+            env.render_img(text_overlay=str(action), episode_num=i, timestep_num=total_steps,
+                           obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
 
-        ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info)
+        # Global coordinates
+        #ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info)
+        # Local coordinates
+        ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_local_pos, info)
+
         expert_success_x = ret[0]
         expert_success_y = ret[1]
         expert_fail_x = ret[2]
