@@ -37,7 +37,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     total_evaly = np.array([])
 
     # match timesteps to expert and pre-training
-    max_num_timesteps = 150
+    max_num_timesteps = 30
 
     # Folder to save heatmap coordinates
     evplot_saving_dir = "./eval_plots"
@@ -322,7 +322,7 @@ if __name__ == "__main__":
     requested_orientation = args.hand_orientation   # Set the desired hand orientation (normal or random)
     expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
-    max_num_timesteps = 150     # Maximum number of time steps within an episode
+    max_num_timesteps = 30     # Maximum number of time steps within an episode
 
     # Fill pre-training object list using latin square method
     env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
@@ -370,7 +370,8 @@ if __name__ == "__main__":
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
     # Default expert pid file path
-    expert_file_path = "./expert_replay_data/Expert_data_11_18_20_0253/"
+    expert_file_path = "./expert_replay_data/Expert_data_01_12_21_1954/"
+    #"./expert_replay_data/Expert_data_11_18_20_0253/"
 
     # Default pre-trained policy file path
     pretrain_model_save_path = "./policies/exp_NO_graspclassifier_pretrain_policy_CubeS/pre_DDPGfD_kinovaGrip_11_16_20_2025"
@@ -392,7 +393,8 @@ if __name__ == "__main__":
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
-        num_updates = 2000 #10000 # Number of expert pid grasp trials used to update policy
+        print("Expert file path: ",expert_file_path)
+        num_updates = 10000 # Number of expert pid grasp trials used to update policy
         # Load expert data from saved expert pid controller replay buffer
         expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
         # Pre-train policy based on expert data
