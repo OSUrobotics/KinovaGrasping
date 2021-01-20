@@ -712,6 +712,7 @@ class KinovaGripper_Env(gym.Env):
         all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
         for key in shape_keys:
+            print("key: ",key)
             self.objects[key] = all_objects[key]
 
         if len(shape_keys) == 0:
@@ -904,6 +905,7 @@ class KinovaGripper_Env(gym.Env):
             for key in self.obj_keys:
                 writer.writerow(key)
 
+        print("GET OBJECT: self.file_dir + self.objects[random_shape]: ",self.file_dir + self.objects[random_shape])
         # Load model
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
@@ -1025,6 +1027,9 @@ class KinovaGripper_Env(gym.Env):
 
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
+
+        print("IN RESET: shape_keys: ",shape_keys)
+        print("IN RESET: objects: ",self.objects)
 
         # Pretraining and training will have the same coordinate files
         print("In reset, checking mode")

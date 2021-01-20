@@ -6,12 +6,13 @@ from PIL import Image
 import os
 
 def heatmap_freq(a,b,plot_title,plot_name):
+  """ Plots a heatmap od the frequency of the sampled object x,y position at each coordinate location """
 
   title = plot_title
   cb_label = 'Frequency count of all grasp trials'
 
-  x_range = 0.09 - (-0.09)#0.055 - (-0.055)
-  y_range = 0.07#0.04
+  x_range = 0.09 - (-0.09)
+  y_range = 0.07
 
   x_bins = int(x_range / 0.002)
   y_bins = int(y_range / 0.002)
@@ -19,12 +20,10 @@ def heatmap_freq(a,b,plot_title,plot_name):
   print("x_range: ",x_range," y_range: ",y_range)
   print("x_bins: ",x_bins," y_bins: ",y_bins)
 
-  # h2, x_edges, y_edges = np.histogram2d(a, b, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
   h2, x_edges, y_edges = np.histogram2d(a, b, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
 
   fig, ax = plt.subplots()
 
-  # im = ax.imshow(h2.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[-.055, 0.055, 0, 0.04])
   im = ax.imshow(h2.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[-.09, 0.09, 0, 0.07])
 
   ax.set_aspect('equal', adjustable='box')
@@ -53,8 +52,8 @@ def heatmap_combined_fail(x_success,y_success,x_fail,y_fail,a,b,plot_title,img_n
   title = plot_title
   cb_label = 'Failure rate of grasp trials out of total trials'
 
-  x_range = 0.09 - (-0.09)#0.055 - (-0.055)
-  y_range = 0.07#0.04
+  x_range = 0.09 - (-0.09)
+  y_range = 0.07
 
   x_bins = int(x_range / 0.002)
   y_bins = int(y_range / 0.002)
@@ -62,18 +61,13 @@ def heatmap_combined_fail(x_success,y_success,x_fail,y_fail,a,b,plot_title,img_n
   print("x_range: ",x_range," y_range: ",y_range)
   print("x_bins: ",x_bins," y_bins: ",y_bins)
 
-  # h, _, _ = np.histogram2d(x_success, y_success, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
   h, _, _ = np.histogram2d(x_success, y_success, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
 
-  # h2, x_edges, y_edges = np.histogram2d(a, b, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
   h2, x_edges, y_edges = np.histogram2d(a, b, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
 
   h3 = np.divide(h,h2)
   h3 = np.nan_to_num(h3)
 
-  # g, _, _ = np.histogram2d(x_fail, y_fail, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
-
-  # g2, x_edges, y_edges = np.histogram2d(a, b, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
   g, _, _ = np.histogram2d(x_fail, y_fail, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
 
   g2, x_edges, y_edges = np.histogram2d(a, b, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
@@ -84,10 +78,7 @@ def heatmap_combined_fail(x_success,y_success,x_fail,y_fail,a,b,plot_title,img_n
 
   fig = plt.figure()
   ax = fig.add_subplot(111)
- 
-  # g3_try = -g3.T
-  # print ("LOOK HERE:", g3_try)
-  # plt.imshow(g3.T, cmap=plt.cm.seismic,  origin='lower',extent=[-.055, 0.055, 0, 0.04],vmin=-1, vmax=1) #blues, failure
+
   plt.imshow(g3.T, cmap=plt.cm.seismic,  origin='lower',extent=[-.09, 0.09, 0, 0.09],vmin=-1, vmax=1) #blues, failure
 
   ax.set_aspect('equal', adjustable='box')
@@ -120,18 +111,14 @@ def heatmap_combined_success(x_success,y_success,x_fail,y_fail,x_total,y_total,p
   title = plot_title
   cb_label = 'Percentage of successful grasp trials out of total trials'
 
-  x_range = 0.09 - (-0.09)#0.055 - (-0.055)
-  y_range = 0.07#0.04
+  x_range = 0.09 - (-0.09)
+  y_range = 0.07
 
   x_bins = int(x_range / 0.002)
   y_bins = int(y_range / 0.002)
 
   print("x_range: ",x_range," y_range: ",y_range)
   print("x_bins: ",x_bins," y_bins: ",y_bins)
-
-  # h, _, _ = np.histogram2d(x_success, y_success, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
-
-  # h2, x_edges, y_edges = np.histogram2d(x_total, y_total, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
 
   h, _, _ = np.histogram2d(x_success, y_success, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
 
@@ -142,9 +129,6 @@ def heatmap_combined_success(x_success,y_success,x_fail,y_fail,x_total,y_total,p
   h3 = np.divide(h,h2)
   h3 = np.nan_to_num(h3)
 
-  # g, _, _ = np.histogram2d(x_fail, y_fail, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
-
-  # g2, x_edges, y_edges = np.histogram2d(x_total, y_total, range=[[-.055, 0.055], [0, 0.04]],bins=(x_bins,y_bins))
   g, _, _ = np.histogram2d(x_fail, y_fail, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
 
   g2, x_edges, y_edges = np.histogram2d(x_total, y_total, range=[[-.09, 0.09], [0, 0.09]],bins=(x_bins,y_bins))
@@ -158,7 +142,6 @@ def heatmap_combined_success(x_success,y_success,x_fail,y_fail,x_total,y_total,p
   fig = plt.figure()
   ax = fig.add_subplot(111)
 
-  # plt.imshow(h3.T, cmap=plt.cm.seismic,  origin='lower',extent=[-.055, 0.055, 0, 0.04],vmin=-1, vmax=1) #blues, failure
   plt.imshow(h3.T, cmap=plt.cm.seismic,  origin='lower',extent=[-.09, 0.09, 0, 0.09],vmin=-1, vmax=1) #blues, failure
 
   ax.set_aspect('equal', adjustable='box')
@@ -225,7 +208,6 @@ def create_plots(success_datax,success_datay,fail_datax,fail_datay,total_datax,t
     img_name = 'success_heatmap'
     heatmap_combined_success(success_datax,success_datay,fail_datax,fail_datay,total_datax,total_datay,success_plot_title,'success_heatmap.png')
     make_img_transparent(img_name)
-    # make_img_transparent('image')
 
 
 def main():

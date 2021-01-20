@@ -1089,5 +1089,5 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 '''
 
 # testing #
-#replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
+replay_buffer, save_filepath = GenerateExpertPID_JointVel(50)
 # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
