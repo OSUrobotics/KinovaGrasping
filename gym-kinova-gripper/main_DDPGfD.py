@@ -376,7 +376,7 @@ if __name__ == "__main__":
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
     # Default expert pid file path
-    expert_file_path = "./expert_replay_data/Expert_data_01_16_21_2315/"
+    expert_file_path = "./expert_replay_data/Expert_data_01_20_21_0450/"
 
     # Default pre-trained policy file path
     pretrain_model_save_path = "./policies/new/pre_DDPGfD_kinovaGrip_01_14_21_0100"
@@ -392,8 +392,8 @@ if __name__ == "__main__":
         print("MODE: Expert")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(10, expert_replay_buffer, True)        
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
+        #expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(10, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
         quit()
     # Pre-train policy using expert data, save pre-trained policy for use in training
