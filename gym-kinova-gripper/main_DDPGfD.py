@@ -221,8 +221,8 @@ def pretrain_policy(env,num_updates,replay_buffer, expert_replay_buffer,saving_d
         # Update policy using expert replay buffer
         pre_actor_loss, pre_critic_loss, pre_critic_L1loss, pre_critic_LNloss = policy.train(env._max_episode_steps,expert_replay_buffer,replay_buffer)
 
-        # Evaluate policy every 100 policy updates
-        if (pretrain_episode_num + 1) % 100 == 0:
+        # Evaluate policy every 200 policy updates
+        if (pretrain_episode_num + 1) % 200 == 0:
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,mode="train",eval_episodes=200)
             avg_reward = eval_ret[0]
             num_success = eval_ret[1]
@@ -399,11 +399,12 @@ if __name__ == "__main__":
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
-        num_updates = 10#2000 #10000 # Number of expert pid grasp trials used to update policy
+        num_updates = 20000 # Number of expert pid grasp trials used to update policy
         # Load expert data from saved expert pid controller replay buffer
         expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
         print ("SIZE:", expert_replay_buffer.size)
         # Pre-train policy based on expert data
+        replay_buffer = None
         pretrain_model_save_path = pretrain_policy(env, num_updates, replay_buffer, expert_replay_buffer, saving_dir)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         quit()
