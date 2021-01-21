@@ -132,6 +132,7 @@ class ReplayBuffer_Queue(object):
 
 		episode_idx = self.replay_ep_num
 		idx = len(self.reward[episode_idx]) - 1
+		old_reward = self.reward[episode_idx][idx]
 		self.reward[episode_idx][idx] = reward
 		self.not_done[episode_idx][idx] = 1. - float(done)
 
@@ -151,6 +152,8 @@ class ReplayBuffer_Queue(object):
 		if self.replay_ep_num >= self.max_episode:
 			print("REMOVING EPIDODE!!")
 			self.remove_episode()
+
+		return old_reward
 
 
 
