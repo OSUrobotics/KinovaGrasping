@@ -579,7 +579,7 @@ class KinovaGripper_Env(gym.Env):
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
-        info = {"lift_reward":lift_reward}
+        info = {"finger_reward":finger_reward,"grasp_reward":grasp_reward,"lift_reward":lift_reward}
 
         return reward, info, done
 
@@ -1028,9 +1028,7 @@ class KinovaGripper_Env(gym.Env):
         #x, y = self.randomize_initial_pose(True) # for data collection
 
         # Pretraining and training will have the same coordinate files
-        # print("In reset, checking mode")
         if mode == "pre-train" or mode == "rand_train":
-            print("Switching to train")
             mode = "train"
 
         # Steph new code

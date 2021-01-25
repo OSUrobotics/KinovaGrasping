@@ -90,10 +90,10 @@ class DDPGfD(object):
 			#expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 
 		if expert_or_random == "expert":
-			# print("IN EXPERT BUFFER")
+			#print("IN EXPERT BUFFER")
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
-			# print("IN NORMAL BUFFER")
+			#print("IN NORMAL BUFFER")
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
 

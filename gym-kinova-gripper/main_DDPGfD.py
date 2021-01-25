@@ -28,7 +28,7 @@ def save_coordinates(x,y,filename):
 
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=200, compare=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=100, compare=False):
     num_success=0#[0,0]
     # Heatmap plot success/fail object coordinates
     seval_obj_posx = np.array([])
@@ -139,7 +139,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
 
     avg_reward = 0.0
-    # step = 0
+    avg_rewards = {"finger_reward": 0, "grasp_reward": 0, "lift_reward": 0}
+
     print("***Eval episodes total: ",eval_episodes)
     for i in range(eval_episodes):
         success=0
@@ -180,10 +181,13 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #####
             if not ready_for_lift:
                 action = policy.select_action(np.array(state[0:82]))
-                next_state, reward, done, _ = eval_env.step(action)
+                next_state, reward, done, info = eval_env.step(action)
                 cumulative_reward += reward
                 avg_reward += reward
                 curr_reward = reward
+                avg_rewards["finger_reward"] += info["finger_reward"]
+                avg_rewards["grasp_reward"] += info["grasp_reward"]
+                avg_rewards["lift_reward"] += info["lift_reward"]
 
             else:  # Make it happen in one time step
                 next_state, reward, done, _,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
@@ -222,13 +226,18 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         total_evaly = np.append(total_evaly, y_val)
 
     avg_reward /= eval_episodes
+    avg_rewards["finger_reward"] /= eval_episodes
+    avg_rewards["grasp_reward"] /= eval_episodes
+    avg_rewards["lift_reward"] /= eval_episodes
 
     print("---------------------------------------")
     # print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = [avg_reward, num_success, seval_obj_posx,seval_obj_posy,feval_obj_posx,feval_obj_posy,total_evalx,total_evaly]
+    #ret = [avg_reward, num_success, seval_obj_posx,seval_obj_posy,feval_obj_posx,feval_obj_posy,total_evalx,total_evaly]
+    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
+           "total_evaly":total_evaly}
     return ret
 
 
@@ -253,6 +262,26 @@ def eval_lift_hand(env_lift, tot_reward, curr_reward):
 
     return next_state, reward, done, info, tot_reward
 
+def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,critic_loss,critic_L1loss,critic_LNloss):
+    """ Write important data about policy performance to tensorboard Summary Writer
+    writer: Tensorboard Summary Writer
+    episode_num: Current episode number
+    avg_reward: Reward average over evaulation grasp trials
+    avg_rewards: Dictionary of average reward values for Finger, Grasp, and Lift rewards over evaluation grasp trials
+    actor_loss,critic_loss,critic_L1loss,critic_LNloss
+    """
+    writer.add_scalar("Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_reward, episode_num)
+    writer.add_scalar("Episode finger reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["finger_reward"],
+                      episode_num)
+    writer.add_scalar("Episode grasp reward, Avg. " + str(args.eval_freq) + " episodes",
+                      avg_rewards["grasp_reward"], episode_num)
+    writer.add_scalar("Episode lift reward, Avg. " + str(args.eval_freq) + " episodes",
+                      avg_rewards["lift_reward"], episode_num)
+    writer.add_scalar("Actor loss", actor_loss, episode_num)
+    writer.add_scalar("Critic loss", critic_loss, episode_num)
+    writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)
+    writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)
+    return writer
 
 def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                   type_of_training, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy, max_num_timesteps=30):
@@ -367,32 +396,27 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             f_obj_posy = np.append(f_obj_posy, y_val)
 
         # Evaluation and recording data for tensorboard
-        if (episode_num + 1) % args.eval_freq == 0:
+        if episode_num > 10 and (episode_num) % args.eval_freq == 0: # episode_num + 1
+            print("EVALUATING EPISODE AT: ",episode_num)
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=200)  # , compare=True)
+                                   mode=args.mode, eval_episodes=100)  # , compare=True)
+            seval_obj_posx = np.append(seval_obj_posx, eval_ret["seval_obj_posx"])
+            seval_obj_posy = np.append(seval_obj_posy, eval_ret["seval_obj_posy"])
+            feval_obj_posx = np.append(feval_obj_posx, eval_ret["feval_obj_posx"])
+            feval_obj_posy = np.append(feval_obj_posy, eval_ret["feval_obj_posy"])
+            total_evalx = np.append(total_evalx, eval_ret["total_evalx"])
+            total_evaly = np.append(total_evaly, eval_ret["total_evaly"])
 
-            avg_reward = eval_ret[0]
-            num_success = eval_ret[1]
-            seval_obj_posx = np.append(seval_obj_posx, eval_ret[2])
-            seval_obj_posy = np.append(seval_obj_posy, eval_ret[3])
-            feval_obj_posx = np.append(feval_obj_posx, eval_ret[4])
-            feval_obj_posy = np.append(feval_obj_posy, eval_ret[5])
-            total_evalx = np.append(total_evalx, eval_ret[6])
-            total_evaly = np.append(total_evaly, eval_ret[7])
+            writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss)
 
-            writer.add_scalar("Episode reward, Avg. 200 episodes", avg_reward, episode_num)
-            writer.add_scalar("Actor loss", actor_loss, episode_num)
-            writer.add_scalar("Critic loss", critic_loss, episode_num)
-            writer.add_scalar("Critic L1loss", critic_L1loss, episode_num)
-            writer.add_scalar("Critic LNloss", critic_LNloss, episode_num)
-            evaluations.append(avg_reward)
+            evaluations.append(eval_ret["avg_reward"])
             np.save("./results/%s" % (file_name), evaluations)
             print()
 
         # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
         evplot_saving_dir = "./eval_plots"
         # Save coordinates every 1000 episodes
-        if (episode_num + 1) % 1000 == 0:
+        if (episode_num) % 1000 == 0:
             save_coordinates(seval_obj_posx, seval_obj_posy,
                              evplot_saving_dir + "/heatmap_eval_success" + str(episode_num))
             save_coordinates(feval_obj_posx, feval_obj_posy,
@@ -406,6 +430,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             total_evaly = np.array([])
 
         episode_num += 1
+
     return evaluations, episode_num, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy
 
 
@@ -422,7 +447,7 @@ def pretrain_policy(tot_episodes):
     if not os.path.isdir(pretrain_saving_dir):
         os.mkdir(pretrain_saving_dir)
 
-    prob_exp = 0.8
+    prob_exp = 1
 
     ###HERE####
     # state, done = env.reset(env_name="env",shape_keys=requested_shapes,hand_orientation=requested_orientation,
@@ -520,7 +545,7 @@ if __name__ == "__main__":
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=200, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
-    parser.add_argument("--max_episode", default=15000, type=int)		# Max time steps to run environment for
+    parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
     parser.add_argument("--batch_size", default=250, type=int)			# Batch size for both actor and critic
@@ -610,7 +635,8 @@ if __name__ == "__main__":
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
     # Default expert pid file path
-    expert_file_path = "./expert_replay_data/Expert_data_01_16_21_2315/"
+    expert_file_path = "./expert_replay_data/Expert_data_01_20_21_0450/"
+    #"./expert_replay_data/Expert_data_01_16_21_2315/"
 
     # Default pre-trained policy file path
     pretrain_model_save_path = "./policies/new/pre_DDPGfD_kinovaGrip_01_14_21_0100"
@@ -626,19 +652,19 @@ if __name__ == "__main__":
         print("MODE: Expert")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(10, expert_replay_buffer, True)        
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
         quit()
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
-        num_updates = 5000 #10000 # Number of expert pid grasp trials used to update policy
+        print("Generating "+str(args.max_episode)+" episodes!!")
+        # args.max_episode is the Number of expert pid grasp trials used to update policy
         # Load expert data from saved expert pid controller replay buffer
         expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
         print ("SIZE:", expert_replay_buffer.size)
         # Pre-train policy based on expert data
-        pretrain_model_save_path = pretrain_policy(num_updates)
+        pretrain_model_save_path = pretrain_policy(args.max_episode)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         quit()
     elif args.mode == "train":
@@ -650,19 +676,21 @@ if __name__ == "__main__":
         # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
         expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5000, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
-        num_updates = 5000
-        pretrain_model_save_path = pretrain_policy(num_updates)
+        print("Generating " + args.max_episode + " episodes!!")
+        pretrain_model_save_path = pretrain_policy(args.max_episode)
         print("pretrain_model_save_path: ",pretrain_model_save_path)
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
         print("LOADED THE Pre-trained POLICY")
-        tot_num_episodes = 10000#args.max_episode
+        tot_num_episodes = args.max_episode
         # train_policy(tot_num_episodes)
 
     elif args.mode == "rand_train":
         print("MODE: Train (Random init policy)")
         expert_replay_size = 0
         expert_replay_buffer = None
+
+        train_policy(args.max_episode)
     elif args.mode == "test":
         print("MODE: Test")
         # TBD

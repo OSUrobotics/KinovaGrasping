@@ -54,14 +54,12 @@ class ReplayBuffer_Queue(object):
 
 			# If over max number of episodes for replay buffer
 			if self.replay_ep_num >= self.max_episode:
-				print("REMOVING EPIDODE!!")
 				self.remove_episode()
 
 	def remove_episode(self):
 		"""
 		Remove the oldest episode from the replay buffer (FIFO)
 		"""
-		print("IN REMOVE EPISODE ******")
 		self.state.pop(0)
 		self.action.pop(0)
 		self.next_state.pop(0)
@@ -150,7 +148,6 @@ class ReplayBuffer_Queue(object):
 
 		# If over max number of episodes for replay buffer
 		if self.replay_ep_num >= self.max_episode:
-			print("REMOVING EPIDODE!!")
 			self.remove_episode()
 
 		return old_reward
@@ -234,8 +231,6 @@ class ReplayBuffer_NStep(object):
 		if expert_or_random == "expert":
 			episode = np.random.randint(0, self.expert_episode_num, size=1)
 		else:
-			print("self.expert_episode_num: ", self.expert_episode_num)
-			print("episodes_count: ", self.episodes_count)
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size=1)
 
 		# note: episode is an array (with one element). so we need to access the element with `episode[0]`
@@ -444,9 +439,7 @@ class ReplayBuffer_VarStepsEpisode(object):
 	def sample(self):
 		# deciding whether we grab expert or non expert trajectories.
 		# depends on how many episodes we've added so far (has to be more than the threshold we set - 100 by default)
-		print("IN SAMPLE")
-		print("1) self.expert_episode_num: ", self.expert_episode_num)
-		print("episodes_count: ",self.episodes_count)
+
 		if self.expert_episode_num == 0:
 			expert_or_random = "agent"
 		elif self.episodes_count > self.expert_episode_num:
@@ -459,8 +452,6 @@ class ReplayBuffer_VarStepsEpisode(object):
 		if expert_or_random == "expert":
 			episode = np.random.randint(0, self.expert_episode_num, size = 1)
 		else:
-			print("self.expert_episode_num: ", self.expert_episode_num)
-			print("episodes_count: ",self.episodes_count)
 			episode = np.random.randint(self.expert_episode_num, self.episodes_count, size = 1)
 
 		#note: episode is an array (with one element). so we need to access the element with `episode[0]`
