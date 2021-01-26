@@ -190,8 +190,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 avg_rewards["lift_reward"] += info["lift_reward"]
 
             else:  # Make it happen in one time step
-                next_state, reward, done, _,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
+                next_state, reward, done, info,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
                                                                                  curr_reward)
+                avg_rewards["lift_reward"] += info["lift_reward"]
                 check_for_lift = False
 
             #####
