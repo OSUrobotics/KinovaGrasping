@@ -416,6 +416,8 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
 
         # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
         evplot_saving_dir = "./eval_plots"
+        if not os.path.isdir(evplot_saving_dir):
+            os.mkdir(evplot_saving_dir)
         # Save coordinates every 1000 episodes
         if (episode_num) % 1000 == 0:
             save_coordinates(seval_obj_posx, seval_obj_posy,
