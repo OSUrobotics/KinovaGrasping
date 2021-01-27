@@ -39,7 +39,6 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     total_evaly = np.array([])
 
     # match timesteps to expert and pre-training
-    # max_num_timesteps = 150
     max_num_timesteps = 30
 
     # Folder to save heatmap coordinates
@@ -141,14 +140,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     avg_reward = 0.0
     avg_rewards = {"finger_reward": 0, "grasp_reward": 0, "lift_reward": 0}
 
-    print("***Eval episodes total: ",eval_episodes)
     for i in range(eval_episodes):
         success=0
-        #eval_env = gym.make(env_name)
         state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
         cumulative_reward = 0
         # Sets number of timesteps per episode (counted from each step() call)
-        #eval_env._max_episode_steps = 200
         eval_env._max_episode_steps = max_num_timesteps
         print("***Eval episode: ", i)
         # Keep track of object coordinates
@@ -202,11 +198,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             state = next_state
             prev_state_lift_check = curr_state_lift_check
             curr_state_lift_check = state
-            # eval_env.render()
-            # print(reward)
 
-        # pdb.set_trace()
-        # print(cumulative_reward)
         num_success+=success
         print("Eval timestep count: ",timestep_count)
 
@@ -232,11 +224,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     avg_rewards["lift_reward"] /= eval_episodes
 
     print("---------------------------------------")
-    # print(f"Evaluation over {eval_episodes} episodes: {avg_reward:.3f}")
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    #ret = [avg_reward, num_success, seval_obj_posx,seval_obj_posy,feval_obj_posx,feval_obj_posy,total_evalx,total_evaly]
     ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
            "total_evaly":total_evaly}
     return ret
@@ -324,7 +314,6 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         timestep = 0  # Timestep counter is only used for testing purposes
 
         print(type_of_training, episode_num)
-        # print("replay_buffer.episodes_count: ", replay_buffer.episodes_count)
         check_for_lift = True
         ready_for_lift = False
         skip_num_ts = 6
@@ -369,10 +358,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 lift_success = False
             prev_state_lift_check = curr_state_lift_check
             curr_state_lift_check = state
-            # print ("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
 
-
-        # print("timestep: ",timestep)
         replay_buffer.add_episode(0)
         # Train agent after collecting sufficient data:
         if episode_num > 10:
@@ -380,9 +366,6 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
                                                                                      expert_replay_buffer,
                                                                                      replay_buffer, prob)
-
-                # Call if using batch replay buffer
-                # actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(replay_buffer,env._max_episode_steps)
 
         # Heatmap postion data, get starting object position
         x_val = obj_coords[0]
@@ -441,7 +424,7 @@ def pretrain_policy(tot_episodes):
     print("---- Pretraining ----")
 
     # Tensorboard writer for tracking loss and average reward
-    pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrtain_" + args.policy_name, args.tensorboardindex))
+    pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrain_" + args.policy_name, args.tensorboardindex))
 
     pretrain_model_path = saving_dir + "/pre_DDPGfD_kinovaGrip_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
 
@@ -596,7 +579,6 @@ if __name__ == "__main__":
     requested_orientation = args.hand_orientation   # Set the desired hand orientation (normal or random)
     expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
-    # max_num_timesteps = 150     # Maximum number of time steps within an episode
     max_num_timesteps = 30     # Maximum number of time steps within an episode
 
     # Fill pre-training object list using latin square method
@@ -676,8 +658,7 @@ if __name__ == "__main__":
         # expert_replay_buffer = store_saved_data_into_replay(replay_buffer, expert_file_path)
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        # expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(5000, expert_replay_buffer, True)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
         print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
         print("Generating " + args.max_episode + " episodes!!")
         pretrain_model_save_path = pretrain_policy(args.max_episode)
