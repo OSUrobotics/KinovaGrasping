@@ -181,16 +181,16 @@ class KinovaGripper_Env(gym.Env):
         #self.Grasp_net.eval()
 
 
-        obj_list=['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
-        self.random_poses=[[],[],[],[],[],[]]
-        for i in range(len(obj_list)):
-            random_poses_file=open(obj_list[i],"r")
-            #temp=random_poses_file.read()
-            lines_list = random_poses_file.readlines()
-            temp = [[float(val) for val in line.split()] for line in lines_list[1:]]
-            self.random_poses[i]=temp
-            random_poses_file.close()
-        self.instance=0#int(np.random.uniform(low=0,high=100))
+        # obj_list=['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
+        # self.random_poses=[[],[],[],[],[],[]]
+        # for i in range(len(obj_list)):
+        #     random_poses_file=open(obj_list[i],"r")
+        #     #temp=random_poses_file.read()
+        #     lines_list = random_poses_file.readlines()
+        #     temp = [[float(val) for val in line.split()] for line in lines_list[1:]]
+        #     self.random_poses[i]=temp
+        #     random_poses_file.close()
+        # self.instance=0#int(np.random.uniform(low=0,high=100))
 
 
 
@@ -913,7 +913,7 @@ class KinovaGripper_Env(gym.Env):
         return random_shape, self.objects[random_shape]
 
     # Get the initial object position
-    def sample_initial_valid_object_pos(self,shapeName,coords_filename):
+    def sample_initial_valid_object_pos(self,shapeName,coords_filename, counter):
         data = []
         with open(coords_filename) as csvfile:
             checker=csvfile.readline()
@@ -924,12 +924,14 @@ class KinovaGripper_Env(gym.Env):
             reader = csv.reader(csvfile, delimiter=delim)
             for i in reader:
                 data.append([float(i[0]), float(i[1]), float(i[2])])
-        rand_coord = random.choice(data)
+        rand_coord = data[counter]#random.choice(data)
         x = rand_coord[0]
         y = rand_coord[1]
         z = rand_coord[2]
 
         return x, y, z
+
+    
 
     def obj_shape_generator(self,obj_params):
         if obj_params[0] == "Cube":
@@ -1019,7 +1021,7 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self, counter, env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
@@ -1101,7 +1103,7 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
                 coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
         #print("COORDS FILENAME: ",coords_filename)
-
+        self.wrist_orientation = np.array([new_rotation[0], new_rotation[1], new_rotation[2]])
         self.write_xml(new_rotation)
 
         if orientation_type < 0.333:
@@ -1130,12 +1132,12 @@ class KinovaGripper_Env(gym.Env):
                 if orientation_type >0.667:
                   # Check for coords text file
                   if self.check_obj_file_empty(coords_filename) == False:
-                      x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
+                      x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename, counter)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
                 else:
                   if self.check_obj_file_empty(coords_filename) == False:
-                      x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
+                      x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename, counter)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
             elif len(start_pos)==3:
@@ -1311,7 +1313,7 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork = True): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork = False): #TODO: fix this so that we can rotate the hand
         total_reward = 0
         self._get_trans_mat_wrist_pose()
         if len(action)==4:
@@ -1357,7 +1359,7 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(len(finger_velocities)):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
-        obs = self._get_obs(test=False)
+        obs = self._get_obs()
         if not graspnetwork:
             total_reward, info, done = self._get_reward()
         else:
