@@ -123,7 +123,7 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
                 # pdb.set_trace()
                 obs, reward, _, _ = env.step(action)
 
-            # time.sleep(0.25)    
+            # time.sleep(0.25)
         print(reward)
 
         # record fail or success
@@ -229,7 +229,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
             # env.render()
             # print(action)
-            # store data into replay buffer 
+            # store data into replay buffer
             replay_buffer.add(obs, action, next_obs, reward, done)
             # replay_buffer.add(obs, obs[24:28], next_obs, reward, done) # store joint angles as actions
 
@@ -246,7 +246,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
                 action = expert.get_expert_vel(dot_prod, dom_finger)
                 prev_vel = action
                 touch_dot_prod = dot_prod
-            # if object is close to center 
+            # if object is close to center
             if touch_dot_prod > 0.8:  # can only check dot product after fingers are making contact
                 close = 1
             if close == 1:
@@ -285,7 +285,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
     # data["states_for_lifting"] = states_for_lifting
     # data["label_for_lifting"] = label_for_lifting
     # data["states_when_closing"] = states_when_closing
-    # data["label_when_closing"] = label_when_closing    
+    # data["label_when_closing"] = label_when_closing
     # data["states_ready_grasp"] = states_ready_grasp
     # data["label_ready_grasp"] = label_ready_grasp
 
@@ -383,12 +383,12 @@ class PID(object):
 ### PID nudge controller ###
 # 1. Obtain (noisy) initial position of an object
 # 2. move fingers that closer to the object
-# 3. Move the other when the object is almost at the center of the hand 
+# 3. Move the other when the object is almost at the center of the hand
 # 4. Close grasp
 
 ### PID nudge controller ###
 # 1. Obtain (noisy) initial position of an object
-# 2. Move fingers that further away to the object 
+# 2. Move fingers that further away to the object
 # 3. Close the other finger (nearer one) and make contact "simultaneously"
 # 4. Close fingers to secure grasp
 ##############################################################################
@@ -436,7 +436,7 @@ class ExpertPIDController(object):
         ready_for_lift = 0
         num_consistent_grasps = 1  # Number of time steps the hand has to be in a good grasping position to lift
 
-        ''' Note: only comparing initial X position of object. because we know 
+        ''' Note: only comparing initial X position of object. because we know
         the hand starts at the same position every time (close to origin) '''
 
         # Check if the object is near the center area (less than x-axis 0.03)
@@ -764,7 +764,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
     # Beginning of episode loop
     for i in range(episode_num):
-        print("**** Expert PID Episode: ", i)
+        print("PID ", i)
         obs, done = env.reset(), False
 
         prev_obs = None         # State observation of the previous state
@@ -807,14 +807,28 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
                                 ready_for_lift, num_consistent_grasps)
 
             # Used for the action string
-            naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+            ###After taking step###
+            [naive_ret,_] = naive_check_grasp(f_dist_old, f_dist_new)
 
             # Take action (Reinforcement Learning step)
             next_obs, reward, done, info = env.step(action)
 
             # Add experience to replay buffer
-            if replay_buffer is not None:
+            if replay_buffer is not None and not naive_ret:
                 replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+
+            if naive_ret and done:
+                replay_buffer.replace(reward, done)
+                # print ("#######REWARD#######", reward)
+                # replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+
+            # if replay_buffer is not None and not naive_ret and not done:
+            #     replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+            #
+            # if done:
+            #     # print ("#######REWARD#######", reward)
+            #     # replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+            #     replay_buffer.replace(reward, done)
 
             action_str = "Wrist: " + str(action[0]) + "\nFinger1: " + str(action[1]) + "\nFinger2: " + str(
                 action[2]) + "\nFinger3: " + str(action[3]) + "\nready_for_lift: " + str(
@@ -828,7 +842,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
         all_timesteps = np.append(all_timesteps, total_steps)
 
-        print("Expert PID total timestep: ", total_steps)
+        # print("Expert PID total timestep: ", total_steps)
         lift_success = None
         if (info["lift_reward"] > 0):
             lift_success = 'success'
@@ -1079,7 +1093,7 @@ def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_
 # Command line
 '''
 # Collect entire sequence / trajectory
-LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --num_episode 5000 --data_gen 1 --filename data_cube_5 
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --num_episode 5000 --data_gen 1 --filename data_cube_5
 
 # Collect grasp data
 LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_total_steps 10 --filename data_cube_5_10_07_19_1612 --grasp_filename data_cube_5_10_07_19_1612_grasp --grasp_validation 1 --data_gen 1
@@ -1087,7 +1101,10 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 # Training
 LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_validation 1 --filename data_cube_5_10_07_19_1612 --trained_model data_cube_5_trained_model --num_episode 5000
 '''
-
-# testing #
-#replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
-# plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
+if __name__ ==  "__main__":
+    # testing #
+    # Initialize expert replay buffer, then generate expert pid data to fill it
+    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+    replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
+    print (replay_buffer, save_filepath)
+    # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
