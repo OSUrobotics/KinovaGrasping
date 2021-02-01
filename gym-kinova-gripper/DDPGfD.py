@@ -51,7 +51,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005):
+	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -66,8 +66,7 @@ class DDPGfD(object):
 		self.network_repl_freq = 10
 		self.total_it = 0
 
-		# note: parameterize this later!!!
-		self.batch_size = 64
+		self.batch_size = batch_size
 
 	def select_action(self, state):
 		state = torch.FloatTensor(state.reshape(1, -1)).to(device)
@@ -75,101 +74,30 @@ class DDPGfD(object):
 
 
 	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.8):
+		""" Update policy based on full trajectory of one episode """
 		self.total_it += 1
 
-		# Sample replay buffer
+		# Determine which replay buffer to sample from
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			expert_or_random = "agent"
-			# print("REPLAY BUFFER IS NOT NONE")
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			expert_or_random = "expert"
-			# print("REPLAY BUFFER IS NONE")
 		else:
-			# print("PROBABILITY EXPERT OR AGENT")
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
-			#expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[0.7, 0.3])
 
 		if expert_or_random == "expert":
-			#print("IN EXPERT BUFFER")
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
-			#print("IN NORMAL BUFFER")
 			state, action, next_state, reward, not_done = replay_buffer.sample()
-		#state, action, next_state, reward, not_done = replay_buffer.sample_wo_expert()
 
-		# new sampling procedure for n step rollback
-		#state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
-
-		# print("=======================state===================")
-		# print(state.shape)
-		# print("=======================next_state===================")
-		# print(next_state.shape)
-		#
-		# print("=====================action====================")
-		# print(action.shape)
-
-		# Old implementation of target Q
+		# Target Q network
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
 		target_Q = reward + (self.discount * target_Q).detach()  # bellman equation
 
-		''' Newly added N step code
-		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
-		print("before regular")
-		print(target_Q.shape)
-		print(reward[:, 0].shape)
-		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
-		'''
-
-		# print("======================target_Q===================")
-		# print(target_Q.shape)
-		#
-		# print("next state smaller")
-		# print(next_state[(self.n - 1):].shape)
-		#
-		# print("number of episode steps")
-		# print(episode_step)
-
-		"""
-		This is the updated version, assuming that we're sampling from a batch.
-		"""
-		''' Newly added N step code
-		target_action = self.actor_target(next_state[:, -1])
-		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
-
-		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
-		# note: might need to pass n properly from higher state!!!
-
-		print("================================reward shape=======================")
-		print(reward[:, 0].shape)  # idk the shape here, please record
-
-		for i in range(self.n):
-			n_step_return += (self.discount ** i) * reward[:, i].squeeze(-1)
-
-		print("====================n step return shape====================")
-		print(n_step_return.shape)
-
-		# this is the n step return with the added value fn estimation
-		target_QN = n_step_return + (self.discount ** self.n) * target_critic_val.squeeze(-1)
-		target_QN = target_QN.unsqueeze(dim=-1)
-
-		print("=======================target QN")
-		print(target_QN.shape)
-		'''
-
-		# Old version: Compute the target Q_N value
+		# Compute the target Q_N value
 		rollreward = []
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
 
-		'''
-		# Checks episode size versus value of n (In case n is larger than the number of timesteps)
-		if state.shape[0] < 3:
-			for i in range(state.shape[0]):
-				roll_reward = (self.discount) * reward[i].item()
-				rollreward.append(roll_reward)
-		else:
-		'''
-		# print("state.shape[0]: ", state.shape[0])
-		# print("episode_step: ",episode_step)
 		ep_timesteps = episode_step
 		if state.shape[0] < episode_step:
 			ep_timesteps = state.shape[0]
@@ -179,46 +107,18 @@ class DDPGfD(object):
 				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
 				rollreward.append(roll_reward)
 
-
 		if len(rollreward) != ep_timesteps - (self.n - 1):
 			raise ValueError
 
-		#print("roll reward before reshape: ")
-		#print(rollreward)
-		#print(len(rollreward))
-
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
-		# print("rollreward.get_shape(): ", rollreward.size())
-		# print("target_QN.get_shape(): ", target_QN.size())
-		# print("self.discount: ", self.discount)
-		# print("self.n.: ", self.n)
 
-		# print("================SHAPE DUMP=============")
-		# print(rollreward.shape)
-		# print(((self.discount ** self.n) * target_QN).shape)
-
-		# Old code: calculate target network
+		# Calculate target network
 		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation <= this is the final N step return
 
-		# Old code: Get current Q estimate
+		# Get current Q estimate
 		current_Q = self.critic(state, action)
 
-		# New implementation
-		#current_Q = self.critic(state[:, 0], action[:, 0])
-
-		# Old code: Get current Q estimate for n-step return
-		#current_Q_n = self.critic(state[:(episode_step - (self.n - 1))], action[:(episode_step - (self.n - 1))])
 		current_Q_n = self.critic(state[:(ep_timesteps - (self.n - 1))], action[:(ep_timesteps - (self.n - 1))])
-
-		# New Updated for new rollback method
-		#current_Q_n = self.critic(state[:, -1], action[:, -1])
-
-		# print("======================Q shapes finallly==============")
-		# print(current_Q.shape)
-		# print(target_Q.shape)
-		# print(current_Q_n.shape)
-		# print(target_QN.shape)
-		# print("==============end printing pain==================")
 
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
@@ -252,43 +152,31 @@ class DDPGfD(object):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
-	def train_batch(self, replay_buffer, episode_step):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, prob):
+		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 
-		# new sampling procedure for n step rollback
-		state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep()
+		# Sample replay buffer
+		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
+			expert_or_random = "agent"
+		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
+			expert_or_random = "expert"
+		else:
+			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
 
-		# print("=======================state===================")
-		# print(state.shape)
-		# print("=======================next_state===================")
-		# print(next_state.shape)
-		#
-		# print("=====================action====================")
-		# print(action.shape)
+		#print("expert_or_random: ",expert_or_random)
+		if expert_or_random == "expert":
+			#print("EXPERT")
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch(self.batch_size)
+		else:
+			#print("AGENT")
+			state, action, next_state, reward, not_done = replay_buffer.sample_batch(self.batch_size)
 
-		# print("==========modified states and actions==============")
-		# print(state[:, -1])
-		# print(action[:, -1])
-
-
-
-		# episode_step = len(state) # for varying episode sets
-
+		reward = reward.unsqueeze(-1)
+		not_done = not_done.unsqueeze(-1)
 
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
-		# print("before regular")
-		# print(target_Q.shape)
-		# print(reward[:, 0].shape)
 		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
-
-		# print("======================target_Q===================")
-		# print(target_Q.shape)
-		#
-		# print("next state smaller")
-		# print(next_state[(self.n - 1):].shape)
-		#
-		# print("number of episode steps")
-		# print(episode_step)
 
 		"""
 		This is the updated version, assuming that we're sampling from a batch.
@@ -297,36 +185,19 @@ class DDPGfD(object):
 		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
 
 		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
-		# note: might need to pass n properly from higher state!!!
-
-		# print("================================reward shape=======================")
-		# print(reward[:, 0].shape)  # idk the shape here, please record
 
 		for i in range(self.n):
 			n_step_return += (self.discount ** i) * reward[:, i].squeeze(-1)
 
-		# print("====================n step return shape====================")
-		# print(n_step_return.shape)
-
 		# this is the n step return with the added value fn estimation
 		target_QN = n_step_return + (self.discount ** self.n) * target_critic_val.squeeze(-1)
 		target_QN = target_QN.unsqueeze(dim=-1)
-
-		# print("=======================target QN")
-		# print(target_QN.shape)
 
 		# New implementation
 		current_Q = self.critic(state[:, 0], action[:, 0])
 
 		# New Updated for new rollback method
 		current_Q_n = self.critic(state[:, -1], action[:, -1])
-
-		# print("======================Q shapes finallly==============")
-		# print(current_Q.shape)
-		# print(target_Q.shape)
-		# print(current_Q_n.shape)
-		# print(target_QN.shape)
-		# print("==============end printing pain==================")
 
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
@@ -359,6 +230,7 @@ class DDPGfD(object):
 			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
+
 
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
