@@ -381,14 +381,15 @@ class KinovaGripper_Env(gym.Env):
         '''
         '''
         Global obs, all in global coordinates (from simulator 0,0,0)
-        (18,) Finger Pos                                        0-18
-        (3,) Wrist Pos                                            18-21
-        (3,) Obj Pos                                            21-24
-        (9,) Joint States                                        24-33
-        (3,) Obj Size                                            33-36
-        (12,) Finger Object Distance                            36-48
-        (2,) X and Z angle                                        48-50
-        (17,) Rangefinder data                                    50-67
+        (18,) Finger Pos                                        0-17
+        (3,) Wrist Pos                                          18-20
+        (3,) Obj Pos                                            21-23
+        (9,) Joint States                                       24-32
+        (3,) Obj Size                                           33-35
+        (12,) Finger Object Distance                            36-47
+              "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", "f3_prox_1","f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"
+        (2,) X and Z angle                                      48-49
+        (17,) Rangefinder data                                  50-66
         '''
 
         if state_rep == None:
@@ -573,9 +574,9 @@ class KinovaGripper_Env(gym.Env):
             lift_reward = 0.0
             done = False
 
-        finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
-
-        #finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
+        # obs[41:46]: DISTAL Finger-Object distance 41) "f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", 46) "f3_dist_1"
+        # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
+        finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 

@@ -160,6 +160,7 @@ def heatmap_combined_success(x_success,y_success,x_fail,y_fail,a,b,plot_title,im
   #plt.show()
   plt.clf()
 
+
 def make_img_transparent(img_name):
   img = Image.open("heatmap_plots/"+img_name+".png")
   img = img.convert("RGBA")
@@ -172,32 +173,14 @@ def make_img_transparent(img_name):
       elif item[0] == 255 and item[1] == 253 and item[2] == 253:
           newData.append((255, 255, 255, 0))
       else:
-          #if item[0] > 150:
-          #   newData.append((0, 0, 0, 1))
-          #else:
           newData.append(item)
-          #print(item)
-
 
   img.putdata(newData)
-  #img.save("heatmap_plots/"+img_name+"_transparent.png", "PNG",transparent=True)
   img.save("heatmap_plots/"+img_name+".png", "PNG",transparent=True)
-
-    #filename = 'drive/My Drive/try_again/box/train/'
-    #x_success = np.load(filename+'heatmap_train_success_new_x_arr.npy')
-    #y_success = np.load(filename+'heatmap_train_success_new_y_arr.npy')
-    #
-    #print("x_success: ",x_success)
-    #
-    #x_fail = np.load(filename+'heatmap_train_fail_new_x_arr.npy')
-    #y_fail = np.load(filename+'heatmap_train_fail_new_y_arr.npy')
-    #
-    #a = np.load(filename+'heatmap_train_success_new_totalx_arr.npy')
-    #b = np.load(filename+'heatmap_train_success_new_totaly_arr.npy')
 
 
 def create_plots(success_datax,success_datay,fail_datax,fail_datay,total_datax,total_datay,eval_num):
-    shapes = "CubeS,CubeB"
+    shapes = "CubeS"
 
     freq_plot_title = "Grasp Trial Frequency per Initial Coordinate Position of Object ("+shapes+") at Eval "+str(eval_num)
     heatmap_freq(total_datax,total_datay,eval_num,freq_plot_title,'freq_heatmap_'+str(eval_num)+'.jpg')
@@ -272,10 +255,6 @@ def get_1000_eval():
         total_tmpx = np.load(total_file_x)
         total_tmpy = np.load(total_file_y)
 
-        #print("tmpx: ",tmpx)
-        #print("len(tmpx): ",len(tmpx))
-        #print("len(tmpy): ",len(tmpy))
-        #print("")
         if len(success_tmpx) > 0:
             success_datax = np.append(success_datax,success_tmpx)
             success_datay = np.append(success_datay,success_tmpy)
@@ -289,6 +268,24 @@ def get_1000_eval():
             total_datay = np.append(total_datay,total_tmpy)
         ep_num += 1000
 
+def get_heatmap_data(data_dir,filename,tot_episodes,saving_freq):
+    """Get boxplot data from saved numpy arrays
+    data_dir: Directory location of data file
+    filename: Name of data file
+    tot_episodes: Total number of evaluation episodes
+    saving_freq: Frequency in which the data files were saved
+    """
+    data = []
+    for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes/saving_freq), dtype=int):
+        data_str = data_dir+filename+"_"+str(ep_num)+".npy"
+        print("Eval file: ", data_str)
+        data_file = np.load(data_str)[0]
+
+        for eval_data in data_file:
+            data.append(eval_data)
+
+    return data
+
 def main():
     heatmap_saving_dir = "./heatmap_plots"
     if not os.path.isdir(heatmap_saving_dir):
@@ -298,7 +295,26 @@ def main():
     if not os.path.isdir(freq_saving_dir):
         os.mkdir(freq_saving_dir)
 
+    # Code to test with
+    data_dir = "./eval_plots/heatmap/"
+    #file_list = ["finger_reward", "grasp_reward", "lift_reward", "total_reward"]
+    tot_episodes = 2000
+    saving_freq = 1000
+    eval_freq = 200
+
+    success_x = get_heatmap_data(data_dir, "eval_success_x", tot_episodes, saving_freq)
+    success_y = get_heatmap_data(data_dir, "eval_success_y", tot_episodes, saving_freq)
+    fail_x = get_heatmap_data(data_dir, "eval_fail_x", tot_episodes, saving_freq)
+    fail_y = get_heatmap_data(data_dir, "eval_fail_y", tot_episodes, saving_freq)
+    total_x = get_heatmap_data(data_dir, "eval_total_x", tot_episodes, saving_freq)
+    total_y = get_heatmap_data(data_dir, "eval_total_y", tot_episodes, saving_freq)
+
+    print("np.asarray(success_x).shape: ",np.asarray(success_x).shape)
+
+    #for i in freq_vals:
+    #    create_plots(success_x[i], success_y[i], fail_x[i], fail_y[i], total_x[i], total_y[i], ep_num)
+
     # Get numpy arrays and produce plots every 1000 episodes
-    get_1000_eval()
+    #get_1000_eval()
 
 main()

@@ -1,5 +1,11 @@
-import pandas as pd
-import seaborn as sns # used for boxplot
+import seaborn as sns
+import numpy as np
+import matplotlib.pyplot as plt
+
+'''
+    Generates boxplot from evaluation output, specifically avg. 
+    reward data (finger, grasp, lift, total).
+'''
 
 def create_boxplot(saving_dir,data,labels,filename):
     """ Create a boxplot to show averages and spread of data
@@ -7,35 +13,70 @@ def create_boxplot(saving_dir,data,labels,filename):
     x: x-axis data
     y: y-axis data
     labels: dictionary of plot labels in string format {"x_label":,"y_label":,"title":}
+    filename: Name of file to save boxplot as
     """
-    print("In create_boxplot, data: ",data)
-    dataframe = pd.DataFrame(data)
-    print("In create_boxplot, data: ", dataframe)
     boxplot = sns.boxplot(data=data)
-    print("post sns.boxplot call")
-    boxplot.savefig(saving_dir+filename)
-    print("post savefig")
-    print("**Boxplot created at: ",saving_dir+filename)
+    #boxplot = sns.swarmplot(data=data) # Alternate boxplot style
+
+    boxplot.set(xlabel=labels["x_label"], ylabel=labels["y_label"], title=labels["title"])
+    ticks = np.arange(len(labels["freq_vals"]))
+    plt.xticks(ticks, labels["freq_vals"])
+
+    if saving_dir is None:
+        print("Showing boxplot...")
+        plt.show()
+    else:
+        boxplot.savefig(saving_dir+filename)
+        print("Boxplot saved at: ",saving_dir+filename)
 
 
-"""
-# Plot evaluation boxplot to see reward distribution
-episode_reward_values = eval_ret["total_avg_reward_values"]
+def get_boxplot_data(data_dir,filename,tot_episodes,saving_freq):
+    """Get boxplot data from saved numpy arrays
+    data_dir: Directory location of data file
+    filename: Name of data file
+    tot_episodes: Total number of evaluation episodes
+    saving_freq: Frequency in which the data files were saved
+    """
+    data = []
+    for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes/saving_freq), dtype=int):
+        data_str = data_dir+filename+"_"+str(ep_num)+".npy"
+        print("Eval file: ", data_str)
+        data_file = np.load(data_str)[0]
 
-if episode_num == int(args.eval_freq):
-    eval_values = np.array([episode_num])
-    all_boxplot_data = episode_reward_values
-    print("A) eval_values: ",eval_values)
-else:
-    eval_values = np.arange(args.eval_freq,episode_num,args.eval_freq) # start, stop, step
-    all_boxplot_data = np.append(all_boxplot_data, episode_reward_values)
-    print("B) eval_values: ", eval_values)
+        for eval_data in data_file:
+            data.append(eval_data)
 
-#boxplot_data = [eval_values, episode_reward_values]
-boxplot_data = {"Evaluation Episode":eval_values,"Total Avg. Reward":all_boxplot_data}
-print("boxplot_data: ",boxplot_data)
-boxplot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
-          "title": "Total Avg. Reward per " + str(eval_episodes)}
-create_boxplot(evplot_saving_dir,boxplot_data,boxplot_labels,"Eval_Boxplot.png")
-print("Post create_boxplot")
-"""
+    return data
+
+
+def generate_reward_boxplots(data_dir, saving_dir, file_list, tot_episodes, saving_freq, eval_freq):
+    """Create finger, grasp, lift, total reward evaluation boxplots
+    data_dir: Directory location of data file
+    saving_dir: Directory to save boxplots at
+    file_list: Lift of data file names
+    tot_episodes: Total number of evaluation episodes
+    saving_freq: Frequency in which the data files were saved (i.e. 1000)
+    eval_freq: Frequency in which the policy was evaluated (i.e. 200)
+    """
+    for file in file_list:
+        boxplot_data = get_boxplot_data(data_dir, file, tot_episodes, saving_freq)
+
+        freq_vals = np.linspace(start=eval_freq, stop=tot_episodes, num=int(tot_episodes/eval_freq), dtype=int)
+
+        boxplot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
+                          "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials", "freq_vals": freq_vals}
+
+        create_boxplot(saving_dir, boxplot_data, boxplot_labels, "Eval_Boxplot"+str(file)+".png")
+
+
+if __name__ ==  "__main__":
+    # Code to test with
+    data_dir = "./eval_plots/boxplot/"
+    file_list = ["finger_reward", "grasp_reward", "lift_reward", "total_reward"]
+    tot_episodes = 2000
+    saving_freq = 1000
+    eval_freq = 200
+    saving_dir = None
+
+    # Generates boxplots for each reward (finger, lift, grasp, total), saved at
+    generate_reward_boxplots(data_dir, saving_dir, file_list, tot_episodes, saving_freq, eval_freq)

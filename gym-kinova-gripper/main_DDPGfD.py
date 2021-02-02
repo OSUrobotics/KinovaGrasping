@@ -23,14 +23,18 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
 
-def save_coordinates(x,y,filename):
+def save_coordinates(x,y,filename,episode_num):
     """ Save heatmap initial object position x,y coordinates
     x: initial object x-coordinate
     y: initial object y-coordinate
     filename: Location to save heatmap coordinates to
     """
-    np.save(filename+"_x_arr", x)
-    np.save(filename+"_y_arr", y)
+    ep_str = ""
+    if episode_num is not None:
+        ep_str = "_"+str(episode_num)
+
+    np.save(filename+"_x"+ep_str, x)
+    np.save(filename+"_y"+ep_str, y)
 
 def compare_test():
     """ Compare policy performance """
@@ -148,9 +152,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
 
     avg_reward = 0.0
-    # Total average reward over all evaluation episodes
-    total_avg_reward = {"total_reward": 0, "finger_reward": 0, "grasp_reward": 0, "lift_reward": 0}
-    total_avg_reward_values = np.array([])
+    # Average reward data over each evaluation episode for boxplot
+    avg_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
 
     for i in range(eval_episodes):
         success=0
@@ -169,7 +172,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         skip_num_ts = 6
         curr_reward = 0
         # Average reward of single episode
-        episode_avg_reward = {"total_reward": 0, "finger_reward": 0, "grasp_reward": 0, "lift_reward": 0}
+        episode_rewards = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
 
         # Beginning of episode time steps, done is max timesteps or lift reward achieved
         while not done:
@@ -197,18 +200,18 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 cumulative_reward += reward
                 avg_reward += reward
                 curr_reward = reward
-                episode_avg_reward["total_reward"] += reward
-                episode_avg_reward["finger_reward"] += info["finger_reward"]
-                episode_avg_reward["grasp_reward"] += info["grasp_reward"]
-                episode_avg_reward["lift_reward"] += info["lift_reward"]
+                episode_rewards["total_reward"].append(reward)
+                episode_rewards["finger_reward"].append(info["finger_reward"])
+                episode_rewards["grasp_reward"].append(info["grasp_reward"])
+                episode_rewards["lift_reward"].append(info["lift_reward"])
 
             else:  # Make it happen in one time step
                 next_state, reward, done, info,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
                                                                                  curr_reward)
-                episode_avg_reward["total_reward"] += reward
-                episode_avg_reward["finger_reward"] += info["finger_reward"]
-                episode_avg_reward["grasp_reward"] += info["grasp_reward"]
-                episode_avg_reward["lift_reward"] += info["lift_reward"]
+                episode_rewards["total_reward"].append(reward)
+                episode_rewards["finger_reward"].append(info["finger_reward"])
+                episode_rewards["grasp_reward"].append(info["grasp_reward"])
+                episode_rewards["lift_reward"].append(info["lift_reward"])
                 check_for_lift = False
 
             #####
@@ -220,17 +223,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             curr_state_lift_check = state
 
         # End of episode, record findings
-        episode_avg_reward["total_reward"] /= timestep_count
-        episode_avg_reward["finger_reward"] /= timestep_count
-        episode_avg_reward["grasp_reward"] /= timestep_count
-        episode_avg_reward["lift_reward"] /= timestep_count
 
-        total_avg_reward_values = np.append(total_avg_reward_values, episode_avg_reward["total_reward"])
-
-        total_avg_reward["total_reward"] += episode_avg_reward["total_reward"]
-        total_avg_reward["finger_reward"] += episode_avg_reward["finger_reward"]
-        total_avg_reward["grasp_reward"] += episode_avg_reward["grasp_reward"]
-        total_avg_reward["lift_reward"] += episode_avg_reward["lift_reward"]
+        avg_reward_values["total_reward"].append(np.average(episode_rewards["total_reward"]))
+        avg_reward_values["finger_reward"].append(np.average(episode_rewards["finger_reward"]))
+        avg_reward_values["grasp_reward"].append(np.average(episode_rewards["grasp_reward"]))
+        avg_reward_values["lift_reward"].append(np.average(episode_rewards["lift_reward"]))
         num_success+=success
         print("Eval timestep count: ",timestep_count)
 
@@ -251,16 +248,19 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         total_evaly = np.append(total_evaly, y_val)
 
     avg_reward /= eval_episodes
-    total_avg_reward["total_reward"] /= eval_episodes
-    total_avg_reward["finger_reward"] /= eval_episodes
-    total_avg_reward["grasp_reward"] /= eval_episodes
-    total_avg_reward["lift_reward"] /= eval_episodes
+
+    # Final average reward values over all episodes
+    final_avg_rewards = {}
+    final_avg_rewards["total_reward"] = np.average(avg_reward_values["total_reward"])
+    final_avg_rewards["finger_reward"] = np.average(avg_reward_values["finger_reward"])
+    final_avg_rewards["grasp_reward"] = np.average(avg_reward_values["grasp_reward"])
+    final_avg_rewards["lift_reward"] = np.average(avg_reward_values["lift_reward"])
 
     print("---------------------------------------")
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = {"avg_reward": avg_reward, "avg_rewards": total_avg_reward, "total_avg_reward_values":total_avg_reward_values, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
+    ret = {"avg_reward": avg_reward, "final_avg_rewards": final_avg_rewards, "avg_reward_values": avg_reward_values, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
            "total_evaly":total_evaly}
     return ret
 
@@ -347,8 +347,11 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
     total_evalx = np.array([])      # Total evaluation object coords
     total_evaly = np.array([])
 
-    # Stores boxplot data, Average reward per evaluation episodes
-    # all_boxplot_data = np.array([])
+    # Stores reward boxplot data, Average reward per evaluation episodes
+    finger_reward = [[]]
+    grasp_reward = [[]]
+    lift_reward = [[]]
+    total_reward = [[]]
 
     for _ in range(num_episodes):
         env = gym.make(args.env_name)
@@ -463,33 +466,61 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             total_evalx = np.append(total_evalx, eval_ret["total_evalx"])
             total_evaly = np.append(total_evaly, eval_ret["total_evaly"])
 
+            # Average rewards for finger, grasp, lift, total over evaluation episodes
+            final_avg_rewards = eval_ret["final_avg_rewards"]
+
+            # Average reward data points for boxplot
+            avg_reward_values = eval_ret["avg_reward_values"]
+
             # Plot tensorboard metrics for learning analysis (average reward, loss, etc.)
-            writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss)
+            writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["final_avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss)
 
             # Insert boxplot code reference
+            finger_reward[-1].append(avg_reward_values["finger_reward"])
+            grasp_reward[-1].append(avg_reward_values["grasp_reward"])
+            lift_reward[-1].append(avg_reward_values["lift_reward"])
+            total_reward[-1].append(avg_reward_values["total_reward"])
 
-            evaluations.append(eval_ret["avg_rewards"])
-            np.save("./results/%s" % (file_name), evaluations)
-            print()
-
-        # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
+        # Evaluation plotting data directory
         evplot_saving_dir = "./eval_plots"
         if not os.path.isdir(evplot_saving_dir):
             os.mkdir(evplot_saving_dir)
 
+        # Directory for x,y coordinate heatmap data
+        heatmap_saving_dir = os.path.join(evplot_saving_dir, "heatmap/")
+        if not os.path.isdir(heatmap_saving_dir):
+            os.mkdir(heatmap_saving_dir)
+
+        # Directory for boxplot reward data
+        boxplot_saving_dir = os.path.join(evplot_saving_dir, "boxplot/")
+        if not os.path.isdir(boxplot_saving_dir):
+            os.mkdir(boxplot_saving_dir)
+
         # Save coordinates every 1000 episodes
         if (episode_num) % 1000 == 0:
+            print("Saving heatmap data at: ", heatmap_saving_dir)
             save_coordinates(seval_obj_posx, seval_obj_posy,
-                             evplot_saving_dir + "/heatmap_eval_success" + str(episode_num))
+                             heatmap_saving_dir + "/eval_success", episode_num)
             save_coordinates(feval_obj_posx, feval_obj_posy,
-                             evplot_saving_dir + "/heatmap_eval_fail" + str(episode_num))
-            save_coordinates(total_evalx, total_evaly, evplot_saving_dir + "/heatmap_eval_total" + str(episode_num))
+                             heatmap_saving_dir + "/eval_fail", episode_num)
+            save_coordinates(total_evalx, total_evaly, heatmap_saving_dir + "/eval_total", episode_num)
             seval_obj_posx = np.array([])
             seval_obj_posy = np.array([])
             feval_obj_posx = np.array([])
             feval_obj_posy = np.array([])
             total_evalx = np.array([])
             total_evaly = np.array([])
+
+            print("Saving boxplot data at: ",boxplot_saving_dir)
+            np.save(boxplot_saving_dir + "/finger_reward_" + str(episode_num),finger_reward)
+            np.save(boxplot_saving_dir + "/grasp_reward_" + str(episode_num),grasp_reward)
+            np.save(boxplot_saving_dir + "/lift_reward_" + str(episode_num),lift_reward)
+            np.save(boxplot_saving_dir + "/total_reward_" + str(episode_num),total_reward)
+
+            finger_reward = [[]]
+            grasp_reward = [[]]
+            lift_reward = [[]]
+            total_reward = [[]]
 
         episode_num += 1
 
@@ -538,9 +569,14 @@ def pretrain_policy(tot_episodes,prob_exp):
     print("Success train num: ",len(s_pretrain_obj_posx))
     print("Fail train num: ", len(f_pretrain_obj_posx))
     print("Total train num: ", len(train_totalx))
-    save_coordinates(s_pretrain_obj_posx,s_pretrain_obj_posy,pretrain_saving_dir+"/heatmap_train_success_new")
-    save_coordinates(f_pretrain_obj_posx,f_pretrain_obj_posy,pretrain_saving_dir+"/heatmap_train_fail_new")
-    save_coordinates(train_totalx,train_totaly,pretrain_saving_dir+"/heatmap_train_total_new")
+
+    # Directory for x,y coordinate heatmap data
+    heatmap_saving_dir = os.path.join(pretrain_saving_dir, "heatmap/")
+    if not os.path.isdir(heatmap_saving_dir):
+        os.mkdir(heatmap_saving_dir)
+    save_coordinates(s_pretrain_obj_posx,s_pretrain_obj_posy,heatmap_saving_dir+"/train_success","")
+    save_coordinates(f_pretrain_obj_posx,f_pretrain_obj_posy,heatmap_saving_dir+"/train_fail","")
+    save_coordinates(train_totalx,train_totaly,heatmap_saving_dir+"/train_total","")
 
     print("Saving into {}".format(pretrain_model_path))
     policy.save(pretrain_model_path)
@@ -591,9 +627,13 @@ def train_policy(tot_episodes,tr_prob):
     print("Success train num: ",len(s_train_obj_posx))
     print("Fail train num: ", len(f_train_obj_posx))
     print("Total train num: ", len(train_totalx))
-    save_coordinates(s_train_obj_posx,s_train_obj_posy, trplot_saving_dir+"/heatmap_train_success_new")
-    save_coordinates(f_train_obj_posx,f_train_obj_posy, trplot_saving_dir+"/heatmap_train_fail_new")
-    save_coordinates(train_totalx,train_totaly, trplot_saving_dir+"/heatmap_train_total_new")
+    # Directory for x,y coordinate heatmap data
+    heatmap_saving_dir = os.path.join(trplot_saving_dir, "heatmap/")
+    if not os.path.isdir(heatmap_saving_dir):
+        os.mkdir(heatmap_saving_dir)
+    save_coordinates(s_train_obj_posx,s_train_obj_posy, heatmap_saving_dir+"/train_success", "")
+    save_coordinates(f_train_obj_posx,f_train_obj_posy, heatmap_saving_dir+"/train_fail", "")
+    save_coordinates(train_totalx,train_totaly, heatmap_saving_dir+"/train_total", "")
 
     print("Saving into {}".format(model_save_path))
     policy.save(model_save_path)
@@ -611,7 +651,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
-    parser.add_argument("--batch_size", default=64, type=int)			# Batch size for both actor and critic
+    parser.add_argument("--batch_size", default=0, type=int)			# Batch size for both actor and critic - Change to be 64
     parser.add_argument("--discount", default=0.995, type=float)			# Discount factor
     parser.add_argument("--tau", default=0.0005, type=float)				# Target network update rate
     parser.add_argument("--policy_noise", default=0.01, type=float)		# Noise added to target policy during critic update
