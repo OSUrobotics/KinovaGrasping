@@ -15,9 +15,9 @@ from ounoise import OUNoise
 import pickle
 import datetime
 import csv
-import time
+import timer
 from expert_data import store_saved_data_into_replay, GenerateExpertPID_JointVel, GenerateTestPID_JointVel, naive_check_grasp
-import seaborn as sns # used for boxplot
+from timer import Timer
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
@@ -468,7 +468,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
 
             # Insert boxplot code reference
 
-            evaluations.append(eval_ret["avg_reward"])
+            evaluations.append(eval_ret["avg_rewards"])
             np.save("./results/%s" % (file_name), evaluations)
             print()
 
@@ -603,7 +603,7 @@ def train_policy(tot_episodes,tr_prob):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--policy_name", default="DDPGfD")				# Policy name
-    parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0")			# OpenAI gym environment name
+    parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0") # OpenAI gym environment name
     parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=200, type=float)			# How often (time steps) we evaluate
@@ -617,15 +617,14 @@ if __name__ == "__main__":
     parser.add_argument("--policy_noise", default=0.01, type=float)		# Noise added to target policy during critic update
     parser.add_argument("--noise_clip", default=0.05, type=float)		# Range to clip target policy noise
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
-    parser.add_argument("--tensorboardindex", default="new")	# tensorboard log name
-    parser.add_argument("--model", default=1, type=int)	# save model index
+    parser.add_argument("--tensorboardindex", type=str, default=None)	# Tensorboard log name, found in kinova_gripper_strategy/
     parser.add_argument("--expert_replay_size", default=20000, type=int)	# Number of episode for loading expert trajectories
-    parser.add_argument("--saving_dir", default="new")	# Number of episode for loading expert trajectories
+    parser.add_argument("--saving_dir", type=str, default=None)         # Directory name to save policy within policies/
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
-    parser.add_argument("--hand_orientation", action='store', type=str) # Requested shapes to use (in format of object keys)
-    parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with: (expert, pre-train, train, rand_train, test)
-    parser.add_argument("--agent_replay_size", default=10100, type=int) # Maximum size of agent's replay buffer
-    parser.add_argument("--expert_prob", default=1, type=int)  # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--hand_orientation", action='store', type=str)         # Requested shapes to use (in format of object keys)
+    parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (expert, pre-train, train, rand_train, test)
+    parser.add_argument("--agent_replay_size", default=10100, type=int)         # Maximum size of agent's replay buffer
+    parser.add_argument("--expert_prob", default=1, type=int)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
 
     args = parser.parse_args()
 
@@ -633,7 +632,7 @@ if __name__ == "__main__":
 
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
     print("---------------------------------------")
-    print("Settings: {file_name}")
+    print("Settings: "+file_name)
     print("---------------------------------------")
 
     # Make initial environment
@@ -682,7 +681,15 @@ if __name__ == "__main__":
         print("No such policy")
         raise ValueError
 
+    if args.saving_dir is None:
+        args.saving_dir = "%s_%s" % (args.policy_name, args.mode)
+
+    if args.tensorboardindex is None:
+        args.tensorboardindex = "%s_%s" % (args.policy_name, args.mode)
+
     # Print variables set based on command line input
+    print("Saving dir: ",args.saving_dir)
+    print("Tensorboard index: ",args.tensorboardindex)
     print("Policy: ", args.policy_name)
     print("Requested_shapes: ",requested_shapes)
     print("Requested Hand orientation: ", requested_orientation)
@@ -714,6 +721,10 @@ if __name__ == "__main__":
     saving_dir = "./policies/" + args.saving_dir
     if not os.path.isdir(saving_dir):
         os.mkdir(saving_dir)
+
+    # Initialize timer to analyze run times
+    total_time = Timer()
+    total_time.start()
 
     # Determine replay buffer/policy function calls based on mode (expert, pre-train, train, rand_train, test)
     if args.mode == "expert":
@@ -769,6 +780,7 @@ if __name__ == "__main__":
                                mode=args.mode, eval_episodes=args.max_episode)
     else:
         print("Invalid mode input")
-        quit()
+
+    total_time.stop()
 
 

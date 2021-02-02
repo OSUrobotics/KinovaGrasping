@@ -1,4 +1,5 @@
 import pandas as pd
+import seaborn as sns # used for boxplot
 
 def create_boxplot(saving_dir,data,labels,filename):
     """ Create a boxplot to show averages and spread of data

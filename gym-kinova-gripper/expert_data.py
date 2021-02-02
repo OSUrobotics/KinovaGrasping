@@ -107,7 +107,7 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
     # file = open(filename + ".pkl", "rb")
     # data = pickle.load(file)
     # file.close()
-    import time
+    import timer
     print(total_steps)
     for step in range(int(total_steps)):
         _, curr_actions, reward = env.reset()
