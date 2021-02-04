@@ -116,7 +116,7 @@ class KinovaGripper_Env(gym.Env):
         self._numSteps = 0
         self._simulator = "Mujoco"
         self.action_scale = 0.0333
-        self.max_episode_steps = 150
+        self.max_episode_steps = 30
         self.site_count=0
         # Parameters for cost function
         self.state_des = 0.20
@@ -541,7 +541,7 @@ class KinovaGripper_Env(gym.Env):
         return lift_reward, info, done
 
     # Function to get rewards for RL training
-    def _get_reward(self): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
+    def _get_reward(self,action): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
         #TODO: Make sure this works with the new grasp classifier
 
         # object height target
@@ -576,6 +576,14 @@ class KinovaGripper_Env(gym.Env):
 
         # obs[41:46]: DISTAL Finger-Object distance 41) "f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", 46) "f3_dist_1"
         # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
+
+        """# Negative velocity --> fingers moving outward/away from object
+        if any(n < 0 for n in action):
+            finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
+        else:
+            finger_reward = 0
+        """
+
         finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
@@ -1248,7 +1256,7 @@ class KinovaGripper_Env(gym.Env):
         #self.reset()
         #render()
 
-    def render_img(self, episode_num, timestep_num, obj_coords, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
+    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
         # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
@@ -1257,16 +1265,20 @@ class KinovaGripper_Env(gym.Env):
         if not os.path.isdir(video_dir):
            os.mkdir(video_dir)
 
-        success_dir = os.path.join(video_dir, "Success/")
+        output_dir = os.path.join(video_dir, dir_name + "/")
+        if not os.path.isdir(output_dir):
+           os.mkdir(output_dir)
+
+        success_dir = os.path.join(output_dir, "Success/")
         if not os.path.isdir(success_dir):
            os.mkdir(success_dir)
 
-        fail_dir = os.path.join(video_dir, "Fail/")
+        fail_dir = os.path.join(output_dir, "Fail/")
         if not os.path.isdir(fail_dir):
            os.mkdir(fail_dir)
 
         episode_coords = "obj_coords_" + str(obj_coords) + "/"
-        episode_dir = os.path.join(video_dir, episode_coords)
+        episode_dir = os.path.join(output_dir, episode_coords)
         if not os.path.isdir(episode_dir):
             os.mkdir(episode_dir)
 
@@ -1289,7 +1301,7 @@ class KinovaGripper_Env(gym.Env):
 
             img = Image.fromarray(a_rgb, 'RGB')
             if text_overlay != None:
-                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=20)
+                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=24)
                 #draw = ImageDraw.Draw(img)
                 # font = ImageFont.truetype(<font-file>, <font-size>)
                 #font = ImageFont.truetype("sans-serif.ttf", 16)
@@ -1370,7 +1382,7 @@ class KinovaGripper_Env(gym.Env):
                 self._sim.step()
         obs = self._get_obs()
         if not graspnetwork:
-            total_reward, info, done = self._get_reward()
+            total_reward, info, done = self._get_reward(action)
         else:
             ### Get this reward for grasp classifier collection ###
             total_reward, info, done = self._get_reward_DataCollection()

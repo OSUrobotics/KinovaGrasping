@@ -124,7 +124,7 @@ def compare_test():
 # Runs policy for X episodes and returns average reward
 def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=100, compare=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
-    num_success=0#[0,0]
+    num_success=0
     # Heatmap plot success/fail object coordinates
     seval_obj_posx = np.array([])
     feval_obj_posx = np.array([])
@@ -152,16 +152,17 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     eval_env.Generate_Latin_Square(eval_episodes,"eval_objects.csv",shape_keys=requested_shapes)
 
     avg_reward = 0.0
-    # Average reward data over each evaluation episode for boxplot
-    avg_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
+    # Reward data over each evaluation episode for boxplot
+    all_ep_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
 
     for i in range(eval_episodes):
+        print("***Eval episode: ", i)
         success=0
         state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
         cumulative_reward = 0
         # Sets number of timesteps per episode (counted from each step() call)
         eval_env._max_episode_steps = max_num_timesteps
-        print("***Eval episode: ", i)
+
         # Keep track of object coordinates
         obj_coords = eval_env.get_obj_coords()
         timestep_count = 0
@@ -171,8 +172,12 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         ready_for_lift = False
         skip_num_ts = 6
         curr_reward = 0
-        # Average reward of single episode
-        episode_rewards = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
+
+        # Cumulative reward over single episode
+        ep_total_reward = 0
+        ep_finger_reward = 0
+        ep_grasp_reward = 0
+        ep_lift_reward = 0
 
         # Beginning of episode time steps, done is max timesteps or lift reward achieved
         while not done:
@@ -200,18 +205,24 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 cumulative_reward += reward
                 avg_reward += reward
                 curr_reward = reward
-                episode_rewards["total_reward"].append(reward)
-                episode_rewards["finger_reward"].append(info["finger_reward"])
-                episode_rewards["grasp_reward"].append(info["grasp_reward"])
-                episode_rewards["lift_reward"].append(info["lift_reward"])
+
+                # Cumulative reward
+                ep_total_reward += reward
+                ep_finger_reward += info["finger_reward"]
+                ep_grasp_reward += info["grasp_reward"]
+                ep_lift_reward += info["lift_reward"]
 
             else:  # Make it happen in one time step
                 next_state, reward, done, info,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
                                                                                  curr_reward)
-                episode_rewards["total_reward"].append(reward)
-                episode_rewards["finger_reward"].append(info["finger_reward"])
-                episode_rewards["grasp_reward"].append(info["grasp_reward"])
-                episode_rewards["lift_reward"].append(info["lift_reward"])
+                if done:
+                    avg_reward += reward
+
+                    # Cumulative reward
+                    ep_total_reward += reward
+                    ep_finger_reward += info["finger_reward"]
+                    ep_grasp_reward += info["grasp_reward"]
+                    ep_lift_reward += info["lift_reward"]
                 check_for_lift = False
 
             #####
@@ -223,13 +234,12 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             curr_state_lift_check = state
 
         # End of episode, record findings
+        all_ep_reward_values["total_reward"].append(ep_total_reward)
+        all_ep_reward_values["finger_reward"].append(ep_finger_reward)
+        all_ep_reward_values["grasp_reward"].append(ep_grasp_reward)
+        all_ep_reward_values["lift_reward"].append(ep_lift_reward)
 
-        avg_reward_values["total_reward"].append(np.average(episode_rewards["total_reward"]))
-        avg_reward_values["finger_reward"].append(np.average(episode_rewards["finger_reward"]))
-        avg_reward_values["grasp_reward"].append(np.average(episode_rewards["grasp_reward"]))
-        avg_reward_values["lift_reward"].append(np.average(episode_rewards["lift_reward"]))
         num_success+=success
-        print("Eval timestep count: ",timestep_count)
 
         # Save initial object coordinate as success/failure
         x_val = (obj_coords[0])
@@ -250,17 +260,17 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     avg_reward /= eval_episodes
 
     # Final average reward values over all episodes
-    final_avg_rewards = {}
-    final_avg_rewards["total_reward"] = np.average(avg_reward_values["total_reward"])
-    final_avg_rewards["finger_reward"] = np.average(avg_reward_values["finger_reward"])
-    final_avg_rewards["grasp_reward"] = np.average(avg_reward_values["grasp_reward"])
-    final_avg_rewards["lift_reward"] = np.average(avg_reward_values["lift_reward"])
+    avg_rewards = {}
+    avg_rewards["total_reward"] = np.average(all_ep_reward_values["total_reward"])
+    avg_rewards["finger_reward"] = np.average(all_ep_reward_values["finger_reward"])
+    avg_rewards["grasp_reward"] = np.average(all_ep_reward_values["grasp_reward"])
+    avg_rewards["lift_reward"] = np.average(all_ep_reward_values["lift_reward"])
 
     print("---------------------------------------")
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = {"avg_reward": avg_reward, "final_avg_rewards": final_avg_rewards, "avg_reward_values": avg_reward_values, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
+    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
            "total_evaly":total_evaly}
     return ret
 
@@ -467,19 +477,23 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             total_evaly = np.append(total_evaly, eval_ret["total_evaly"])
 
             # Average rewards for finger, grasp, lift, total over evaluation episodes
-            final_avg_rewards = eval_ret["final_avg_rewards"]
+            # final_avg_rewards = eval_ret["avg_rewards"]
 
-            # Average reward data points for boxplot
-            avg_reward_values = eval_ret["avg_reward_values"]
+            # Cumulative (over timesteps) reward data from each evaluation episode for boxplot
+            all_ep_reward_values = eval_ret["all_ep_reward_values"]
+
+            #print("BACK IN MAIN LOOP, len(all_ep_reward_values[total_reward]): ",len(all_ep_reward_values["total_reward"]))
 
             # Plot tensorboard metrics for learning analysis (average reward, loss, etc.)
-            writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["final_avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss)
+            writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss)
 
             # Insert boxplot code reference
-            finger_reward[-1].append(avg_reward_values["finger_reward"])
-            grasp_reward[-1].append(avg_reward_values["grasp_reward"])
-            lift_reward[-1].append(avg_reward_values["lift_reward"])
-            total_reward[-1].append(avg_reward_values["total_reward"])
+            finger_reward[-1].append(all_ep_reward_values["finger_reward"])
+            grasp_reward[-1].append(all_ep_reward_values["grasp_reward"])
+            lift_reward[-1].append(all_ep_reward_values["lift_reward"])
+            total_reward[-1].append(all_ep_reward_values["total_reward"])
+
+            #print("BACK IN MAIN LOOP, np.asarray(finger_reward).shape: ", np.asarray(finger_reward).shape)
 
         # Evaluation plotting data directory
         evplot_saving_dir = "./eval_plots"
@@ -497,7 +511,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             os.mkdir(boxplot_saving_dir)
 
         # Save coordinates every 1000 episodes
-        if (episode_num) % 1000 == 0:
+        if episode_num > 10 and (episode_num) % 1000 == 0:
             print("Saving heatmap data at: ", heatmap_saving_dir)
             save_coordinates(seval_obj_posx, seval_obj_posy,
                              heatmap_saving_dir + "/eval_success", episode_num)
@@ -662,9 +676,9 @@ if __name__ == "__main__":
     parser.add_argument("--saving_dir", type=str, default=None)         # Directory name to save policy within policies/
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str)         # Requested shapes to use (in format of object keys)
-    parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (expert, pre-train, train, rand_train, test)
+    parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive_only, expert_only, expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10100, type=int)         # Maximum size of agent's replay buffer
-    parser.add_argument("--expert_prob", default=1, type=int)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--expert_prob", default=1, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
 
     args = parser.parse_args()
 
@@ -745,7 +759,7 @@ if __name__ == "__main__":
 
     # Replay buffer that samples only one episode
     #replay_buffer = utils.ReplayBuffer_episode(state_dim, action_dim, env._max_episode_steps, args.expert_replay_size, args.max_episode)
-    #replay_buffer = GenerateExpertPID_JointVel(args.expert_replay_size, replay_buffer, False)
+    #replay_buffer = GenerateExpertPID_JointVel(args.expert_replay_size, replay_buffer)
     '''
 
     # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
@@ -755,7 +769,7 @@ if __name__ == "__main__":
     expert_file_path = "./expert_replay_data/Expert_data_01_20_21_0450/"
 
     # Default pre-trained policy file path
-    pretrain_model_save_path = "./policies/new/pre_DDPGfD_kinovaGrip_01_14_21_0100"
+    pretrain_model_save_path = "./policies/pretrain_policy/exp_NO_graspclassifier_expert_CubeS_2_2_21/pre_DDPGfD_kinovaGrip_01_25_21_2334"
 
     # Create directory to hold trained policy
     saving_dir = "./policies/" + args.saving_dir
@@ -767,12 +781,30 @@ if __name__ == "__main__":
     total_time.start()
 
     # Determine replay buffer/policy function calls based on mode (expert, pre-train, train, rand_train, test)
-    if args.mode == "expert":
-        print("MODE: Expert")
+    # Generate expert data based on Expert nudge controller only
+    if args.mode == "expert_only":
+        print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, True)
-        print("expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, pid_mode="expert_only")
+        print("Expert ONLY expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
+
+    # Generate expert data based on Naive controller only
+    elif args.mode == "naive_only":
+        print("MODE: Naive ONLY")
+        # Initialize expert replay buffer, then generate expert pid data to fill it
+        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, pid_mode="naive_only")
+        print("Naive ONLY expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
+
+    # Generate expert data based on interpolating naive and expert strategies
+    elif args.mode == "expert":
+        print("MODE: Expert (Interpolation)")
+        # Initialize expert replay buffer, then generate expert pid data to fill it
+        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+        expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, pid_mode="expert_naive")
+        print("Expert (Interpolation) expert_file_path: ",expert_file_path, "\n", expert_replay_buffer)
+
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
@@ -804,10 +836,10 @@ if __name__ == "__main__":
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
             expert_replay_buffer, expert_file_path = GenerateExpertPID_JointVel(expert_replay_size,
-                                                                                expert_replay_buffer, True)
+                                                                                expert_replay_buffer)
         train_policy(args.max_episode,args.expert_prob)
 
-    # Test policy over certain number of episodes
+    # Test policy over certain number of episodes -- In Progress
     elif args.mode == "test":
         print("MODE: Test")
 
@@ -818,6 +850,7 @@ if __name__ == "__main__":
         # Evaluate policy over certain number of episodes
         eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
                                mode=args.mode, eval_episodes=args.max_episode)
+        # Add further evaluation here
     else:
         print("Invalid mode input")
 

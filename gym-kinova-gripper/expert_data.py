@@ -19,6 +19,7 @@ import torch
 from copy import deepcopy
 # from gen_new_env import gen_new_obj
 import matplotlib.pyplot as plt
+import utils
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -658,7 +659,7 @@ def naive_check_grasp(f_dist_old, f_dist_new):
 
 
 def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_new, ready_for_lift,
-               num_consistent_grasps):
+               num_consistent_grasps, pid_mode="expert_naive"):
     """ Get action based on position of object within the hand
         @param prev_obs:
         @param obs:
@@ -671,79 +672,109 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
         @param num_consistent_grasps:
         return action: np.array([wrist, f1, f2, f3])
     """
-    constant_velocity = 0.5 #0.8
+    constant_velocity = 0.5
     min_velocity = 0.5
     max_velocity = 0.8
-    finger_lift_velocity = min_velocity  # 0.8
-    wrist_lift_velocity = 0.6  # 0.3
+    finger_lift_velocity = min_velocity
+    wrist_lift_velocity = 0.6
     min_lift_timesteps = 10
     object_x_coord = obs[21]  # Object x coordinate position
     # Action is Naive Controller by default
     action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
 
-    # If object x position is on outer edges, do expert pid
-    if object_x_coord < -0.04 or object_x_coord > 0.04:
+    # Check for Naive Only or Expert Only setting
+    # Only Naive constant velocity
+    if pid_mode == "naive_only":
+        naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+        if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
+            if ready_for_lift >= num_consistent_grasps:
+                print("Ready for lift!!!: ", ready_for_lift)
+                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                   finger_lift_velocity])
+            ready_for_lift += 1
+            # Checks the grasp is good over num_consistent_grasps number of trials
+            if ready_for_lift >= num_consistent_grasps:
+                action[0] = wrist_lift_velocity
+        else:
+            action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+
+        return action
+
+    # Only Expert nudge strategy
+    elif pid_mode == "expert_only":
         # Expert Nudge controller strategy
         action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
             prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
             finger_lift_velocity, wrist_lift_velocity)
-        # Do not lift until after 50 steps
-        if total_steps < min_lift_timesteps:  # < 50:
-            action[0] = 0
-    # Object x position within the side-middle ranges, interpolate expert/naive velocity output
-    elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
-        # Interpolate between naive and expert velocities
-
-        # Default Naive Controller velocities
-        naive_action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
-
-        naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
-        if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
-            if ready_for_lift >= num_consistent_grasps:
-                #print("Ready for lift!!!: ", ready_for_lift)
-                naive_action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
-                                         finger_lift_velocity])
-            ready_for_lift += 1
-
-        # Expert PID
-        expert_action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
-            prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
-            finger_lift_velocity, wrist_lift_velocity)
-
-        if naive_action[0] == 0:
-            wrist_vel = 0
-        else:
-            wrist_vel = naive_action[0] + expert_action[0] / 2
-
-        finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
-
-        # Only start to lift if we've had some RL time steps (multiple actions) to adjust hand
+        # Do not lift until after min time steps
         if total_steps < min_lift_timesteps:
-            wrist_vel = 0
+            action[0] = 0
+        # Checks the grasp is good over num_consistent_grasps number of trials
+        elif ready_for_lift >= num_consistent_grasps:
+            action[0] = wrist_lift_velocity
+        return action
 
-        action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
-
-    # Object x position is within center area, so use naive controller
+    # Interpolate Naive and Expert Strategies based on object x-coord position within hand
     else:
-        naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
-        if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:  # 50:
-            if ready_for_lift >= num_consistent_grasps:
-                #print("Ready for lift!!!: ", ready_for_lift)
-                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
-                                   finger_lift_velocity])
-            ready_for_lift += 1
-        else:
-            action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+        # If object x position is on outer edges, do expert pid
+        if object_x_coord < -0.04 or object_x_coord > 0.04:
+            # Expert Nudge controller strategy
+            action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
+                prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
+                finger_lift_velocity, wrist_lift_velocity)
+            # Do not lift until after 50 steps
+            if total_steps < min_lift_timesteps:
+                action[0] = 0
+        # Object x position within the side-middle ranges, interpolate expert/naive velocity output
+        elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
+            # Interpolate between naive and expert velocities
+            # Default Naive Controller velocities
+            naive_action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
 
+            naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+            if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
+                if ready_for_lift >= num_consistent_grasps:
+                    naive_action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                             finger_lift_velocity])
+                ready_for_lift += 1
+
+            # Expert PID
+            expert_action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
+                prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
+                finger_lift_velocity, wrist_lift_velocity)
+
+            if naive_action[0] == 0:
+                wrist_vel = 0
+            else:
+                wrist_vel = naive_action[0] + expert_action[0] / 2
+
+            finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
+
+            # Only start to lift if we've had some RL time steps (multiple actions) to adjust hand
+            if total_steps < min_lift_timesteps:
+                wrist_vel = 0
+
+            action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
+
+        # Object x position is within center area, so use naive controller
+        else:
+            naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+            if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
+                if ready_for_lift >= num_consistent_grasps:
+                    action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                       finger_lift_velocity])
+                ready_for_lift += 1
+            else:
+                action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+
+    # Checks the grasp is good over num_consistent_grasps number of trials
     if ready_for_lift >= num_consistent_grasps:
-        ##print("FINAL Ready for lift!!!: ", ready_for_lift)
         action[0] = wrist_lift_velocity
-    #    action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity, finger_lift_velocity])
 
     return action
 
 
-def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
+def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     @param episode_num: Number of episodes to generate expert data for
     @param replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -759,8 +790,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     all_timesteps = np.array([])  # Keeps track of all timesteps to determine average timesteps needed
     success_timesteps = np.array([])  # Successful episode timesteps count distribution
     fail_timesteps = np.array([])  # Failed episode timesteps count distribution
+    datestr = datetime.datetime.now().strftime("%m_%d_%y_%H%M") # used for file name saving
 
     print("----Generating {} expert episodes----".format(episode_num))
+    print("Using PID MODE: ",pid_mode)
 
     # Beginning of episode loop
     for i in range(episode_num):
@@ -783,11 +816,12 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         # Beginning of RL time steps within the current episode
         while not done:
             # Render image from current episode
-            #if total_steps % 1 == 0:
-            #    env.render_img(text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-            #                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]))
-            # else:
-            #    env._viewer = None
+            if render_imgs is True:
+                if total_steps % 1 == 0:
+                    env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=action_str, episode_num=i, timestep_num=total_steps,
+                                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]))
+                else:
+                    env._viewer = None
 
             # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
             if prev_obs is None:  # None if on the first RL episode time step
@@ -798,7 +832,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
             # Get action based on the location of the object within the hand
             action = get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_new,
-                                ready_for_lift, num_consistent_grasps)
+                                ready_for_lift, num_consistent_grasps, pid_mode)
 
             # Used for the action string
             ###After taking step###
@@ -826,7 +860,9 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
             action_str = "Wrist: " + str(action[0]) + "\nFinger1: " + str(action[1]) + "\nFinger2: " + str(
                 action[2]) + "\nFinger3: " + str(action[3]) + "\nready_for_lift: " + str(
-                ready_for_lift) + "\nf_all_change: " + str(naive_ret) + "\nobject center height: " + str(obs[23])
+                ready_for_lift) + "\nf_all_change: " + str(naive_ret) + "\nobject center height: " + str(obs[23]) +\
+                         "\ntimestep reward: " + str(reward) +"\nfinger reward: " + str(info["finger_reward"]) +\
+                         "\ngrasp reward: " + str(info["grasp_reward"]) + "\nlift reward: " + str(info["lift_reward"])
 
             # Once current timestep is over, update prev_obs to be current obs
             if total_steps > 0:
@@ -846,9 +882,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
             fail_timesteps = np.append(fail_timesteps, total_steps)
 
         # print("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
-        #if total_steps % 1 == 0:
-        #    env.render_img(text_overlay=str(action), episode_num=i, timestep_num=total_steps,
-        #                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
+        if render_imgs is True:
+            if total_steps % 1 == 0:
+                env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=str(action), episode_num=i, timestep_num=total_steps,
+                               obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
 
         ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info)
         expert_success_x = ret[0]
@@ -878,10 +915,9 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
     save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
 
-    print("Plotting timestep distribution...")
-    plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
+    #print("Plotting timestep distribution...")
+    #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
 
-    save = True
     print("Save is: ", str(save))
     save_filepath = None
     if save and replay_buffer is not None:
@@ -1096,7 +1132,11 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 if __name__ ==  "__main__":
     # testing #
     # Initialize expert replay buffer, then generate expert pid data to fill it
+    state_dim = 82
+    action_dim = 4
+    expert_replay_size = 10
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
+    replay_buffer, save_filepath = GenerateExpertPID_JointVel(10, expert_replay_buffer, save=False, render_imgs=True, pid_mode="naive_only")
+
     print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
