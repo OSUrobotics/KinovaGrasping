@@ -40,7 +40,7 @@ import csv
 import pandas as pd
 from pathlib import Path
 import threading #oh boy this might get messy
-from PIL import Image # Used to save images from rendering simulation
+from PIL import Image, ImageFont, ImageDraw # Used to save images from rendering simulation
 import shutil
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -48,7 +48,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 class KinovaGripper_Env(gym.Env):
     metadata = {'render.modes': ['human']}
-    def __init__(self, arm_or_end_effector="hand", frame_skip=4):
+    def __init__(self, arm_or_end_effector="hand", frame_skip=15):
         self.file_dir = os.path.dirname(os.path.realpath(__file__))
         self.arm_or_hand=arm_or_end_effector
         if arm_or_end_effector == "arm":
@@ -184,7 +184,7 @@ class KinovaGripper_Env(gym.Env):
         obj_list=['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
         self.random_poses=[[],[],[],[],[],[]]
         for i in range(len(obj_list)):
-            random_poses_file=open(obj_list[i],"r")
+            random_poses_file=open("./shape_orientations/"+obj_list[i],"r")
             #temp=random_poses_file.read()
             lines_list = random_poses_file.readlines()
             temp = [[float(val) for val in line.split()] for line in lines_list[1:]]
@@ -567,6 +567,7 @@ class KinovaGripper_Env(gym.Env):
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
             lift_reward = 50.0
+            # print("!!!!!!!!!!########### ENV LIFT REWARD: #######!!!!!!!!!!!", lift_reward)
             done = True
         else:
             lift_reward = 0.0
@@ -578,7 +579,7 @@ class KinovaGripper_Env(gym.Env):
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
-        info = {"lift_reward":lift_reward}
+        info = {"finger_reward":finger_reward,"grasp_reward":grasp_reward,"lift_reward":lift_reward}
 
         return reward, info, done
 
@@ -870,7 +871,7 @@ class KinovaGripper_Env(gym.Env):
                 writer.writerow(key)
 
     def objects_file_to_list(self,filename, num_objects,shape_keys):
-        print("FILENAME: ",filename)
+        # print("FILENAME: ",filename)
 
         my_file = Path(filename)
         if my_file.is_file() is True:
@@ -908,7 +909,7 @@ class KinovaGripper_Env(gym.Env):
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 
-        print("random_shape: ",random_shape)
+        # print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 
@@ -1027,9 +1028,7 @@ class KinovaGripper_Env(gym.Env):
         #x, y = self.randomize_initial_pose(True) # for data collection
 
         # Pretraining and training will have the same coordinate files
-        print("In reset, checking mode")
         if mode == "pre-train" or mode == "rand_train":
-            print("Switching to train")
             mode = "train"
 
         # Steph new code
@@ -1248,7 +1247,7 @@ class KinovaGripper_Env(gym.Env):
         #self.reset()
         #render()
 
-    def render_img(self, episode_num, timestep_num, obj_coords, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
+    def render_img(self, episode_num, timestep_num, obj_coords, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
         # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
@@ -1288,6 +1287,13 @@ class KinovaGripper_Env(gym.Env):
             a_rgb = np.asarray(a_rgb, dtype=np.uint8)
 
             img = Image.fromarray(a_rgb, 'RGB')
+            if text_overlay != None:
+                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=20)
+                #draw = ImageDraw.Draw(img)
+                # font = ImageFont.truetype(<font-file>, <font-size>)
+                #font = ImageFont.truetype("sans-serif.ttf", 16)
+                # draw.text((x, y),"Sample Text",(r,g,b))
+                #draw.text((0, 0), text_overlay, (255, 255, 255), font=font)
             # Save image
             img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
 
@@ -1311,17 +1317,21 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork = True): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork = False): #TODO: fix this so that we can rotate the hand
+        """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
+            action: array of finger joint velocity values (finger1, finger1, finger3)
+            graspnetwork: bool, set True to use grasping network to determine reward value
+        """
         total_reward = 0
         self._get_trans_mat_wrist_pose()
         if len(action)==4:
             action=[0,0,action[0],action[1],action[2],action[3]]
-        if action[0]==0:
-            self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
-        if action[1]==0:
-            self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
-        if action[2]==0:
-            self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
+        #if action[0]==0:
+        #    self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
+        #if action[1]==0:
+        #    self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
+        #if action[2]==0:
+        #    self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
         if self.arm_or_hand=="hand":
             mass=0.733
             gear=25
@@ -1357,12 +1367,11 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(len(finger_velocities)):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
-        obs = self._get_obs(test=False)
+        obs = self._get_obs()
         if not graspnetwork:
             total_reward, info, done = self._get_reward()
         else:
             ### Get this reward for grasp classifier collection ###
-            print("Done is set with get_reward_DataCollection()")
             total_reward, info, done = self._get_reward_DataCollection()
         return obs, total_reward, done, info
 
