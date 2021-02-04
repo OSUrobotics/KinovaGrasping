@@ -192,7 +192,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #####
             # Not ready for lift, continue agent grasping following the policy
             if not ready_for_lift:
-                action = policy.select_action(np.array(state[0:82]))
+                action = policy.select_action(np.array(state[state_idx_arr]))
                 next_state, reward, done, info = eval_env.step(action)
                 cumulative_reward += reward
                 avg_reward += reward
@@ -399,12 +399,12 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             # Follow policy until ready for lifting, then switch to set controller
             if not ready_for_lift:
                 action = (
-                        policy.select_action(np.array(state))
+                        policy.select_action(np.array(state[state_idx_arr]))
                         + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
                 ).clip(-max_action, max_action)
                 # Perform action obs, total_reward, done, info
                 next_state, reward, done, info = env.step(action)
-                replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
+                replay_buffer.add(state[state_idx_arr], action, next_state[state_idx_arr], reward, float(done))
                 episode_reward += reward
 
             else:  # Make it happen in one time step
@@ -626,6 +626,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode", action='store', type=str, default="train") # Mode to run experiments with: (expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10100, type=int) # Maximum size of agent's replay buffer
     parser.add_argument("--expert_prob", default=1, type=int)  # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--state_range", default='all', type=str)  # string - from ('all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real')
 
     args = parser.parse_args()
 
@@ -644,8 +645,72 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
+
+    # for reference: state space correspondence
+    '''
+            Local obs, all in local coordinates (from the center of the palm)
+            (18,) Finger Pos                                        0-18
+            (3,) Wrist Pos                                            18-21
+            (3,) Obj Pos                                            21-24
+            (9,) Joint States                                        24-33
+            (3,) Obj Size                                            33-36
+            (12,) Finger Object Distance                            36-48
+            (2,) X and Z angle                                        48-50
+            (17,) Rangefinder data                                    50-67
+            (3,) Gravity vector in local coordinates                    67-70
+            (3,) Object location based on rangefinder data                70-73
+            (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
+            (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
+            (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
+            (1, ) Dot product (wrist) 81
+            '''
+    '''
+    Global obs, all in global coordinates (from simulator 0,0,0)
+    (18,) Finger Pos                                        0-18
+    (3,) Wrist Pos                                            18-21
+    (3,) Obj Pos                                            21-24
+    (9,) Joint States                                        24-33
+    (3,) Obj Size                                            33-36
+    (12,) Finger Object Distance                            36-48
+    (2,) X and Z angle                                        48-50
+    (17,) Rangefinder data                                    50-67
+    '''
+
+    finger_pos_idx = np.arange(0, 18)
+    wrist_pos_idx = np.arange(18, 21)
+    obj_pos_idx = np.arange(21, 24)
+    joint_states_idx = np.arange(24, 33)
+    obj_size_idx = np.arange(33, 36)
+    finger_obj_dist_idx = np.arange(36, 48)
+    x_z_angle_idx = np.arange(48, 50)
+    rangefinder_data_idx = np.arange(50, 67)
+    gravity_vector_in_local_coords = np.arange(67, 70)
+    object_location_rangefinder = np.arange(70, 73)
+    ratio_sideshape_sidehand = np.array([73])
+    ratio_topshape_tophand = np.array([74])
+    f1_prox_idx = np.array([75])
+    f2_prox_idx = np.array([76])
+    f3_prox_idx = np.array([77])
+    f1_dist_idx = np.array([78])
+    f2_dist_idx = np.array([79])
+    f3_dist_idx = np.array([80])
+    dot_prod_wrist = np.array([81])
+
+    # modified state space code
+    assert args.state_range in ['all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real']
+    if args.state_range == 'all':
+        state_idx_arr = np.arange(0, 82)
+    if args.state_range == 'nigel_rangefinder':
+        state_idx_arr = np.concatenate((obj_pos_idx, rangefinder_data_idx, obj_size_idx), axis=0)
+    if args.state_range == 'nigel_norangefinder':
+        state_idx_arr = np.concatenate((obj_pos_idx, finger_obj_dist_idx, obj_size_idx), axis=0)
+    if args.state_range == 'all_real':
+        state_idx_arr = np.concatenate((obj_pos_idx, joint_states_idx, obj_size_idx, finger_obj_dist_idx, x_z_angle_idx))
+
+
+
     # Set dimensions for state and action spaces - policy initialization
-    state_dim = 82  # State dimension dependent on the length of the state space
+    state_dim = len(state_idx_arr)  # State dimension dependent on the length of the state space
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
     max_action_trained = env.action_space.high  # a vector of max actions
