@@ -57,7 +57,9 @@ def compare_test():
     #         print('started pos', i)
     #         cumulative_reward = 0
     #         #eval_env = gym.make(env_name)
-    #         state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         state, done = eval_env.reset(with_grasp=args.with_grasp_reward,start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         # Set whether or not to use grasp reward
+    #         eval_env.with_grasp_reward = args.with_grasp_reward
     #         success=0
     #         # Sets number of timesteps per episode (counted from each step() call)
     #         #eval_env._max_episode_steps = 200
@@ -71,7 +73,9 @@ def compare_test():
     #                 success=1
     #         num_success[1]+=success
     #         print('PID net reward:',cumulative_reward)
-    #         state, done = eval_env.reset(start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         state, done = eval_env.reset(with_grasp=args.with_grasp_reward,start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         # Set whether or not to use grasp reward
+    #         eval_env.with_grasp_reward = args.with_grasp_reward
     #         success=0
     #         cumulative_reward = 0
     #         # Sets number of timesteps per episode (counted from each step() call)
@@ -158,7 +162,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
         success=0
-        state, done = eval_env.reset(hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
+        state, done = eval_env.reset(with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
+
         cumulative_reward = 0
         # Sets number of timesteps per episode (counted from each step() call)
         eval_env._max_episode_steps = max_num_timesteps
@@ -372,8 +377,11 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv"):
             env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
-        state, done = env.reset(env_name="env", shape_keys=requested_shapes, hand_orientation=requested_orientation,
+        state, done = env.reset(with_grasp=args.with_grasp_reward,env_name="env", shape_keys=requested_shapes, hand_orientation=requested_orientation,
                                 mode=args.mode), False
+
+        # Set whether or not to use grasp reward
+        env.with_grasp_reward = args.with_grasp_reward
 
         prev_state_lift_check = None
         curr_state_lift_check = state
@@ -679,6 +687,7 @@ if __name__ == "__main__":
     parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive_only, expert_only, expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10100, type=int)         # Maximum size of agent's replay buffer
     parser.add_argument("--expert_prob", default=1, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
 
     args = parser.parse_args()
 
@@ -735,6 +744,15 @@ if __name__ == "__main__":
         print("No such policy")
         raise ValueError
 
+    # Set grasp reward based on command line input
+    if args.with_grasp_reward == "True" or args.with_grasp_reward == "true":
+        args.with_grasp_reward = True
+    elif args.with_grasp_reward == "False" or args.with_grasp_reward == "false":
+        args.with_grasp_reward = False
+    else:
+        print("with_grasp_reward must be True or False")
+        raise ValueError
+
     if args.saving_dir is None:
         args.saving_dir = "%s_%s" % (args.policy_name, args.mode)
 
@@ -749,6 +767,7 @@ if __name__ == "__main__":
     print("Requested Hand orientation: ", requested_orientation)
     print("Batch Size: ", args.batch_size)
     print("Expert Sampling Probability: ", args.expert_prob)
+    print("Grasp Reward: ",args.with_grasp_reward)
     print("Generating " + str(args.max_episode) + " episodes!")
     print("---------------------------------------")
 

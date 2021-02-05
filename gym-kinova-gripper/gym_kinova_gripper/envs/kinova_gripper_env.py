@@ -101,6 +101,7 @@ class KinovaGripper_Env(gym.Env):
 
         self._sim = MjSim(self._model)   # The simulator. This holds all the information about object locations and orientations
         self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
+        self.with_grasp_reward=False   # Set to True to use grasp reward from grasp classifier, otherwise grasp reward is 0
         self._viewer = None   # The render window
         self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
         self.Tfw=np.zeros([4,4])   # The trasfer matrix that gets us from the world frame to the local frame
@@ -544,47 +545,53 @@ class KinovaGripper_Env(gym.Env):
     def _get_reward(self,action): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
         #TODO: Make sure this works with the new grasp classifier
 
-        # object height target
-        obj_target = 0.2
+        obj_target = 0.2    # Object height target (z-coord of object center)
+        grasp_reward = 0.0  # Grasp reward
+        finger_reward = 0.0 # Finger reward
 
-        # Grasp reward
-        grasp_reward = 0.0
         obs = self._get_obs(state_rep="global")
         #loc_obs=self._get_obs()
 
-        # network_inputs=obs[0:5]
-        # network_inputs=np.append(network_inputs,obs[6:23])
-        # network_inputs=np.append(network_inputs,obs[24:])
-        # inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
+        # Grasp reward set by grasp classifier, otherwise 0
+        if self.with_grasp_reward is True:
+            print("WITH Grasp Classifier: ",self.with_grasp_reward)
+            network_inputs=obs[0:5]
+            network_inputs=np.append(network_inputs,obs[6:23])
+            network_inputs=np.append(network_inputs,obs[24:])
+            inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
-        # WITHOUT GRASP CLASSIFIER
-        #if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015:
-        #     outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-        #     if (outputs >=0.3) & (not self.Grasp_Reward):
-        #         grasp_reward = 5.0
-        #         self.Grasp_Reward=True
-        #     else:
-        #         grasp_reward = 0.0
+            # If proximal or distal finger position is close enough to object
+            if np.max(np.array(obs[41:46])) < 0.035 or np.max(np.array(obs[35:40])) < 0.015:
+                 # Grasp classifier determines how good grasp is
+                 outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
+                 if (outputs >=0.3) & (not self.Grasp_Reward):
+                     grasp_reward = 5.0
+                     self.Grasp_Reward=True
+                 else:
+                     grasp_reward = 0.0
+        else:
+            print("NO Grasp Classifier: ",self.with_grasp_reward)
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
             lift_reward = 50.0
-            # print("!!!!!!!!!!########### ENV LIFT REWARD: #######!!!!!!!!!!!", lift_reward)
             done = True
         else:
             lift_reward = 0.0
             done = False
 
+        """ Finger Reward
         # obs[41:46]: DISTAL Finger-Object distance 41) "f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", 46) "f3_dist_1"
         # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
+        
+        # Original Finger reward
+        # finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
-        """# Negative velocity --> fingers moving outward/away from object
-        if any(n < 0 for n in action):
-            finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
-        else:
-            finger_reward = 0
+        # Negative or 0 Finger Reward: Negative velocity --> fingers moving outward/away from object
+        #if any(n < 0 for n in action):
+        #    finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
+        #else:
+        #    finger_reward = 0
         """
-
-        finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
@@ -1029,20 +1036,22 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self,with_grasp=False,env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
+        # If True, use Grasp Reward from grasp classifier in reward calculation
+        self.with_grasp_reward = with_grasp
+        print("IN RESET, with_grasp: ",with_grasp)
+
         # Pretraining and training will have the same coordinate files
         if mode == "pre-train" or mode == "rand_train":
             mode = "train"
 
-        # Steph new code
-        obj_list_filename = ""
-        num_objects = 200
+        # Based on environment, sets amount of objects and object file to store them in
         if env_name == "env":
             obj_list_filename = "objects.csv"
             num_objects = 20000
@@ -1050,6 +1059,7 @@ class KinovaGripper_Env(gym.Env):
             obj_list_filename = "eval_objects.csv"
             num_objects = 200
 
+        # Replenish objects list if none left in list to grab
         if len(self.objects) == 0:
             self.objects = self.experiment(shape_keys)
         if len(self.obj_keys) == 0:
@@ -1230,31 +1240,6 @@ class KinovaGripper_Env(gym.Env):
         if setPause:
             self._viewer._paused=True
 
-    #Function to display the current state in a video. The video is always paused when it first starts up.
-    def render_video(self,setPause=False, setRecord=True):
-        if self._viewer is None:
-            self._viewer = MjViewer(self._sim)
-            self._viewer._paused = setPause
-
-        #if renderOffscreen is True:
-        #    offscreen = MjRenderContextOffscreen(self._sim, 0)
-        if setPause:
-            self._viewer._paused=True
-
-        # Check and create directory
-        video_dir = "./video/"
-        if not os.path.isdir(video_dir):
-           os.mkdir(video_dir)
-
-        if setRecord:
-            self._viewer._video_path = video_dir + "video_1.mp4"
-            self._viewer._record_video = True
-
-        # Finally render simulation with correct settings
-        self._viewer.render()
-        #render = lambda: plt.imshow(self._viewer.render())
-        #self.reset()
-        #render()
 
     def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
         # print("In render_img")
@@ -1298,15 +1283,12 @@ class KinovaGripper_Env(gym.Env):
             # Just keep rgb values, so image is shape (w,h), make to be numpy array
             a_rgb = a[0]
             a_rgb = np.asarray(a_rgb, dtype=np.uint8)
-
             img = Image.fromarray(a_rgb, 'RGB')
+
+            # Overlay text string
             if text_overlay != None:
                 ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=24)
-                #draw = ImageDraw.Draw(img)
-                # font = ImageFont.truetype(<font-file>, <font-size>)
-                #font = ImageFont.truetype("sans-serif.ttf", 16)
-                # draw.text((x, y),"Sample Text",(r,g,b))
-                #draw.text((0, 0), text_overlay, (255, 255, 255), font=font)
+
             # Save image
             img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
 
