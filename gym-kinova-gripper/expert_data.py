@@ -20,6 +20,7 @@ from copy import deepcopy
 # from gen_new_env import gen_new_obj
 import matplotlib.pyplot as plt
 import utils
+from pathlib import Path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -586,38 +587,25 @@ def save_coordinates(x, y, filename):
     np.save(filename + "_y_arr", y)
 
 
-def add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info):
-    if (info["lift_reward"] > 0):
-        #print("add_heatmap_coords, lift_success TRUE")
-        lift_success = True
-    else:
-        lift_success = False
-        #print("add_heatmap_coords, lift_success FALSE")
+def add_heatmap_coords(success_x, success_y, fail_x, fail_y, obj_coords, success):
+    """Add object cooridnates to success/failed coordinates list"""
+    # Get object coordinates, transform to array
+    x_val = obj_coords[0]
+    y_val = obj_coords[1]
+    x_val = np.asarray(x_val).reshape(1)
+    y_val = np.asarray(y_val).reshape(1)
 
     # Heatmap postion data - get starting object position and mark success/fail based on lift reward
-    if (lift_success):
-        # Get object coordinates, transform to array
-        x_val = obj_coords[0]
-        y_val = obj_coords[1]
-        x_val = np.asarray(x_val).reshape(1)
-        y_val = np.asarray(y_val).reshape(1)
-
+    if success:
         # Append initial object coordinates to Successful coordinates array
-        expert_success_x = np.append(expert_success_x, x_val)
-        expert_success_y = np.append(expert_success_y, y_val)
-
+        success_x = np.append(success_x, x_val)
+        success_y = np.append(success_y, y_val)
     else:
-        # Get object coordinates, transform to array
-        x_val = obj_coords[0]
-        y_val = obj_coords[1]
-        x_val = np.asarray(x_val).reshape(1)
-        y_val = np.asarray(y_val).reshape(1)
-
         # Append initial object coordinates to Failed coordinates array
-        expert_fail_x = np.append(expert_fail_x, x_val)
-        expert_fail_y = np.append(expert_fail_y, y_val)
+        fail_x = np.append(fail_x, x_val)
+        fail_y = np.append(fail_y, y_val)
 
-    ret = [expert_success_x, expert_success_y, expert_fail_x, expert_fail_y]
+    ret = {"success_x":success_x,"success_y": success_y, "fail_x": fail_x, "fail_y": fail_y}
     return ret
 
 
@@ -806,6 +794,11 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
         total_steps = 0             # Total RL timesteps passed within episode
         env._max_episode_steps = 30 # Sets number of timesteps per episode (counted from each step() call)
         obj_coords = env.get_obj_coords()
+        # Local coordinate conversion
+        obj_local = np.append(obj_coords,1)
+        obj_local = np.matmul(env.Tfw,obj_local)
+        obj_local_pos = obj_local[0:3]
+
         action_str = None
         controller = ExpertPIDController(obs)   # Initiate expert PID controller
 
@@ -819,7 +812,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
             if render_imgs is True:
                 if total_steps % 1 == 0:
                     env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-                                   obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]))
+                                   obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]))
                 else:
                     env._viewer = None
 
@@ -874,8 +867,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
 
         # print("Expert PID total timestep: ", total_steps)
         lift_success = None
+        success = 0
         if (info["lift_reward"] > 0):
             lift_success = 'success'
+            success = 1
             success_timesteps = np.append(success_timesteps, total_steps)
         else:
             lift_success = 'fail'
@@ -885,13 +880,13 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
         if render_imgs is True:
             if total_steps % 1 == 0:
                 env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=str(action), episode_num=i, timestep_num=total_steps,
-                               obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
+                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=lift_success)
 
-        ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info)
-        expert_success_x = ret[0]
-        expert_success_y = ret[1]
-        expert_fail_x = ret[2]
-        expert_fail_y = ret[3]
+        ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_local_pos, success)
+        expert_success_x = ret["success_x"]
+        expert_success_y = ret["success_y"]
+        expert_fail_x = ret["fail_x"]
+        expert_fail_y = ret["fail_y"]
         if replay_buffer is not None:
             replay_buffer.add_episode(0)
 
@@ -900,10 +895,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
 
     print("Saving coordinates...")
     # Save coordinates
-    # Folder to save heatmap coordinates
-    expert_saving_dir = "./expert_plots"
-    if not os.path.isdir(expert_saving_dir):
-        os.mkdir(expert_saving_dir)
+    # Directory for x,y coordinate heatmap data
+    expert_saving_dir = "./"+str(pid_mode)+"_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    heatmap_saving_dir = Path(expert_saving_dir + "/heatmap")
+    heatmap_saving_dir.mkdir(parents=True, exist_ok=True)
 
     np.save(expert_saving_dir + "/success_timesteps", success_timesteps)
     np.save(expert_saving_dir + "/fail_timesteps", fail_timesteps)
@@ -922,10 +917,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
     save_filepath = None
     if save and replay_buffer is not None:
         print("Saving...")
-        # Check and create directory
-        expert_replay_saving_dir = "./expert_replay_data"
-        if not os.path.isdir(expert_replay_saving_dir):
-            os.mkdir(expert_replay_saving_dir)
+
         # data = {}
         # file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
         ''' Different attempt to save data as current method gets overloaded
@@ -945,31 +937,12 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
         # data["reward"] = replay_buffer.reward
         # data["done"] = replay_buffer.not_done
 
-        curr_save_dir = "Expert_data_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M")
-
-        if not os.path.exists(os.path.join(expert_replay_saving_dir, curr_save_dir)):
-            os.makedirs(os.path.join(expert_replay_saving_dir, curr_save_dir))
-
-        save_filepath = expert_replay_saving_dir + "/" + curr_save_dir + "/"
-        print("save_filepath: ", save_filepath)
-        np.save(save_filepath + "state", replay_buffer.state)
-        np.save(save_filepath + "action", replay_buffer.action)
-        np.save(save_filepath + "next_state", replay_buffer.next_state)
-        np.save(save_filepath + "reward", replay_buffer.reward)
-        np.save(save_filepath + "not_done", replay_buffer.not_done)
-
-        np.save(save_filepath + "episodes", replay_buffer.episodes)  # Keep track of episode start/finish indexes
-        np.save(save_filepath + "episodes_info",
-                [replay_buffer.max_episode, replay_buffer.size, replay_buffer.episodes_count,
-                 replay_buffer.replay_ep_num])
-        # max_episode: Maximum number of episodes, limit to when we remove old episodes
-        # size: Full size of the replay buffer (number of entries over all episodes)
-        # episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
-        # replay_ep_num: Number of episodes currently in the replay buffer
+        save_filepath = replay_buffer.save_replay_buffer(expert_saving_dir)
 
         print("*** Saved replay buffer to location: ", save_filepath)
         print("In expert data: replay_buffer.size: ", replay_buffer.size)
     return replay_buffer, save_filepath
+
 
 def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
     if all_timesteps is None:
@@ -1047,44 +1020,6 @@ def plot_average_velocity(replay_buffer,num_timesteps):
     #plt.clf()
     plt.show()
 '''
-
-
-def store_saved_data_into_replay(replay_buffer, filepath):
-    print("#### Getting expert replay buffer from SAVED location: ", filepath)
-
-    expert_state = np.load(filepath + "state.npy", allow_pickle=True).astype('object')
-    expert_action = np.load(filepath + "action.npy", allow_pickle=True).astype('object')
-    expert_next_state = np.load(filepath + "next_state.npy", allow_pickle=True).astype('object')
-    expert_reward = np.load(filepath + "reward.npy", allow_pickle=True).astype('object')
-    expert_not_done = np.load(filepath + "not_done.npy", allow_pickle=True).astype('object')
-
-    expert_episodes = np.load(filepath + "episodes.npy", allow_pickle=True).astype(
-        'object')  # Keep track of episode start/finish indexes
-    expert_episodes_info = np.load(filepath + "episodes_info.npy", allow_pickle=True)
-
-    # Convert numpy array to list and set to replay buffer
-    replay_buffer.state = expert_state.tolist()
-    replay_buffer.action = expert_action.tolist()
-    replay_buffer.next_state = expert_next_state.tolist()
-    replay_buffer.reward = expert_reward.tolist()
-    replay_buffer.not_done = expert_not_done.tolist()
-    replay_buffer.episodes = expert_episodes.tolist()
-
-    replay_buffer.max_episode = expert_episodes_info[0]
-    replay_buffer.size = expert_episodes_info[1]
-    replay_buffer.episodes_count = expert_episodes_info[2]
-    replay_buffer.replay_ep_num = expert_episodes_info[3]
-
-    # max_episode: Maximum number of episodes, limit to when we remove old episodes
-    # size: Full size of the replay buffer (number of entries over all episodes)
-    # episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
-    # replay_ep_num: Number of episodes currently in the replay buffer
-
-    # num_episodes = len(expert_state)
-    num_episodes = replay_buffer.replay_ep_num
-    print("num_episodes: ", num_episodes)
-
-    return replay_buffer
 
 
 def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):

@@ -102,6 +102,7 @@ class KinovaGripper_Env(gym.Env):
         self._sim = MjSim(self._model)   # The simulator. This holds all the information about object locations and orientations
         self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
         self.with_grasp_reward=False   # Set to True to use grasp reward from grasp classifier, otherwise grasp reward is 0
+        self.orientation='normal' # Stores string of exact hand orientation type (normal, rotated, top)
         self._viewer = None   # The render window
         self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
         self.Tfw=np.zeros([4,4])   # The trasfer matrix that gets us from the world frame to the local frame
@@ -129,9 +130,71 @@ class KinovaGripper_Env(gym.Env):
 
         self.state_rep = "local" # change accordingly
 
+        # Object data
         self.obj_coords = [0,0,0]
         self.objects = {}
         self.obj_keys = list()
+
+        # Dictionary containing all possible objects and their xml file
+        self.all_objects = {}
+        # Cube
+        self.all_objects["CubeS"] = "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+        self.all_objects["CubeM"] = "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
+        self.all_objects["CubeB"] = "/kinova_description/j2s7s300_end_effector_v1_CubeB.xml"
+        # Cylinder
+        self.all_objects["CylinderS"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderS.xml"
+        self.all_objects["CylinderM"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderM.xml"
+        self.all_objects["CylinderB"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderB.xml"
+        # Cube rotated by 45 degrees
+        self.all_objects["Cube45S"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45S.xml"
+        self.all_objects["Cube45M"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45M.xml"
+        self.all_objects["Cube45B"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45B.xml"
+        # Vase 1
+        self.all_objects["Vase1S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1S.xml"
+        self.all_objects["Vase1M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1M.xml"
+        self.all_objects["Vase1B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1B.xml"
+        # Vase 2
+        self.all_objects["Vase2S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2S.xml"
+        self.all_objects["Vase2M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2M.xml"
+        self.all_objects["Vase2B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2B.xml"
+        # Cone 1
+        self.all_objects["Cone1S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1S.xml"
+        self.all_objects["Cone1M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1M.xml"
+        self.all_objects["Cone1B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1B.xml"
+        # Cone 2
+        self.all_objects["Cone2S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2S.xml"
+        self.all_objects["Cone2M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2M.xml"
+        self.all_objects["Cone2B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2B.xml"
+
+        ## Nigel's Shapes ##
+        # Hourglass
+        self.all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
+        self.all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
+        self.all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+        # Vase
+        self.all_objects["VaseB"] =  "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
+        self.all_objects["VaseM"] =  "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
+        self.all_objects["VaseS"] =  "/kinova_description/j2s7s300_end_effector_v1_svase.xml"
+        # Bottle
+        self.all_objects["BottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
+        self.all_objects["BottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
+        self.all_objects["BottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"
+        # Bowl
+        self.all_objects["BowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
+        self.all_objects["BowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
+        self.all_objects["BowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"
+        # Lemon
+        self.all_objects["LemonB"] =  "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
+        self.all_objects["LemonM"] =  "/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"
+        self.all_objects["LemonS"] =  "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
+        # TBottle
+        self.all_objects["TBottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
+        self.all_objects["TBottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
+        self.all_objects["TBottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"
+        # RBowl
+        self.all_objects["RBowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
+        self.all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
+        self.all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
         # Originally used for defining min/max ranges of state input (currently not being used)
         min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0]
@@ -554,7 +617,6 @@ class KinovaGripper_Env(gym.Env):
 
         # Grasp reward set by grasp classifier, otherwise 0
         if self.with_grasp_reward is True:
-            print("WITH Grasp Classifier: ",self.with_grasp_reward)
             network_inputs=obs[0:5]
             network_inputs=np.append(network_inputs,obs[6:23])
             network_inputs=np.append(network_inputs,obs[24:])
@@ -569,8 +631,6 @@ class KinovaGripper_Env(gym.Env):
                      self.Grasp_Reward=True
                  else:
                      grasp_reward = 0.0
-        else:
-            print("NO Grasp Classifier: ",self.with_grasp_reward)
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
             lift_reward = 50.0
@@ -666,70 +726,15 @@ class KinovaGripper_Env(gym.Env):
     def get_obj_coords(self):
         return self.obj_coords
 
+    # Dictionary of all possible objects (not just ones currently used)
+    def get_all_objects(self):
+        return self.all_objects
+
     # Function to run all the experiments for RL training
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
-        all_objects = {}
-        # Cube
-        all_objects["CubeS"] = "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
-        all_objects["CubeM"] = "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
-        all_objects["CubeB"] = "/kinova_description/j2s7s300_end_effector_v1_CubeB.xml"
-        # Cylinder
-        all_objects["CylinderS"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderS.xml"
-        all_objects["CylinderM"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderM.xml"
-        all_objects["CylinderB"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderB.xml"
-        # Cube rotated by 45 degrees
-        all_objects["Cube45S"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45S.xml"
-        all_objects["Cube45M"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45M.xml"
-        all_objects["Cube45B"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45B.xml"
-        # Vase 1
-        all_objects["Vase1S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1S.xml"
-        all_objects["Vase1M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1M.xml"
-        all_objects["Vase1B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1B.xml"
-        # Vase 2
-        all_objects["Vase2S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2S.xml"
-        all_objects["Vase2M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2M.xml"
-        all_objects["Vase2B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2B.xml"
-        # Cone 1
-        all_objects["Cone1S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1S.xml"
-        all_objects["Cone1M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1M.xml"
-        all_objects["Cone1B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1B.xml"
-        # Cone 2
-        all_objects["Cone2S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2S.xml"
-        all_objects["Cone2M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2M.xml"
-        all_objects["Cone2B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2B.xml"
-
-        ## Nigel's Shapes ##
-        # Hourglass
-        all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
-        all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
-        all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_shg.xml"
-        # Vase
-        all_objects["VaseB"] =  "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
-        all_objects["VaseM"] =  "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
-        all_objects["VaseS"] =  "/kinova_description/j2s7s300_end_effector_v1_svase.xml"
-        # Bottle
-        all_objects["BottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
-        all_objects["BottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
-        all_objects["BottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"
-        # Bowl
-        all_objects["BowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
-        all_objects["BowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
-        all_objects["BowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"
-        # Lemon
-        all_objects["LemonB"] =  "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
-        all_objects["LemonM"] =  "/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"
-        all_objects["LemonS"] =  "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
-        # TBottle
-        all_objects["TBottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
-        all_objects["TBottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
-        all_objects["TBottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"
-        # RBowl
-        all_objects["RBowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
-        all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
-        all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
         for key in shape_keys:
-            self.objects[key] = all_objects[key]
+            self.objects[key] = self.all_objects[key]
 
         if len(shape_keys) == 0:
             print("No shape keys")
@@ -1045,7 +1050,6 @@ class KinovaGripper_Env(gym.Env):
 
         # If True, use Grasp Reward from grasp classifier in reward calculation
         self.with_grasp_reward = with_grasp
-        print("IN RESET, with_grasp: ",with_grasp)
 
         # Pretraining and training will have the same coordinate files
         if mode == "pre-train" or mode == "rand_train":

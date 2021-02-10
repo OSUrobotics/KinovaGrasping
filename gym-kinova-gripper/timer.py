@@ -34,5 +34,5 @@ class Timer:
         self._wall_start_time = None
         self._process_start_time = None
 
-        print(f"\nWall clock elapsed time: {wall_elapsed_time:0.4f} seconds")
+        print(f"Wall clock elapsed time: {wall_elapsed_time:0.4f} seconds")
         print(f"Process elapsed time: {process_elapsed_time:0.4f} seconds")
