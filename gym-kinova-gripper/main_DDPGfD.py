@@ -1014,7 +1014,11 @@ if __name__ == "__main__":
         os.mkdir(output_saving_dir)
 
     # Default expert pid file path
-    expert_replay_file_path = "./expert_replay_data/Expert_data_NO_GRASP/"
+    if args.with_grasp_reward is True:
+        expert_replay_file_path = "./expert_replay_data/Expert_data_WITH_GRASP/"
+    else:
+        expert_replay_file_path = "./expert_replay_data/Expert_data_NO_GRASP/"
+    print("** expert_replay_file_path: ",expert_replay_file_path)
 
     # Default agent replay buffer file path
     agent_replay_file_path = None # FILL WITH AGENT REPLAY FROM PRETRAINING
