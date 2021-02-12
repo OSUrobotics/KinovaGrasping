@@ -710,16 +710,15 @@ class KinovaGripper_Env(gym.Env):
         all_objects["RBowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
         all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
         all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
-
-        for key in shape_keys:
-            self.objects[key] = all_objects[key]
+        #for key in shape_keys:
+        self.objects[shape_keys] = all_objects[shape_keys]
 
         if len(shape_keys) == 0:
             print("No shape keys")
             raise ValueError
-        elif len(shape_keys) != len(self.objects):
-            print("Invlaid shape key requested")
-            raise ValueError
+        # elif len(shape_keys) != len(self.objects):
+        #     print("Invlaid shape key requested")
+        #     raise ValueError
         return self.objects
 
     #Function to randomize the position of the object for grasp classifier data collection
@@ -931,7 +930,30 @@ class KinovaGripper_Env(gym.Env):
 
         return x, y, z
 
-    
+    # Get the initial object Orientation
+    def sample_initial_valid_object_orr(self,shapeName,coords_filename):
+        data = []
+        with open(coords_filename) as csvfile:
+            checker=csvfile.readline()
+            if ',' in checker:
+                delim=','
+            else:
+                delim=' '
+            reader = csv.reader(csvfile, delimiter=delim)
+            for i in reader:
+                k = []
+                for a in range(len(i)):
+                    if i[a] == ' ' or i[a] == '':
+                        continue
+                    k.append(i[a]) 
+                i = k
+                data.append([float(i[0]), float(i[1]), float(i[2])])
+        rand_coord = random.choice(data)
+        x = rand_coord[0]
+        y = rand_coord[1]
+        z = rand_coord[2]
+
+        return [x, y, z]
 
     def obj_shape_generator(self,obj_params):
         if obj_params[0] == "Cube":
@@ -1021,7 +1043,7 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self, counter, env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self, counter, env_name="env",shape_keys=["CubeB"],hand_orientation="normal", hand_rotation=False, mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
@@ -1038,10 +1060,10 @@ class KinovaGripper_Env(gym.Env):
         obj_list_filename = ""
         num_objects = 200
         if env_name == "env":
-            obj_list_filename = "objects.csv"
+            obj_list_filename = "objects"+"_"+str(shape_keys)+".csv"
             num_objects = 20000
         else:
-            obj_list_filename = "eval_objects.csv"
+            obj_list_filename = "eval_objects"+"_"+str(shape_keys)+".csv"
             num_objects = 200
 
         if len(self.objects) == 0:
@@ -1055,8 +1077,17 @@ class KinovaGripper_Env(gym.Env):
             random_shape = self.obj_shape_generator(obj_params)
 
         shapes=list(self.objects.keys())
-
-        hand_rotation= 0 #np.random.normal(-0.087,0.087,3)
+        if hand_rotation:
+            if hand_orientation == 'normal':
+                orrientat = 'norm'
+            elif hand_orientation == 'side':
+                orrientat = 'side'
+            elif hand_orientation == 'top':
+                orrientat = 'top'
+            orr_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(hand_orientation)+"/"+random_shape +"_"+str(orrientat)+"_rotation.txt"
+            hand_rotation= self.sample_initial_valid_object_orr(random_shape,orr_filename) #np.random.normal(-0.087,0.087,3)
+        else:  
+            hand_rotation= 0
         obj=0
 
         # Orientation is initialized as Normal
@@ -1098,6 +1129,17 @@ class KinovaGripper_Env(gym.Env):
                 else:
                     new_rotation=np.array([-1.2,0,0])+hand_rotation
                     coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Side/" + random_shape + ".txt"
+            elif hand_orientation == 'normal':
+                new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
+                coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
+            # Top orientation
+            elif hand_orientation == 'top':
+                new_rotation=np.array([0,0,0])+hand_rotation
+                coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Top/" + random_shape + ".txt"
+            # Sideways orientation
+            elif hand_orientation == 'side':
+                new_rotation=np.array([-1.2,0,0])+hand_rotation
+                coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Side/" + random_shape + ".txt"
             else:
                 # Normal hand orientations
                 new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
