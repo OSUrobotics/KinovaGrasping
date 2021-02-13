@@ -101,6 +101,8 @@ class KinovaGripper_Env(gym.Env):
 
         self._sim = MjSim(self._model)   # The simulator. This holds all the information about object locations and orientations
         self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
+        self.with_grasp_reward=False   # Set to True to use grasp reward from grasp classifier, otherwise grasp reward is 0
+        self.orientation='normal' # Stores string of exact hand orientation type (normal, rotated, top)
         self._viewer = None   # The render window
         self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
         self.Tfw=np.zeros([4,4])   # The trasfer matrix that gets us from the world frame to the local frame
@@ -116,7 +118,7 @@ class KinovaGripper_Env(gym.Env):
         self._numSteps = 0
         self._simulator = "Mujoco"
         self.action_scale = 0.0333
-        self.max_episode_steps = 150
+        self.max_episode_steps = 30
         self.site_count=0
         # Parameters for cost function
         self.state_des = 0.20
@@ -128,9 +130,71 @@ class KinovaGripper_Env(gym.Env):
 
         self.state_rep = "local" # change accordingly
 
+        # Object data
         self.obj_coords = [0,0,0]
         self.objects = {}
         self.obj_keys = list()
+
+        # Dictionary containing all possible objects and their xml file
+        self.all_objects = {}
+        # Cube
+        self.all_objects["CubeS"] = "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+        self.all_objects["CubeM"] = "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
+        self.all_objects["CubeB"] = "/kinova_description/j2s7s300_end_effector_v1_CubeB.xml"
+        # Cylinder
+        self.all_objects["CylinderS"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderS.xml"
+        self.all_objects["CylinderM"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderM.xml"
+        self.all_objects["CylinderB"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderB.xml"
+        # Cube rotated by 45 degrees
+        self.all_objects["Cube45S"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45S.xml"
+        self.all_objects["Cube45M"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45M.xml"
+        self.all_objects["Cube45B"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45B.xml"
+        # Vase 1
+        self.all_objects["Vase1S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1S.xml"
+        self.all_objects["Vase1M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1M.xml"
+        self.all_objects["Vase1B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1B.xml"
+        # Vase 2
+        self.all_objects["Vase2S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2S.xml"
+        self.all_objects["Vase2M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2M.xml"
+        self.all_objects["Vase2B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2B.xml"
+        # Cone 1
+        self.all_objects["Cone1S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1S.xml"
+        self.all_objects["Cone1M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1M.xml"
+        self.all_objects["Cone1B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1B.xml"
+        # Cone 2
+        self.all_objects["Cone2S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2S.xml"
+        self.all_objects["Cone2M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2M.xml"
+        self.all_objects["Cone2B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2B.xml"
+
+        ## Nigel's Shapes ##
+        # Hourglass
+        self.all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
+        self.all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
+        self.all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+        # Vase
+        self.all_objects["VaseB"] =  "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
+        self.all_objects["VaseM"] =  "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
+        self.all_objects["VaseS"] =  "/kinova_description/j2s7s300_end_effector_v1_svase.xml"
+        # Bottle
+        self.all_objects["BottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
+        self.all_objects["BottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
+        self.all_objects["BottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"
+        # Bowl
+        self.all_objects["BowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
+        self.all_objects["BowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
+        self.all_objects["BowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"
+        # Lemon
+        self.all_objects["LemonB"] =  "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
+        self.all_objects["LemonM"] =  "/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"
+        self.all_objects["LemonS"] =  "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
+        # TBottle
+        self.all_objects["TBottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
+        self.all_objects["TBottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
+        self.all_objects["TBottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"
+        # RBowl
+        self.all_objects["RBowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
+        self.all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
+        self.all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
         # Originally used for defining min/max ranges of state input (currently not being used)
         min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0]
@@ -381,14 +445,15 @@ class KinovaGripper_Env(gym.Env):
         '''
         '''
         Global obs, all in global coordinates (from simulator 0,0,0)
-        (18,) Finger Pos                                        0-18
-        (3,) Wrist Pos                                            18-21
-        (3,) Obj Pos                                            21-24
-        (9,) Joint States                                        24-33
-        (3,) Obj Size                                            33-36
-        (12,) Finger Object Distance                            36-48
-        (2,) X and Z angle                                        48-50
-        (17,) Rangefinder data                                    50-67
+        (18,) Finger Pos                                        0-17
+        (3,) Wrist Pos                                          18-20
+        (3,) Obj Pos                                            21-23
+        (9,) Joint States                                       24-32
+        (3,) Obj Size                                           33-35
+        (12,) Finger Object Distance                            36-47
+              "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", "f3_prox_1","f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"
+        (2,) X and Z angle                                      48-49
+        (17,) Rangefinder data                                  50-66
         '''
 
         if state_rep == None:
@@ -540,42 +605,56 @@ class KinovaGripper_Env(gym.Env):
         return lift_reward, info, done
 
     # Function to get rewards for RL training
-    def _get_reward(self): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
+    def _get_reward(self,with_grasp_reward=False): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
         #TODO: Make sure this works with the new grasp classifier
 
-        # object height target
-        obj_target = 0.2
+        obj_target = 0.2    # Object height target (z-coord of object center)
+        grasp_reward = 0.0  # Grasp reward
+        finger_reward = 0.0 # Finger reward
 
-        # Grasp reward
-        grasp_reward = 0.0
         obs = self._get_obs(state_rep="global")
         #loc_obs=self._get_obs()
 
-        # network_inputs=obs[0:5]
-        # network_inputs=np.append(network_inputs,obs[6:23])
-        # network_inputs=np.append(network_inputs,obs[24:])
-        # inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
+        # Grasp reward set by grasp classifier, otherwise 0
+        if with_grasp_reward is True:
+            network_inputs=obs[0:5]
+            network_inputs=np.append(network_inputs,obs[6:23])
+            network_inputs=np.append(network_inputs,obs[24:])
+            inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
-        # WITHOUT GRASP CLASSIFIER
-        #if np.max(np.array(obs[41:47])) < 0.035 or np.max(np.array(obs[35:41])) < 0.015:
-        #     outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-        #     if (outputs >=0.3) & (not self.Grasp_Reward):
-        #         grasp_reward = 5.0
-        #         self.Grasp_Reward=True
-        #     else:
-        #         grasp_reward = 0.0
+            # If proximal or distal finger position is close enough to object
+            if np.max(np.array(obs[41:46])) < 0.035 or np.max(np.array(obs[35:40])) < 0.015:
+                 # Grasp classifier determines how good grasp is
+                 outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
+                 if (outputs >=0.3) & (not self.Grasp_Reward):
+                     grasp_reward = 5.0
+                     self.Grasp_Reward=True
+                 else:
+                     grasp_reward = 0.0
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
             lift_reward = 50.0
-            # print("!!!!!!!!!!########### ENV LIFT REWARD: #######!!!!!!!!!!!", lift_reward)
             done = True
         else:
             lift_reward = 0.0
             done = False
 
-        finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
+        """ Finger Reward
+        # obs[41:46]: DISTAL Finger-Object distance 41) "f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", 46) "f3_dist_1"
+        # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
+        
+        # Original Finger reward
+        # finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
-        #finger_reward = -np.sum((np.array(obs[41:47])) + (np.array(obs[35:41])))
+        # Negative or 0 Finger Reward: Negative velocity --> fingers moving outward/away from object
+        #if any(n < 0 for n in action):
+        #    finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
+        #else:
+        #    finger_reward = 0
+        """
+
+        if self.with_grasp_reward is True and grasp_reward > 0:
+            print("!! Grasp Reward is TRUE and You got a Grasp_reward: ",grasp_reward)
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
@@ -650,70 +729,25 @@ class KinovaGripper_Env(gym.Env):
     def get_obj_coords(self):
         return self.obj_coords
 
+    # Returns hand orientation (normal, rotated, top)
+    def get_orientation(self):
+        return self.orientation
+
+    def get_with_grasp_reward(self):
+        return self.with_grasp_reward
+
+    def set_with_grasp_reward(self,with_grasp):
+        self.with_grasp_reward=with_grasp
+
+    # Dictionary of all possible objects (not just ones currently used)
+    def get_all_objects(self):
+        return self.all_objects
+
     # Function to run all the experiments for RL training
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
-        all_objects = {}
-        # Cube
-        all_objects["CubeS"] = "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
-        all_objects["CubeM"] = "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
-        all_objects["CubeB"] = "/kinova_description/j2s7s300_end_effector_v1_CubeB.xml"
-        # Cylinder
-        all_objects["CylinderS"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderS.xml"
-        all_objects["CylinderM"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderM.xml"
-        all_objects["CylinderB"] = "/kinova_description/j2s7s300_end_effector_v1_CylinderB.xml"
-        # Cube rotated by 45 degrees
-        all_objects["Cube45S"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45S.xml"
-        all_objects["Cube45M"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45M.xml"
-        all_objects["Cube45B"] = "/kinova_description/j2s7s300_end_effector_v1_Cube45B.xml"
-        # Vase 1
-        all_objects["Vase1S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1S.xml"
-        all_objects["Vase1M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1M.xml"
-        all_objects["Vase1B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase1B.xml"
-        # Vase 2
-        all_objects["Vase2S"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2S.xml"
-        all_objects["Vase2M"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2M.xml"
-        all_objects["Vase2B"] = "/kinova_description/j2s7s300_end_effector_v1_Vase2B.xml"
-        # Cone 1
-        all_objects["Cone1S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1S.xml"
-        all_objects["Cone1M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1M.xml"
-        all_objects["Cone1B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone1B.xml"
-        # Cone 2
-        all_objects["Cone2S"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2S.xml"
-        all_objects["Cone2M"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2M.xml"
-        all_objects["Cone2B"] = "/kinova_description/j2s7s300_end_effector_v1_Cone2B.xml"
-
-        ## Nigel's Shapes ##
-        # Hourglass
-        all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
-        all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
-        all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_shg.xml"
-        # Vase
-        all_objects["VaseB"] =  "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
-        all_objects["VaseM"] =  "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
-        all_objects["VaseS"] =  "/kinova_description/j2s7s300_end_effector_v1_svase.xml"
-        # Bottle
-        all_objects["BottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
-        all_objects["BottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
-        all_objects["BottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"
-        # Bowl
-        all_objects["BowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
-        all_objects["BowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
-        all_objects["BowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"
-        # Lemon
-        all_objects["LemonB"] =  "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
-        all_objects["LemonM"] =  "/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"
-        all_objects["LemonS"] =  "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
-        # TBottle
-        all_objects["TBottleB"] =  "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
-        all_objects["TBottleM"] =  "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
-        all_objects["TBottleS"] =  "/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"
-        # RBowl
-        all_objects["RBowlB"] =  "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
-        all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
-        all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
         for key in shape_keys:
-            self.objects[key] = all_objects[key]
+            self.objects[key] = self.all_objects[key]
 
         if len(shape_keys) == 0:
             print("No shape keys")
@@ -800,7 +834,7 @@ class KinovaGripper_Env(gym.Env):
 
     def Generate_Latin_Square(self,max_elements,filename,shape_keys, test = False):
         print("GENERATE LATIN SQUARE")
-        #print("shape keys: ",shape_keys)
+        print("shape keys: ",shape_keys)
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
 
@@ -908,8 +942,6 @@ class KinovaGripper_Env(gym.Env):
         # Load model
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
-
-        # print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 
@@ -1020,20 +1052,23 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self,shape_keys,with_grasp=False,env_name="env",hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
         # x, y = self.randomize_initial_pose(False, "s") # for RL training
         #x, y = self.randomize_initial_pose(True) # for data collection
 
-        # Pretraining and training will have the same coordinate files
-        if mode == "pre-train" or mode == "rand_train":
+        # If True, use Grasp Reward from grasp classifier in reward calculation
+        self.set_with_grasp_reward(with_grasp)
+
+        # Expert data generation, pretraining and training will have the same coordinate files
+        if mode != "test":
             mode = "train"
 
-        # Steph new code
-        obj_list_filename = ""
-        num_objects = 200
+        #print("MODE (for coordinates): ", mode)
+
+        # Based on environment, sets amount of objects and object file to store them in
         if env_name == "env":
             obj_list_filename = "objects.csv"
             num_objects = 20000
@@ -1041,6 +1076,7 @@ class KinovaGripper_Env(gym.Env):
             obj_list_filename = "eval_objects.csv"
             num_objects = 200
 
+        # Replenish objects list if none left in list to grab
         if len(self.objects) == 0:
             self.objects = self.experiment(shape_keys)
         if len(self.obj_keys) == 0:
@@ -1221,33 +1257,8 @@ class KinovaGripper_Env(gym.Env):
         if setPause:
             self._viewer._paused=True
 
-    #Function to display the current state in a video. The video is always paused when it first starts up.
-    def render_video(self,setPause=False, setRecord=True):
-        if self._viewer is None:
-            self._viewer = MjViewer(self._sim)
-            self._viewer._paused = setPause
 
-        #if renderOffscreen is True:
-        #    offscreen = MjRenderContextOffscreen(self._sim, 0)
-        if setPause:
-            self._viewer._paused=True
-
-        # Check and create directory
-        video_dir = "./video/"
-        if not os.path.isdir(video_dir):
-           os.mkdir(video_dir)
-
-        if setRecord:
-            self._viewer._video_path = video_dir + "video_1.mp4"
-            self._viewer._record_video = True
-
-        # Finally render simulation with correct settings
-        self._viewer.render()
-        #render = lambda: plt.imshow(self._viewer.render())
-        #self.reset()
-        #render()
-
-    def render_img(self, episode_num, timestep_num, obj_coords, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
+    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
         # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
@@ -1256,16 +1267,20 @@ class KinovaGripper_Env(gym.Env):
         if not os.path.isdir(video_dir):
            os.mkdir(video_dir)
 
-        success_dir = os.path.join(video_dir, "Success/")
+        output_dir = os.path.join(video_dir, dir_name + "/")
+        if not os.path.isdir(output_dir):
+           os.mkdir(output_dir)
+
+        success_dir = os.path.join(output_dir, "Success/")
         if not os.path.isdir(success_dir):
            os.mkdir(success_dir)
 
-        fail_dir = os.path.join(video_dir, "Fail/")
+        fail_dir = os.path.join(output_dir, "Fail/")
         if not os.path.isdir(fail_dir):
            os.mkdir(fail_dir)
 
         episode_coords = "obj_coords_" + str(obj_coords) + "/"
-        episode_dir = os.path.join(video_dir, episode_coords)
+        episode_dir = os.path.join(output_dir, episode_coords)
         if not os.path.isdir(episode_dir):
             os.mkdir(episode_dir)
 
@@ -1285,15 +1300,12 @@ class KinovaGripper_Env(gym.Env):
             # Just keep rgb values, so image is shape (w,h), make to be numpy array
             a_rgb = a[0]
             a_rgb = np.asarray(a_rgb, dtype=np.uint8)
-
             img = Image.fromarray(a_rgb, 'RGB')
+
+            # Overlay text string
             if text_overlay != None:
-                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=20)
-                #draw = ImageDraw.Draw(img)
-                # font = ImageFont.truetype(<font-file>, <font-size>)
-                #font = ImageFont.truetype("sans-serif.ttf", 16)
-                # draw.text((x, y),"Sample Text",(r,g,b))
-                #draw.text((0, 0), text_overlay, (255, 255, 255), font=font)
+                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=24)
+
             # Save image
             img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
 
@@ -1317,7 +1329,7 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork = False): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork=False): #TODO: fix this so that we can rotate the hand
         """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
             action: array of finger joint velocity values (finger1, finger1, finger3)
             graspnetwork: bool, set True to use grasping network to determine reward value
@@ -1368,8 +1380,9 @@ class KinovaGripper_Env(gym.Env):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
         obs = self._get_obs()
+
         if not graspnetwork:
-            total_reward, info, done = self._get_reward()
+            total_reward, info, done = self._get_reward(self.with_grasp_reward)
         else:
             ### Get this reward for grasp classifier collection ###
             total_reward, info, done = self._get_reward_DataCollection()

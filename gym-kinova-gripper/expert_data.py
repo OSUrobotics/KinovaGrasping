@@ -19,6 +19,14 @@ import torch
 from copy import deepcopy
 # from gen_new_env import gen_new_obj
 import matplotlib.pyplot as plt
+import utils
+from pathlib import Path
+import copy # For copying over coordinates
+
+# Import plotting code from other directory
+plot_path = os.getcwd() + "/plotting_code"
+sys.path.insert(1, plot_path)
+from heatmap_coords import add_heatmap_coords, filter_heatmap_coords, coords_dict_to_array, save_coordinates
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -107,7 +115,7 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
     # file = open(filename + ".pkl", "rb")
     # data = pickle.load(file)
     # file.close()
-    import time
+    import timer
     print(total_steps)
     for step in range(int(total_steps)):
         _, curr_actions, reward = env.reset()
@@ -580,46 +588,6 @@ def GenerateTestPID_JointVel(obs, env):
     return action
 
 
-def save_coordinates(x, y, filename):
-    np.save(filename + "_x_arr", x)
-    np.save(filename + "_y_arr", y)
-
-
-def add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info):
-    if (info["lift_reward"] > 0):
-        #print("add_heatmap_coords, lift_success TRUE")
-        lift_success = True
-    else:
-        lift_success = False
-        #print("add_heatmap_coords, lift_success FALSE")
-
-    # Heatmap postion data - get starting object position and mark success/fail based on lift reward
-    if (lift_success):
-        # Get object coordinates, transform to array
-        x_val = obj_coords[0]
-        y_val = obj_coords[1]
-        x_val = np.asarray(x_val).reshape(1)
-        y_val = np.asarray(y_val).reshape(1)
-
-        # Append initial object coordinates to Successful coordinates array
-        expert_success_x = np.append(expert_success_x, x_val)
-        expert_success_y = np.append(expert_success_y, y_val)
-
-    else:
-        # Get object coordinates, transform to array
-        x_val = obj_coords[0]
-        y_val = obj_coords[1]
-        x_val = np.asarray(x_val).reshape(1)
-        y_val = np.asarray(y_val).reshape(1)
-
-        # Append initial object coordinates to Failed coordinates array
-        expert_fail_x = np.append(expert_fail_x, x_val)
-        expert_fail_y = np.append(expert_fail_y, y_val)
-
-    ret = [expert_success_x, expert_success_y, expert_fail_x, expert_fail_y]
-    return ret
-
-
 def naive_check_grasp(f_dist_old, f_dist_new):
     """
     Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
@@ -658,7 +626,7 @@ def naive_check_grasp(f_dist_old, f_dist_new):
 
 
 def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_new, ready_for_lift,
-               num_consistent_grasps):
+               num_consistent_grasps, pid_mode="expert_naive"):
     """ Get action based on position of object within the hand
         @param prev_obs:
         @param obs:
@@ -671,79 +639,109 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
         @param num_consistent_grasps:
         return action: np.array([wrist, f1, f2, f3])
     """
-    constant_velocity = 0.5 #0.8
+    constant_velocity = 0.5
     min_velocity = 0.5
     max_velocity = 0.8
-    finger_lift_velocity = min_velocity  # 0.8
-    wrist_lift_velocity = 0.6  # 0.3
+    finger_lift_velocity = min_velocity
+    wrist_lift_velocity = 0.6
     min_lift_timesteps = 10
     object_x_coord = obs[21]  # Object x coordinate position
     # Action is Naive Controller by default
     action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
 
-    # If object x position is on outer edges, do expert pid
-    if object_x_coord < -0.04 or object_x_coord > 0.04:
+    # Check for Naive Only or Expert Only setting
+    # Only Naive constant velocity
+    if pid_mode == "naive_only":
+        naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+        if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
+            if ready_for_lift >= num_consistent_grasps:
+                print("Ready for lift!!!: ", ready_for_lift)
+                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                   finger_lift_velocity])
+            ready_for_lift += 1
+            # Checks the grasp is good over num_consistent_grasps number of trials
+            if ready_for_lift >= num_consistent_grasps:
+                action[0] = wrist_lift_velocity
+        else:
+            action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+
+        return action
+
+    # Only Expert nudge strategy
+    elif pid_mode == "expert_only":
         # Expert Nudge controller strategy
         action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
             prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
             finger_lift_velocity, wrist_lift_velocity)
-        # Do not lift until after 50 steps
-        if total_steps < min_lift_timesteps:  # < 50:
-            action[0] = 0
-    # Object x position within the side-middle ranges, interpolate expert/naive velocity output
-    elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
-        # Interpolate between naive and expert velocities
-
-        # Default Naive Controller velocities
-        naive_action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
-
-        naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
-        if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
-            if ready_for_lift >= num_consistent_grasps:
-                #print("Ready for lift!!!: ", ready_for_lift)
-                naive_action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
-                                         finger_lift_velocity])
-            ready_for_lift += 1
-
-        # Expert PID
-        expert_action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
-            prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
-            finger_lift_velocity, wrist_lift_velocity)
-
-        if naive_action[0] == 0:
-            wrist_vel = 0
-        else:
-            wrist_vel = naive_action[0] + expert_action[0] / 2
-
-        finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
-
-        # Only start to lift if we've had some RL time steps (multiple actions) to adjust hand
+        # Do not lift until after min time steps
         if total_steps < min_lift_timesteps:
-            wrist_vel = 0
+            action[0] = 0
+        # Checks the grasp is good over num_consistent_grasps number of trials
+        elif ready_for_lift >= num_consistent_grasps:
+            action[0] = wrist_lift_velocity
+        return action
 
-        action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
-
-    # Object x position is within center area, so use naive controller
+    # Interpolate Naive and Expert Strategies based on object x-coord position within hand
     else:
-        naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
-        if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:  # 50:
-            if ready_for_lift >= num_consistent_grasps:
-                #print("Ready for lift!!!: ", ready_for_lift)
-                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
-                                   finger_lift_velocity])
-            ready_for_lift += 1
-        else:
-            action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+        # If object x position is on outer edges, do expert pid
+        if object_x_coord < -0.04 or object_x_coord > 0.04:
+            # Expert Nudge controller strategy
+            action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
+                prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
+                finger_lift_velocity, wrist_lift_velocity)
+            # Do not lift until after 50 steps
+            if total_steps < min_lift_timesteps:
+                action[0] = 0
+        # Object x position within the side-middle ranges, interpolate expert/naive velocity output
+        elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
+            # Interpolate between naive and expert velocities
+            # Default Naive Controller velocities
+            naive_action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
 
+            naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+            if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
+                if ready_for_lift >= num_consistent_grasps:
+                    naive_action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                             finger_lift_velocity])
+                ready_for_lift += 1
+
+            # Expert PID
+            expert_action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
+                prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
+                finger_lift_velocity, wrist_lift_velocity)
+
+            if naive_action[0] == 0:
+                wrist_vel = 0
+            else:
+                wrist_vel = naive_action[0] + expert_action[0] / 2
+
+            finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
+
+            # Only start to lift if we've had some RL time steps (multiple actions) to adjust hand
+            if total_steps < min_lift_timesteps:
+                wrist_vel = 0
+
+            action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
+
+        # Object x position is within center area, so use naive controller
+        else:
+            naive_ret = naive_check_grasp(f_dist_old, f_dist_new)
+            if bool(naive_ret[0]) is True and total_steps > min_lift_timesteps:
+                if ready_for_lift >= num_consistent_grasps:
+                    action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
+                                       finger_lift_velocity])
+                ready_for_lift += 1
+            else:
+                action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+
+    # Checks the grasp is good over num_consistent_grasps number of trials
     if ready_for_lift >= num_consistent_grasps:
-        ##print("FINAL Ready for lift!!!: ", ready_for_lift)
         action[0] = wrist_lift_velocity
-    #    action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity, finger_lift_velocity])
 
     return action
 
 
-def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     @param episode_num: Number of episodes to generate expert data for
     @param replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -752,20 +750,25 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid = True
 
-    expert_success_x = np.array([])  # Successful object initial x-coordinates
-    expert_success_y = np.array([])  # Successful object initial y-coordinates
-    expert_fail_x = np.array([])  # Failed object initial x-coordinates
-    expert_fail_y = np.array([])  # Files object initial y-coordinates
+    success_coords = {"x": [], "y": [], "orientation": []}
+    fail_coords = {"x": [], "y": [], "orientation": []}
+    # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
+
     all_timesteps = np.array([])  # Keeps track of all timesteps to determine average timesteps needed
     success_timesteps = np.array([])  # Successful episode timesteps count distribution
     fail_timesteps = np.array([])  # Failed episode timesteps count distribution
+    datestr = datetime.datetime.now().strftime("%m_%d_%y_%H%M") # used for file name saving
 
     print("----Generating {} expert episodes----".format(episode_num))
+    print("Using PID MODE: ",pid_mode)
 
     # Beginning of episode loop
     for i in range(episode_num):
         print("PID ", i)
-        obs, done = env.reset(), False
+        # Fill training object list using latin square
+        if env.check_obj_file_empty("objects.csv") or episode_num is 0:
+            env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
+        obs, done = env.reset(shape_keys=requested_shapes), False
 
         prev_obs = None         # State observation of the previous state
         ready_for_lift = 0      # Signals if ready for lift, from check_grasp()
@@ -773,7 +776,6 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         total_steps = 0             # Total RL timesteps passed within episode
         env._max_episode_steps = 30 # Sets number of timesteps per episode (counted from each step() call)
         obj_coords = env.get_obj_coords()
-
         # Local coordinate conversion
         obj_local = np.append(obj_coords,1)
         obj_local = np.matmul(env.Tfw,obj_local)
@@ -789,11 +791,12 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         # Beginning of RL time steps within the current episode
         while not done:
             # Render image from current episode
-            if total_steps % 1 == 0:
-                env.render_img(text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-                               obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]))
-            # else:
-            #    env._viewer = None
+            if render_imgs is True:
+                if total_steps % 1 == 0:
+                    env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=action_str, episode_num=i, timestep_num=total_steps,
+                                   obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]))
+                else:
+                    env._viewer = None
 
             # Distal finger x,y,z positions f1_dist, f2_dist, f3_dist
             if prev_obs is None:  # None if on the first RL episode time step
@@ -804,13 +807,14 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
             # Get action based on the location of the object within the hand
             action = get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_new,
-                                ready_for_lift, num_consistent_grasps)
+                                ready_for_lift, num_consistent_grasps, pid_mode)
 
             # Used for the action string
             ###After taking step###
             [naive_ret,_] = naive_check_grasp(f_dist_old, f_dist_new)
 
             # Take action (Reinforcement Learning step)
+            env.set_with_grasp_reward(with_grasp)
             next_obs, reward, done, info = env.step(action)
 
             # Add experience to replay buffer
@@ -832,7 +836,9 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
             action_str = "Wrist: " + str(action[0]) + "\nFinger1: " + str(action[1]) + "\nFinger2: " + str(
                 action[2]) + "\nFinger3: " + str(action[3]) + "\nready_for_lift: " + str(
-                ready_for_lift) + "\nf_all_change: " + str(naive_ret) + "\nobject center height: " + str(obs[23])
+                ready_for_lift) + "\nf_all_change: " + str(naive_ret) + "\nobject center height: " + str(obs[23]) +\
+                         "\ntimestep reward: " + str(reward) +"\nfinger reward: " + str(info["finger_reward"]) +\
+                         "\ngrasp reward: " + str(info["grasp_reward"]) + "\nlift reward: " + str(info["lift_reward"])
 
             # Once current timestep is over, update prev_obs to be current obs
             if total_steps > 0:
@@ -844,8 +850,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
 
         # print("Expert PID total timestep: ", total_steps)
         lift_success = None
+        success = 0
         if (info["lift_reward"] > 0):
             lift_success = 'success'
+            success = 1
             success_timesteps = np.append(success_timesteps, total_steps)
         else:
             lift_success = 'fail'
@@ -854,50 +862,67 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
             env.render_img(text_overlay=str(action), episode_num=i, timestep_num=total_steps,
                            obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
 
-        # Global coordinates
-        #ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_coords, info)
-        # Local coordinates
-        ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_local_pos, info)
+        # print("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
+        if render_imgs is True:
+            if total_steps % 1 == 0:
+                env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=str(action), episode_num=i, timestep_num=total_steps,
+                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=lift_success)
 
-        expert_success_x = ret[0]
-        expert_success_y = ret[1]
-        expert_fail_x = ret[2]
-        expert_fail_y = ret[3]
+        # Add heatmap coordinates
+        orientation = env.get_orientation()
+        ret = add_heatmap_coords(success_coords, fail_coords, orientation, obj_local_pos, success)
+        success_coords = copy.deepcopy(ret["success_coords"])
+        fail_coords = copy.deepcopy(ret["fail_coords"])
+
         if replay_buffer is not None:
             replay_buffer.add_episode(0)
 
-    print("Final # of Successes: ", len(expert_success_x))
-    print("Final # of Failures: ", len(expert_fail_x))
+    num_success = len(success_coords["x"])
+    num_fail = len(fail_coords["x"])
+    print("Final # of Successes: ", num_success)
+    print("Final # of Failures: ", num_fail)
+    print("Shapes: ", requested_shapes)
+
+    shapes_str = ""
+    if isinstance(requested_shapes, list) is True:
+        for shape in requested_shapes:
+            shapes_str += str(shape) + "_"
+        shapes_str = shapes_str[:-1]
+    else:
+        shapes_str = str(requested_shapes)
+
+    grasp_str = "no_grasp"
+    if with_grasp is True:
+        grasp_str = "with_grasp"
 
     print("Saving coordinates...")
     # Save coordinates
-    # Folder to save heatmap coordinates
-    expert_saving_dir = "./expert_plots"
-    if not os.path.isdir(expert_saving_dir):
-        os.mkdir(expert_saving_dir)
+    # Directory for x,y coordinate heatmap data
+    expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str)
+    expert_output_saving_dir = expert_saving_dir + "/output"
+    expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
+    heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
+    heatmap_save_path = Path(heatmap_saving_dir)
+    heatmap_save_path.mkdir(parents=True, exist_ok=True)
 
-    np.save(expert_saving_dir + "/success_timesteps", success_timesteps)
-    np.save(expert_saving_dir + "/fail_timesteps", fail_timesteps)
-    np.save(expert_saving_dir + "/all_timesteps", all_timesteps)
+    print("heatmap_saving_dir: ",heatmap_saving_dir)
 
-    expert_total_x = np.append(expert_success_x, expert_fail_x)
-    expert_total_y = np.append(expert_success_y, expert_fail_y)
-    save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
-    save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
-    save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
+    # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
+    filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
 
-    print("Plotting timestep distribution...")
-    plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
+    # Heatmap coordinate saving
+    #np.save(expert_output_saving_dir + "/success_timesteps", success_timesteps)
+    #np.save(expert_output_saving_dir + "/fail_timesteps", fail_timesteps)
+    #np.save(expert_output_saving_dir + "/all_timesteps", all_timesteps)
 
-    save = True
-    print("Save is: ", str(save))
+    #print("Plotting timestep distribution...")
+    #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
+
+    #print("Save is: ", str(save))
     save_filepath = None
     if save and replay_buffer is not None:
-        print("Saving...")
-        # Check and create directory
-        expert_replay_saving_dir = "./expert_replay_data"
-        if not os.path.isdir(expert_replay_saving_dir):
-            os.mkdir(expert_replay_saving_dir)
+        print("\nSaving replay buffer...")
+
         # data = {}
         # file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
         ''' Different attempt to save data as current method gets overloaded
@@ -917,31 +942,22 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True):
         # data["reward"] = replay_buffer.reward
         # data["done"] = replay_buffer.not_done
 
-        curr_save_dir = "Expert_data_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M")
+        save_filepath = replay_buffer.save_replay_buffer(expert_replay_saving_dir)
 
-        if not os.path.exists(os.path.join(expert_replay_saving_dir, curr_save_dir)):
-            os.makedirs(os.path.join(expert_replay_saving_dir, curr_save_dir))
+        # Output info file text
+        name_text = "PID MODE: " + str(pid_mode) + ", Num Grasp trials: " + str(episode_num) + "\nDate: {}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+        success_text = "\n\nFinal # of Successes: " + str(num_success) + "\nFinal # of Failures: " + str(num_fail) + "\n"
+        shapes_text = "Shapes: " + str(requested_shapes) + "\n\n"
+        output_dir_text = "Saved replay buffer to location: "+ save_filepath + "\nreplay_buffer.replay_ep_num (# episodes): " + str(replay_buffer.replay_ep_num) + "\nreplay_buffer.size (# trajectories): " + str(replay_buffer.size) + "\nOutput data saved at: " + str(expert_saving_dir)
 
-        save_filepath = expert_replay_saving_dir + "/" + curr_save_dir + "/"
-        print("save_filepath: ", save_filepath)
-        np.save(save_filepath + "state", replay_buffer.state)
-        np.save(save_filepath + "action", replay_buffer.action)
-        np.save(save_filepath + "next_state", replay_buffer.next_state)
-        np.save(save_filepath + "reward", replay_buffer.reward)
-        np.save(save_filepath + "not_done", replay_buffer.not_done)
+        text = name_text + success_text + shapes_text + output_dir_text
 
-        np.save(save_filepath + "episodes", replay_buffer.episodes)  # Keep track of episode start/finish indexes
-        np.save(save_filepath + "episodes_info",
-                [replay_buffer.max_episode, replay_buffer.size, replay_buffer.episodes_count,
-                 replay_buffer.replay_ep_num])
-        # max_episode: Maximum number of episodes, limit to when we remove old episodes
-        # size: Full size of the replay buffer (number of entries over all episodes)
-        # episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
-        # replay_ep_num: Number of episodes currently in the replay buffer
+        print("Saved replay buffer to location: ", save_filepath)
+        print("# Episodes: ", replay_buffer.replay_ep_num)
+        print("# Trajectories: ", replay_buffer.size)
+        print("\nHeatmap coordinate data saved at: ",expert_saving_dir)
+    return replay_buffer, save_filepath, expert_saving_dir, text
 
-        print("*** Saved replay buffer to location: ", save_filepath)
-        print("In expert data: replay_buffer.size: ", replay_buffer.size)
-    return replay_buffer, save_filepath
 
 def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
     if all_timesteps is None:
@@ -1021,44 +1037,6 @@ def plot_average_velocity(replay_buffer,num_timesteps):
 '''
 
 
-def store_saved_data_into_replay(replay_buffer, filepath):
-    print("#### Getting expert replay buffer from SAVED location: ", filepath)
-
-    expert_state = np.load(filepath + "state.npy", allow_pickle=True).astype('object')
-    expert_action = np.load(filepath + "action.npy", allow_pickle=True).astype('object')
-    expert_next_state = np.load(filepath + "next_state.npy", allow_pickle=True).astype('object')
-    expert_reward = np.load(filepath + "reward.npy", allow_pickle=True).astype('object')
-    expert_not_done = np.load(filepath + "not_done.npy", allow_pickle=True).astype('object')
-
-    expert_episodes = np.load(filepath + "episodes.npy", allow_pickle=True).astype(
-        'object')  # Keep track of episode start/finish indexes
-    expert_episodes_info = np.load(filepath + "episodes_info.npy", allow_pickle=True)
-
-    # Convert numpy array to list and set to replay buffer
-    replay_buffer.state = expert_state.tolist()
-    replay_buffer.action = expert_action.tolist()
-    replay_buffer.next_state = expert_next_state.tolist()
-    replay_buffer.reward = expert_reward.tolist()
-    replay_buffer.not_done = expert_not_done.tolist()
-    replay_buffer.episodes = expert_episodes.tolist()
-
-    replay_buffer.max_episode = expert_episodes_info[0]
-    replay_buffer.size = expert_episodes_info[1]
-    replay_buffer.episodes_count = expert_episodes_info[2]
-    replay_buffer.replay_ep_num = expert_episodes_info[3]
-
-    # max_episode: Maximum number of episodes, limit to when we remove old episodes
-    # size: Full size of the replay buffer (number of entries over all episodes)
-    # episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
-    # replay_ep_num: Number of episodes currently in the replay buffer
-
-    # num_episodes = len(expert_state)
-    num_episodes = replay_buffer.replay_ep_num
-    print("num_episodes: ", num_episodes)
-
-    return replay_buffer
-
-
 def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
     if all_timesteps is None:
         success_timesteps = np.load(expert_saving_dir + "/success_timesteps.npy")
@@ -1104,7 +1082,12 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 if __name__ ==  "__main__":
     # testing #
     # Initialize expert replay buffer, then generate expert pid data to fill it
+    state_dim = 82
+    action_dim = 4
+    expert_replay_size = 10
+    with_grasp = False
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    replay_buffer, save_filepath = GenerateExpertPID_JointVel(10)
+    replay_buffer, save_filepath, data_dir, info_file_text = GenerateExpertPID_JointVel(10, "CubeS", with_grasp, expert_replay_buffer, save=False, render_imgs=True, pid_mode="naive_only")
+
     print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
