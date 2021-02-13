@@ -498,7 +498,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         if episode_num > args.update_after: # Update policy after 100 episodes (have enough experience in agent replay buffer)
             if episode_num % args.update_freq: # Update every 4 episodes
                 for learning in range(args.update_num): # Number of times to update the policy
-                    if args.batch_size is 0:
+                    if args.batch_size == 0:
                         # Single episode training using full trajectory
                         actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
                                                                                          expert_replay_buffer,
@@ -610,6 +610,7 @@ def train_policy(tot_episodes, tr_prob, saving_dir):
 
     num_success = len(success_coords["x"])
     num_fail = len(fail_coords["x"])
+    num_total = num_success + num_fail
 
     # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
     filter_heatmap_coords(train_success_coords, train_fail_coords, None, heatmap_train_dir)
@@ -958,6 +959,9 @@ if __name__ == "__main__":
         print("Expert Sampling Probability: ", args.expert_prob)
         print("Grasp Reward: ",args.with_grasp_reward)
         print("Save frequency: ", args.save_freq)
+        print("Policy update after: ", args.update_after)
+        print("Policy update frequency: ", args.update_freq)
+        print("Policy update Amount: ", args.update_num)
         if args.mode != "expert_only" and args.mode != "naive_only" and args.mode != "expert":
             print("Generating " + str(args.max_episode) + " episodes!")
         print("---------------------------------------")
@@ -1002,7 +1006,7 @@ if __name__ == "__main__":
         print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, pid_mode="expert_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_only")
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         expert_output_data_dir = expert_data_dir + "/output"
@@ -1013,7 +1017,7 @@ if __name__ == "__main__":
         print("MODE: Naive ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, pid_mode="naive_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="naive_only")
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         expert_output_data_dir = expert_data_dir + "/output"
@@ -1024,7 +1028,7 @@ if __name__ == "__main__":
         print("MODE: Expert (Interpolation)")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, pid_mode="expert_naive")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         expert_output_data_dir = expert_data_dir + "/output"
@@ -1089,12 +1093,12 @@ if __name__ == "__main__":
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
-        if expert_replay_size is 0:
+        if expert_replay_size == 0:
             expert_replay_buffer = None
         else:
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer)
+            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
         # Train the policy and save it
         train_model_save_path, num_success, num_total = train_policy(args.max_episode,args.expert_prob,saving_dir)
         print("train_model_save_path: ", train_model_save_path)
@@ -1179,7 +1183,7 @@ if __name__ == "__main__":
         # Load expert data from saved expert pid controller replay buffer
         expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
-        if expert_replay_buffer.size is 0 or replay_buffer.size is 0:
+        if expert_replay_buffer.size == 0 or replay_buffer.size == 0:
             print("No experience in replay buffer! Quitting...")
             quit()
 
