@@ -858,9 +858,6 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, with_grasp, replay
         else:
             lift_success = 'fail'
             fail_timesteps = np.append(fail_timesteps, total_steps)
-        if total_steps % 1 == 0:
-            env.render_img(text_overlay=str(action), episode_num=i, timestep_num=total_steps,
-                           obj_coords=str(obj_coords[0]) + "_" + str(obj_coords[1]), final_episode_type=lift_success)
 
         # print("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
         if render_imgs is True:
