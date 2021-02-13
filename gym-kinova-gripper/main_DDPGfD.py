@@ -20,23 +20,29 @@ from expert_data import GenerateExpertPID_JointVel, GenerateTestPID_JointVel, na
 from timer import Timer
 from pathlib import Path
 import pathlib
+import copy # For copying over coordinates
 
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
 from heatmap_plot import generate_heatmaps
 from boxplot_plot import generate_reward_boxplots
+from heatmap_coords import add_heatmap_coords, filter_heatmap_coords
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
-
+"""
 def save_coordinates(x,y,filename,episode_num):
-    """ Save heatmap initial object position x,y coordinates
+    # Save heatmap initial object position x,y coordinates
     x: initial object x-coordinate
     y: initial object y-coordinate
     filename: Location to save heatmap coordinates to
-    """
+    #
+    # Ensure file path is created if it doesn't exist
+    coord_save_path = Path(filename)
+    coord_save_path.mkdir(parents=True, exist_ok=True)
+
     ep_str = ""
     if episode_num is not None:
         ep_str = "_"+str(episode_num)
@@ -46,7 +52,7 @@ def save_coordinates(x,y,filename,episode_num):
 
 
 def add_heatmap_coords(success_x, success_y, fail_x, fail_y, obj_coords, success):
-    """Add object cooridnates to success/failed coordinates list"""
+    # Add object cooridnates to success/failed coordinates list
     # Get object coordinates, transform to array
     x_val = obj_coords[0]
     y_val = obj_coords[1]
@@ -65,6 +71,7 @@ def add_heatmap_coords(success_x, success_y, fail_x, fail_y, obj_coords, success
 
     ret = {"success_x":success_x,"success_y": success_y, "fail_x": fail_x, "fail_y": fail_y}
     return ret
+"""
 
 def compare_test():
     """ Compare policy performance """
@@ -87,15 +94,16 @@ def compare_test():
     #         print('started pos', i)
     #         cumulative_reward = 0
     #         #eval_env = gym.make(env_name)
-    #         state, done = eval_env.reset(with_grasp=args.with_grasp_reward,start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,start_pos=[x,y],env_name="eval_env", hand_orientation=requested_orientation,mode=mode), False
     #         # Set whether or not to use grasp reward
-    #         eval_env.with_grasp_reward = args.with_grasp_reward
+    #         eval_env.set_with_grasp_reward(args.with_grasp_reward)
     #         success=0
     #         # Sets number of timesteps per episode (counted from each step() call)
     #         #eval_env._max_episode_steps = 200
     #         eval_env._max_episode_steps = max_num_timesteps
     #         while not done:
     #             action = GenerateTestPID_JointVel(np.array(state),eval_env)
+    #             env.set_with_grasp_reward(args.with_grasp_reward)
     #             state, reward, done, _ = eval_env.step(action)
     #             avg_reward += reward
     #             cumulative_reward += reward
@@ -103,9 +111,9 @@ def compare_test():
     #                 success=1
     #         num_success[1]+=success
     #         print('PID net reward:',cumulative_reward)
-    #         state, done = eval_env.reset(with_grasp=args.with_grasp_reward,start_pos=[x,y],env_name="eval_env",shape_keys=requested_shapes,hand_orientation=requested_orientation,mode=mode), False
+    #         state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,start_pos=[x,y],env_name="eval_env", hand_orientation=requested_orientation,mode=mode), False
     #         # Set whether or not to use grasp reward
-    #         eval_env.with_grasp_reward = args.with_grasp_reward
+    #         eval_env.set_with_grasp_reward(args.with_grasp_reward)
     #         success=0
     #         cumulative_reward = 0
     #         # Sets number of timesteps per episode (counted from each step() call)
@@ -120,6 +128,7 @@ def compare_test():
     #         while not done:
     #             timestep_count += 1
     #             action = policy.select_action(np.array(state[0:82]))
+    #             env.set_with_grasp_reward(args.with_grasp_reward)
     #             state, reward, done, _ = eval_env.step(action)
     #             avg_reward += reward
     #             cumulative_reward += reward
@@ -155,17 +164,15 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
+
 # Runs policy for X episodes and returns average reward
 def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=100, compare=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Heatmap plot success/fail object coordinates
-    seval_obj_posx = np.array([])
-    feval_obj_posx = np.array([])
-    seval_obj_posy = np.array([])
-    feval_obj_posy = np.array([])
-    total_evalx = np.array([])      # Total evaluation object coords
-    total_evaly = np.array([])
+    success_coords = {"x": [], "y": [], "orientation": []}
+    fail_coords = {"x": [], "y": [], "orientation": []}
+    # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
 
     # match timesteps to expert and pre-training
     max_num_timesteps = 30
@@ -187,7 +194,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
         success=0
-        state, done = eval_env.reset(with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,shape_keys=requested_shapes,env_name="eval_env"), False
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env"), False
 
         cumulative_reward = 0
         # Sets number of timesteps per episode (counted from each step() call)
@@ -236,6 +243,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # Not ready for lift, continue agent grasping following the policy
             if not ready_for_lift:
                 action = policy.select_action(np.array(state[0:82]))
+                eval_env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = eval_env.step(action)
                 cumulative_reward += reward
                 avg_reward += reward
@@ -276,30 +284,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
         num_success+=success
 
-        """ Save initial object coordinate as success/failure
-        x_val = (obj_coords[0])
-        y_val = (obj_coords[1])
-        x_val = np.asarray(x_val).reshape(1)
-        y_val = np.asarray(y_val).reshape(1)
-
-        if(success):
-            seval_obj_posx = np.append(seval_obj_posx,x_val)
-            seval_obj_posy = np.append(seval_obj_posy,y_val)
-        else:
-            feval_obj_posx = np.append(feval_obj_posx,x_val)
-            feval_obj_posy = np.append(feval_obj_posy,y_val)
-
-        total_evalx = np.append(total_evalx, x_val)
-        total_evaly = np.append(total_evaly, y_val)
-        """
-
-        # Local coordinates
-        ret = add_heatmap_coords(seval_obj_posx, seval_obj_posy, feval_obj_posx, feval_obj_posy, obj_local_pos, success)
-
-        seval_obj_posx = ret["success_x"]
-        seval_obj_posy = ret["success_y"]
-        feval_obj_posx = ret["fail_x"]
-        feval_obj_posy = ret["fail_y"]
+        # Add heatmap coordinates
+        orientation = env.get_orientation()
+        ret = add_heatmap_coords(success_coords, fail_coords, orientation, obj_local_pos, success)
+        success_coords = copy.deepcopy(ret["success_coords"])
+        fail_coords = copy.deepcopy(ret["fail_coords"])
 
     avg_reward /= eval_episodes
 
@@ -314,8 +303,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "num_success":num_success, "seval_obj_posx":seval_obj_posx, "seval_obj_posy":seval_obj_posy, "feval_obj_posx":feval_obj_posx, "feval_obj_posy":feval_obj_posy, "total_evalx":total_evalx,
-           "total_evaly":total_evaly}
+    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords}
     return ret
 
 
@@ -326,6 +314,7 @@ def lift_hand(env_lift, tot_reward):
     """
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
+    env_lift.with_grasp_reward = args.with_grasp_reward
     next_state, reward, done, info = env_lift.step(action)
     if done:
         # accumulate or replace?
@@ -343,6 +332,7 @@ def eval_lift_hand(env_lift, tot_reward, curr_reward):
     """
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
+    env_lift.with_grasp_reward = args.with_grasp_reward
     next_state, reward, done, info = env_lift.step(action)
     if done:
         tot_reward = tot_reward - curr_reward + reward
@@ -373,18 +363,16 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
 
 
 def update_policy(evaluations, episode_num, num_episodes, writer, prob,
-                  type_of_training, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy, saving_dir, max_num_timesteps=30):
+                  type_of_training, train_success_coords, train_fail_coords, saving_dir, max_num_timesteps=30):
     """ Update policy network based on expert or agent step, evaluate every eval_freq episodes
     evaluations: Output average reward list for plotting
     episode_num: Current episode
     num_episodes: Max number of episodes to update over
     writer: Tensorboard writer (avg. reward, loss, etc.)
-    prob: Probability of sampling from expert replay buffer
+    prob: Probability (proportion) of sampling from expert replay buffer
     type_of_training: Based on training mode ("pre-train", "eval", "test", etc.)
-    s_obj_posx: Successful initial object x-axis coordinate
-    s_obj_posy: Successful initial object y-axis coordinate
-    f_obj_posx: Failed initial object x-axis coordinate
-    f_obj_posy: Failed initial object y-axis coordinate
+    train_success_coords: Successful initial object coordinates
+    train_fail_coords: Failed initial object coordinates
     max_num_timesteps: Maximum number of time steps within a RL episode
     """
     # Initialize OU noise, added to action output from policy
@@ -393,13 +381,10 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
     expl_noise = OUNoise(4, sigma=0.001)
     expl_noise.reset()
 
-    # Holds heatmap coordinates for eval plots
-    seval_obj_posx = np.array([])   # Successful evaluation object coords
-    seval_obj_posy = np.array([])
-    feval_obj_posx = np.array([])   # Failed evaluation object coords
-    feval_obj_posy = np.array([])
-    total_evalx = np.array([])      # Total evaluation object coords
-    total_evaly = np.array([])
+    # Heatmap initial object coordinates for evaluation plots
+    eval_success_coords = {"x": [], "y": [], "orientation": []}
+    eval_fail_coords = {"x": [], "y": [], "orientation": []}
+    # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
 
     # Stores reward boxplot data, Average reward per evaluation episodes
     finger_reward = [[]]
@@ -409,58 +394,29 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
 
     # Setup plotting output directories
     if args.mode == "experiment":
-        heatmap_eval_dir = saving_dir + "/output/heatmap/eval"
-        heatmap_eval_save_path = Path(heatmap_eval_dir)
-        heatmap_eval_save_path.mkdir(parents=True, exist_ok=True)
-
-        # Directory for boxplot reward data
-        boxplot_eval_dir = saving_dir + "/output/boxplot/eval"
-        boxplot_eval_save_path = Path(boxplot_eval_dir)
-        boxplot_eval_save_path.mkdir(parents=True, exist_ok=True)
-
+        heatmap_eval_dir = saving_dir + "/output/heatmap/eval"  # Heatmap plot saving directory
+        boxplot_eval_dir = saving_dir + "/output/boxplot/eval"  # Boxplot saving directory
+        create_paths([heatmap_eval_dir, boxplot_eval_dir])      # Create paths if they do not exist
     else:
-        # Directory for x,y coordinate heatmap data
-        output_dir = "./output/" + saving_dir + "/eval"
-
+        output_dir = "./output/" + saving_dir + "/eval"         # Different output directory than experiments
         heatmap_eval_dir = output_dir + "/heatmap"
-        heatmap_eval_save_path = Path(heatmap_eval_dir)
-        heatmap_eval_save_path.mkdir(parents=True, exist_ok=True)
-
-        # Directory for boxplot reward data
         boxplot_eval_dir = output_dir + "/boxplot"
-        boxplot_eval_save_path = Path(boxplot_eval_dir)
-        boxplot_eval_save_path.mkdir(parents=True, exist_ok=True)
-
-    """
-    # Create heatmap subdirectories based on hand orientation
-    if args.hand_orientation == "random":
-        rotated_eval_dir = heatmap_eval_dir + "/rotated"
-        rotated_eval_save_path = Path(rotated_eval_dir)
-        rotated_eval_save_path.mkdir(parents=True, exist_ok=True)
-
-        top_eval_dir = heatmap_eval_dir + "/top"
-        top_eval_save_path = Path(top_eval_dir)
-        top_eval_save_path.mkdir(parents=True, exist_ok=True)
-
-    normal_eval_dir = heatmap_eval_dir + "/normal"
-    normal_eval_save_path = Path(normal_eval_dir)
-    normal_eval_save_path.mkdir(parents=True, exist_ok=True)
-    """
+        create_paths([output_dir, heatmap_eval_dir, boxplot_eval_dir])
 
     for _ in range(num_episodes):
         env = gym.make(args.env_name)
 
-        # Max number of timesteps to match the expert replay grasp trials
+        # Max number of time steps to match the expert replay grasp trials
         env._max_episode_steps = max_num_timesteps
 
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv"):
             env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
-        state, done = env.reset(with_grasp=args.with_grasp_reward,env_name="env", shape_keys=requested_shapes, hand_orientation=requested_orientation,
+        state, done = env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,env_name="env", hand_orientation=requested_orientation,
                                 mode=args.mode), False
 
         # Set whether or not to use grasp reward
-        env.with_grasp_reward = args.with_grasp_reward
+        env.set_with_grasp_reward(args.with_grasp_reward)
 
         prev_state_lift_check = None
         curr_state_lift_check = state
@@ -509,6 +465,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                         + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
                 ).clip(-max_action, max_action)
                 # Perform action obs, total_reward, done, info
+                env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = env.step(action)
                 replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
                 replay_buffer_recorded_ts += 1
@@ -531,45 +488,36 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         if episode_len - replay_buffer.n_steps <= 1:
             replay_buffer.remove_episode(-1)  # If episode is invalid length (less that n-steps), remove it
 
-        # Local coordinates
-        ret = add_heatmap_coords(s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy, obj_local_pos, lift_success)
-
-        s_obj_posx = ret["success_x"]
-        s_obj_posy = ret["success_y"]
-        f_obj_posx = ret["fail_x"]
-        f_obj_posy = ret["fail_y"]
+        # Add heatmap coordinates (local coordinates)
+        orientation = env.get_orientation()
+        ret = add_heatmap_coords(train_success_coords, train_fail_coords, orientation, obj_local_pos, lift_success)
+        train_success_coords = copy.deepcopy(ret["success_coords"])
+        train_fail_coords = copy.deepcopy(ret["fail_coords"])
 
         # Train agent after collecting sufficient data:
-        if episode_num > 10: # Update policy after 100 episodes (have enough experience in agent replay buffer)
-            #if episode_num % 4: # Update every 4 steps
-            for learning in range(100): # Number of times to update the policy
-                if args.batch_size is 0:
-                    #print("SINGLE EP TRAIN: n-step is 5, doing single episode full trajectory")
-                    # Single episode training using full trajectory
-                    actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
-                                                                                     expert_replay_buffer,
-                                                                                     replay_buffer, prob)
-                else:
-                    #print("BATCH TRAIN: n-step is 5, batch_size: ",args.batch_size," expert prob: ",prob)
-                    # Batch training using n-steps
-                    actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
+        if episode_num > args.update_after: # Update policy after 100 episodes (have enough experience in agent replay buffer)
+            if episode_num % args.update_freq: # Update every 4 episodes
+                for learning in range(args.update_num): # Number of times to update the policy
+                    if args.batch_size is 0:
+                        # Single episode training using full trajectory
+                        actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
                                                                                          expert_replay_buffer,
                                                                                          replay_buffer, prob)
+                    else:
+                        # Batch training using n-steps
+                        actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
+                                                                                             expert_replay_buffer,
+                                                                                             replay_buffer, prob)
 
         # Evaluation and recording data for tensorboard
-        if episode_num > 10 and (episode_num) % args.eval_freq == 0: # episode_num + 1
+        if episode_num > args.update_after and (episode_num) % args.eval_freq == 0: # episode_num + 1
             print("EVALUATING EPISODE AT: ",episode_num)
-            eval_episodes = 100
-            print("Evaluating with "+str(eval_episodes)+" grasping trials")
+            print("Evaluating with "+str(args.eval_episodes)+" grasping trials")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=100)  # , compare=True)
+                                   mode=args.mode, eval_episodes=args.eval_num)  # , compare=True)
             # Heatmap data - object starting coordinates for evaluation
-            seval_obj_posx = np.append(seval_obj_posx, eval_ret["seval_obj_posx"])
-            seval_obj_posy = np.append(seval_obj_posy, eval_ret["seval_obj_posy"])
-            feval_obj_posx = np.append(feval_obj_posx, eval_ret["feval_obj_posx"])
-            feval_obj_posy = np.append(feval_obj_posy, eval_ret["feval_obj_posy"])
-            total_evalx = np.append(total_evalx, eval_ret["total_evalx"])
-            total_evaly = np.append(total_evaly, eval_ret["total_evaly"])
+            eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
+            eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
 
             # Cumulative (over timesteps) reward data from each evaluation episode for boxplot
             all_ep_reward_values = eval_ret["all_ep_reward_values"]
@@ -584,21 +532,15 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
             total_reward[-1].append(all_ep_reward_values["total_reward"])
 
         # Save coordinates every 1000 episodes
-        if episode_num > 10 and (episode_num) % args.save_freq == 0:
+        if episode_num > args.update_after and (episode_num) % args.save_freq == 0:
             print("Saving heatmap data at: ", heatmap_eval_dir)
-            save_coordinates(seval_obj_posx, seval_obj_posy,
-                             heatmap_eval_dir + "/success", episode_num)
-            save_coordinates(feval_obj_posx, feval_obj_posy,
-                             heatmap_eval_dir + "/fail", episode_num)
-            save_coordinates(total_evalx, total_evaly, heatmap_eval_dir + "/total", episode_num)
-            seval_obj_posx = np.array([])
-            seval_obj_posy = np.array([])
-            feval_obj_posx = np.array([])
-            feval_obj_posy = np.array([])
-            total_evalx = np.array([])
-            total_evaly = np.array([])
+            # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
+            filter_heatmap_coords(eval_success_coords, eval_fail_coords, episode_num, heatmap_eval_dir)
+            # Reset eval coords for next batch
+            eval_success_coords = {"x": [], "y": [], "orientation": []}
+            eval_fail_coords = {"x": [], "y": [], "orientation": []}
 
-            print("Saving boxplot data at: ",boxplot_eval_dir)
+            print("Saving boxplot data at: ", boxplot_eval_dir)
             np.save(boxplot_eval_dir + "/finger_reward_" + str(episode_num),finger_reward)
             np.save(boxplot_eval_dir + "/grasp_reward_" + str(episode_num),grasp_reward)
             np.save(boxplot_eval_dir + "/lift_reward_" + str(episode_num),lift_reward)
@@ -611,70 +553,14 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
 
         episode_num += 1
 
-    return evaluations, episode_num, s_obj_posx, s_obj_posy, f_obj_posx, f_obj_posy
+    return evaluations, episode_num, train_success_coords, train_fail_coords
 
 
-def pretrain_policy(tot_episodes,prob_exp,saving_dir):
-    """ Pre-train the policy over a number of episodes, sampling from experience
-    tot_episodes: Total number of episodes to update policy over
-    prob_exp: Probability of sampling from expert replay buffer within training
-    """
-    print("---- Pretraining ----")
-    # Tensorboard writer for tracking loss and average reward
-    pre_writer = SummaryWriter(logdir="./kinova_gripper_strategy/{}_{}/".format("pretrain_" + args.policy_name, args.tensorboardindex))
-
-    # Location of stored model
-    pretrain_model_path = "./policies/" + saving_dir + "/pre_DDPGfD_kinovaGrip" + datestr + "/"
-    model_path = Path(pretrain_model_path)
-    model_path.mkdir(parents=True, exist_ok=True)
-
-    # Setup training output location
-    output_dir = "./output/" + saving_dir + "/pretrain_output"
-    output_pretrain_path = Path(output_dir)
-    output_pretrain_path.mkdir(parents=True, exist_ok=True)
-
-    # Save the x,y coordinates for object starting position (success vs failed grasp and lift)
-    heatmap_train_dir = output_dir + "/heatmap/train"
-    heatmap_train_path = Path(heatmap_train_dir)
-    heatmap_train_path.mkdir(parents=True, exist_ok=True)
-
-    # Stores average reward of pre-trained policy from evaluations list
-    results_saving_dir = output_dir+"/results"
-    results_path = Path(results_saving_dir)
-    results_path.mkdir(parents=True, exist_ok=True)
-
-    evals = []
-    curr_episode = 0         # Counts number of episodes done within training
-
-    # Heatmap initial object coordinates for training
-    s_pretrain_obj_posx = np.array([])  # Successful initial object coordinates: training
-    s_pretrain_obj_posy = np.array([])
-    f_pretrain_obj_posx = np.array([])  # Failed initial object coordinates: training
-    f_pretrain_obj_posy = np.array([])
-
-    # Update the policy based on experience replay
-    evals, curr_episode, s_pretrain_obj_posx,  s_pretrain_obj_posy, f_pretrain_obj_posx,  f_pretrain_obj_posy = \
-        update_policy(evals, curr_episode, tot_episodes, pre_writer, prob_exp, "PRE", s_pretrain_obj_posx,
-                      s_pretrain_obj_posy, f_pretrain_obj_posx, f_pretrain_obj_posy, saving_dir)
-
-    # Total initial object coordinates
-    train_totalx = np.append(s_pretrain_obj_posx, f_pretrain_obj_posx)
-    train_totaly = np.append(s_pretrain_obj_posy, f_pretrain_obj_posy)
-
-    # Save object positions from training
-    print("Success train num: ",len(s_pretrain_obj_posx))
-    print("Fail train num: ", len(f_pretrain_obj_posx))
-    print("Total train num: ", len(train_totalx))
-
-    # Directory for x,y coordinate heatmap data
-    save_coordinates(s_pretrain_obj_posx,s_pretrain_obj_posy,heatmap_train_dir+"/success",None)
-    save_coordinates(f_pretrain_obj_posx,f_pretrain_obj_posy,heatmap_train_dir+"/fail",None)
-    save_coordinates(train_totalx,train_totaly,heatmap_train_dir+"/total",None)
-
-    print("Saving into {}".format(pretrain_model_path))
-    policy.save(pretrain_model_path)
-
-    return pretrain_model_path
+def create_paths(dir_list):
+    """ Create directories if they do not exist already, given path """
+    for new_dir in dir_list:
+        new_path = Path(new_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
 
 
 def train_policy(tot_episodes, tr_prob, saving_dir):
@@ -682,40 +568,24 @@ def train_policy(tot_episodes, tr_prob, saving_dir):
     tot_episodes: Total number of episodes to update policy over
     tr_prob: Probability of sampling from expert replay buffer within training
     """
-    print("---- Training ----")
-
-    # Original saving directory locations for model and tensorboard
-    model_save_path = "./policies/" + saving_dir + "/DDPGfD_kinovaGrip" + datestr + "/"
-    tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "{}_{}/".format(args.policy_name, args.tensorboardindex)
-    output_dir = "./output/" + saving_dir + "/train"
-
     # Experiment output
     if args.mode == "experiment":
         model_save_path = saving_dir + "/policy"
-        tensorboard_dir = saving_dir +"/output/tensorboard"
+        tensorboard_dir = saving_dir + "/output/tensorboard"
         output_dir = saving_dir + "/output"
         heatmap_train_dir = saving_dir + "/output/heatmap/train"
         results_saving_dir = saving_dir + "/output/results"
     else:
+        print("---- ", args.mode, " ----")
+        # Original saving directory locations for model and tensorboard
+        model_save_path = "./policies/" + saving_dir + "/{}_{}/".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
+        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "{}_{}_{}/".format(args.mode, args.policy_name, args.tensorboardindex)
+        output_dir = "./output/" + saving_dir + args.mode
         heatmap_train_dir = output_dir + "/heatmap"
         results_saving_dir = output_dir + "/results"
 
     # Create directories
-    # Policy
-    model_path = Path(model_save_path)
-    model_path.mkdir(parents=True, exist_ok=True)
-    # Output dir (plotting, etc.)
-    output_path = Path(output_dir)
-    output_path.mkdir(parents=True, exist_ok=True)
-    # Tensorboard dir
-    tensorboard_save_path = Path(tensorboard_dir)
-    tensorboard_save_path.mkdir(parents=True, exist_ok=True)
-    # Heatmap dir
-    heatmap_save_path = Path(heatmap_train_dir)
-    heatmap_save_path.mkdir(parents=True, exist_ok=True)
-    # Results dir (average reward data, etc.)
-    results_save_path = Path(results_saving_dir)
-    results_save_path.mkdir(parents=True, exist_ok=True)
+    create_paths([model_save_path, output_dir, tensorboard_dir, heatmap_train_dir, results_saving_dir])
 
     tr_writer = SummaryWriter(logdir=tensorboard_dir)
     #tr_ep = int(tot_episodes/4)
@@ -725,32 +595,31 @@ def train_policy(tot_episodes, tr_prob, saving_dir):
     red_expert_prob= 0.1
 
     # Heatmap initial object coordinates for training
-    s_train_obj_posx = np.array([])  # Successful initial object coordinates: training
-    s_train_obj_posy = np.array([])
-    f_train_obj_posx = np.array([])  # Failed initial object coordinates: training
-    f_train_obj_posy = np.array([])
+    train_success_coords = {"x": [], "y": [], "orientation": []}
+    train_fail_coords = {"x": [], "y": [], "orientation": []}
+    # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
 
     # Begin training updates
-    evals, curr_episode, s_train_obj_posx,  s_train_obj_posy, f_train_obj_posx,  f_train_obj_posy = \
-        update_policy(evals,curr_episode,tr_ep,tr_writer,tr_prob,"TRAIN",s_train_obj_posx,s_train_obj_posy,
-                      f_train_obj_posx,f_train_obj_posy,saving_dir)
+    evals, curr_episode, success_coords, fail_coords = \
+        update_policy(evals,curr_episode,tr_ep,tr_writer,tr_prob,"TRAIN", train_success_coords, train_fail_coords, saving_dir)
     tr_prob = tr_prob - red_expert_prob
 
-    print("YAYYYYYYYYYY!!! NO ISSUES!! :) WOOT WOOT! :)")
-    train_totalx = np.append(s_train_obj_posx, f_train_obj_posx)
-    train_totaly = np.append(s_train_obj_posy, f_train_obj_posy)
-
     # Save object postions from training
-    num_success = len(s_train_obj_posx)
-    num_total = len(train_totalx)
-    print("Success train num: ",num_success)
-    print("Fail train num: ", num_total-num_success)
-    print("Total train num: ", num_total)
+    train_success_coords = copy.deepcopy(success_coords)
+    train_fail_coords = copy.deepcopy(fail_coords)
 
-    save_coordinates(s_train_obj_posx,s_train_obj_posy, heatmap_train_dir+"/success", None)
-    save_coordinates(f_train_obj_posx,f_train_obj_posy, heatmap_train_dir+"/fail", None)
-    save_coordinates(train_totalx,train_totaly, heatmap_train_dir+"/total", None)
+    num_success = len(success_coords["x"])
+    num_fail = len(fail_coords["x"])
 
+    # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
+    filter_heatmap_coords(train_success_coords, train_fail_coords, None, heatmap_train_dir)
+
+    # Save object positions from training
+    print("Final # of Successes: ", num_success)
+    print("Final # of Failures: ", num_fail)
+    print("Shapes: ", requested_shapes)
+
+    # Save policy
     print("Saving into {}".format(model_save_path))
     policy.save(model_save_path)
 
@@ -765,35 +634,42 @@ def get_experiment_info(exp_num):
     stage0 = "pretrain_policy"  # Expert policy with small cube
     stage1 = {"1": ["0", "sizes"], "2": ["0", "shapes"], "3": ["0", "orientations"]}
     stage2 = {"4": ["1", "sizes_shapes"], "5": ["1", "sizes_orientations"], "6": ["2", "shapes_orientations"],
-              "7": ["2", "shapes_sizes"], "8": ["3", "orientations_shapes"], "9": ["3", "orientations_sizes"]}
+              "7": ["2", "shapes_sizes"], "8": ["3", "orientations_sizes"], "9": ["3", "orientations_shapes"]}
     stage3 = {"10": ["4", "sizes_shapes_orientations"], "11": ["5", "sizes_orientations_shapes"],
               "12": ["6", "shapes_orientations_sizes"], "13": ["7", "shapes_sizes_orientations"],
-              "14": ["8", "orientations_shapes_sizes"], "15": ["9", "orientations_sizes_shapes"]}
+              "14": ["8", "orientations_sizes_shapes"], "15": ["9", "orientations_shapes_sizes"]}
 
+    print("stage1.keys(): ",stage1.keys())
+    print("exp_num: ",exp_num)
+    exp_num = str(exp_num)
     if exp_num in stage1.keys():
         prev_exp_stage = "0"
         exp_stage = "1"
+        prev_exp_num = "0"
         prev_exp_name = stage0
         exp_name = stage1[exp_num][1]
     elif exp_num in stage2.keys():
         prev_exp_stage = "1"
         exp_stage = "2"
-        prev_exp_name = stage1[stage2[exp_num][0]]
+        prev_exp_num = stage2[exp_num][0]
+        prev_exp_name = stage1[prev_exp_num][1]
         exp_name = stage2[exp_num][1]
     elif exp_num in stage3.keys():
         prev_exp_stage = "2"
         exp_stage = "3"
-        prev_exp_name = stage2[stage3[exp_num][0]]
+        prev_exp_num = stage3[exp_num][0]
+        prev_exp_name = stage2[prev_exp_num][1]
         exp_name = stage3[exp_num][1]
     elif exp_num == 16:
         prev_exp_stage = "0"
         exp_stage = "kitchen_sink"
+        prev_exp_num = "0"
         prev_exp_name = stage0
         exp_name = "kitchen_sink"
     else:
         print("Invalid experiment option: ", exp_num)
         raise ValueError
-    return prev_exp_stage, prev_exp_name, exp_stage, exp_name
+    return prev_exp_stage, prev_exp_num, prev_exp_name, exp_stage, exp_name
 
 
 def get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name):
@@ -810,28 +686,24 @@ def get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_
     stage_dir = "/stage" + exp_stage
 
     exp_dir = rl_exp_base_dir + grasp_dir + stage_dir + "/" + exp_name
-    policy_dir = Path(exp_dir+"/policy")
-    policy_dir.mkdir(parents=True, exist_ok=True)
-
-    replay_dir = Path(exp_dir + "/replay_buffer")
-    replay_dir.mkdir(parents=True, exist_ok=True)
-
-    output_dir = Path(exp_dir+"/output")
-    output_dir.mkdir(parents=True, exist_ok=True)
+    policy_dir = exp_dir+"/policy"
+    replay_dir = exp_dir + "/replay_buffer"
+    output_dir = exp_dir+"/output"
+    create_paths([exp_dir, policy_dir, replay_dir, output_dir])
 
     expert_replay_dir = rl_exp_base_dir + grasp_dir + "/expert/replay_buffer"
     if not os.path.isdir(expert_replay_dir):
         print("Expert replay buffer experience directory not found!: ", expert_replay_dir)
 
-    prev_exp_dir = os.path.join(rl_exp_base_dir + grasp_dir, prev_exp_stage + "/" + prev_exp_name)
+    prev_exp_dir = rl_exp_base_dir + grasp_dir + "/" + "Stage" + prev_exp_stage + "/" + prev_exp_name
     if not os.path.isdir(prev_exp_dir):
         print("Previous experiment directory not found!: ", prev_exp_dir)
 
-    pretrain_replay_dir = os.path.join(prev_exp_dir, "replay_buffer/")
+    pretrain_replay_dir = prev_exp_dir + "replay_buffer/"
     if not os.path.isdir(pretrain_replay_dir):
         print("Previous experiment Replay Buffer directory not found!: ", pretrain_replay_dir)
 
-    pretrain_policy_dir = os.path.join(prev_exp_dir, "replay_buffer/")
+    pretrain_policy_dir = prev_exp_dir + "replay_buffer/"
     if not os.path.isdir(pretrain_policy_dir):
         print("Previous experiment Policy directory not found!: ", pretrain_policy_dir)
 
@@ -856,7 +728,7 @@ def get_exp_input(exp_name, shapes, sizes):
     elif "sizes" in exp_types:
         exp_shapes += ["Cube" + size for size in sizes]
     else:
-        exp_shapes += "CubeS"
+        exp_shapes += ["CubeS"]
 
     # All orientations
     if "orientations" in exp_types:
@@ -867,6 +739,98 @@ def get_exp_input(exp_name, shapes, sizes):
     return exp_shapes, exp_orientation
 
 
+def generate_output(text,data_dir,orientations_list,saving_dir):
+    """ Generate heatmaps, boxplots, and output info file """
+    # Produce plots
+    # Train Heatmap
+    if os.path.isdir(data_dir+"/heatmap/expert") is True:
+        print("Generating expert heatmaps...")
+        for orientation in orientations_list:
+            generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+"/heatmap/expert/"+orientation+"/",
+                              saving_dir=saving_dir+"/heatmap/expert/"+orientation+"/")
+    elif args.mode == "expert":
+        print("Expert Heatmap dir NOT found: ", data_dir + "/heatmap")
+
+    if os.path.isdir(data_dir + "/heatmap/train") is True:
+        print("Generating training heatmaps...")
+        for orientation in orientations_list:
+            generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+"/heatmap/train/"+orientation+"/",
+                              saving_dir=saving_dir+"/heatmap/train/"+orientation+"/")
+    elif args.mode == "train":
+        print("Train Heatmap dir NOT found: ", data_dir + "/heatmap")
+
+    if os.path.isdir(data_dir + "/heatmap/eval") is True:
+        print("Generating evaluation heatmaps...")
+        # Evaluation Heatmaps
+        for orientation in orientations_list:
+            generate_heatmaps(plot_type="eval", orientation=str(orientation), data_dir=data_dir+ "/heatmap/eval/"+orientation+"/",
+                              saving_dir=saving_dir+"/eval/"+orientation+"/")
+    elif args.mode == "eval":
+        print("Eval Heatmap dir NOT found: ", data_dir + "/heatmap")
+
+    if os.path.isdir(data_dir+"/boxplot") is True:
+        print("Generating boxplots...")
+        # Boxplot evaluation reward
+        for orientation in orientations_list:
+            generate_reward_boxplots(orientation=str(orientation), data_dir=data_dir + "/boxplot/eval/" + orientation + "/",
+                                     saving_dir=saving_dir + "/boxplot/eval/" + orientation + "/")
+
+    print("Writing to experiment info file...")
+    f = open(saving_dir + "/info.txt", "w")
+    f.write(text)
+    f.close()
+
+
+def rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list):
+    """ Train policy according to RL experiment shape, size, orientation combo + stage """
+    # Fill object list using latin square method
+    env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
+
+    # Load Pre-Trained policy
+    policy.load(prev_exp_dir + "/policy")
+
+    # *** Train policy ****
+    train_model_save_path, num_success, num_total = train_policy(args.max_episode, args.expert_prob, saving_dir=exp_dir)
+    print("Experiment ", exp_num, ", ", exp_name, " policy saved at: ", train_model_save_path)
+
+    # Save train agent replay data
+    replay_filename = exp_dir + "/replay_buffer" + "/replay_buffer_" + datestr
+    agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
+    print("Agent replay buffer saved at: ", agent_replay_save_path)
+
+    # Produce plots and output info file
+    output_dir = exp_dir + "/output/"
+    saving_dir = output_dir
+
+    print("Writing to experiment info file...")
+    grasp_text = ""
+    if args.with_grasp_reward is True:
+        grasp_txt = "WITH grasp"
+    else:
+        grasp_text = "NO grasp"
+    exp_text = grasp_text + " Experiment " + str(exp_num) + ": " + exp_name + ", Stage " + str(
+        exp_stage) + "\nDate: {}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+    previous_text = "Previous experiment: " + prev_exp_name
+    type_text = "Experiment shapes: " + str(requested_shapes) + "\nExperiment orientation: " + str(
+        requested_orientation)
+    success_text = "# Success: " + str(num_success) + "\n# Failures: " + str(
+        num_total - num_success) + "\n# Total: " + str(num_total)
+    output_text = "Output directory: " + str(exp_dir)
+
+    text = exp_text + "\n" + previous_text + "\n" + type_text + "\n" + success_text + "\n" + output_text
+
+    # Generate output plots
+    generate_output(text, output_dir, requested_orientation_list, saving_dir)
+
+    print("--------------------------------------------------")
+    print("Finished Experiment!")
+    print(output_text)
+    print(previous_text)
+    print(type_text)
+    print(success_text)
+    print(output_text)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--policy_name", default="DDPGfD")				# Policy name
@@ -874,6 +838,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=200, type=float)			# How often (time steps) we evaluate
+    parser.add_argument("--eval_num", default=100, type=float)          # Number of grasp trials to evaluate over
     parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
     parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
@@ -886,14 +851,17 @@ if __name__ == "__main__":
     parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
     parser.add_argument("--tensorboardindex", type=str, default=None)	# Tensorboard log name, found in kinova_gripper_strategy/
     parser.add_argument("--expert_replay_size", default=20000, type=int)	# Number of episode for loading expert trajectories
-    parser.add_argument("--saving_dir", type=str, default=None)         # Directory name to save policy within policies/
+    parser.add_argument("--saving_dir", type=str, default=None)             # Directory name to save policy within policies/
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str)         # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive_only, expert_only, expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10000, type=int)         # Maximum size of agent's replay buffer
-    parser.add_argument("--expert_prob", default=1, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--expert_prob", default=0.7, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
     parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
+    parser.add_argument("--update_after", default=10, type=int) # Start to update the policy after # episodes have occured
+    parser.add_argument("--update_freq", default=4, type=int)   # Update the policy every # of episodes
+    parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
 
     args = parser.parse_args()
@@ -933,6 +901,12 @@ if __name__ == "__main__":
     expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
     max_num_timesteps = 30     # Maximum number of time steps within an episode
+
+    # Set requested_orientation_list for directory creation, plotting and reference
+    if requested_orientation == "random":
+        requested_orientation_list = ["normal", "rotated", "top"]
+    else:
+        requested_orientation_list = ["normal"]
 
     # Fill pre-training object list using latin square method
     env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
@@ -988,7 +962,7 @@ if __name__ == "__main__":
             print("Generating " + str(args.max_episode) + " episodes!")
         print("---------------------------------------")
 
-    ''' Select replay buffer type
+    ''' Select replay buffer type, previous buffer types
     # Replay buffer that can use multiple n-steps
     #replay_buffer = utils.ReplayBuffer_VarStepsEpisode(state_dim, action_dim, expert_replay_size)
     #replay_buffer = utils.ReplayBuffer_NStep(state_dim, action_dim, expert_replay_size)
@@ -998,26 +972,18 @@ if __name__ == "__main__":
     #replay_buffer = GenerateExpertPID_JointVel(args.expert_replay_size, replay_buffer)
     '''
 
-    # Create directory to hold trained policy
-    policy_saving_dir = "./policies/"
-    if not os.path.isdir(policy_saving_dir):
-        os.mkdir(policy_saving_dir)
-
-    # Create directory to hold replay buffer
-    replay_saving_dir = "./replay_buffer/"
-    if not os.path.isdir(replay_saving_dir):
-        os.mkdir(replay_saving_dir)
-
-    # Create directory to hold output (plotting, avg. reward data, etc.)
-    output_saving_dir = "./output/"
-    if not os.path.isdir(output_saving_dir):
-        os.mkdir(output_saving_dir)
+    policy_saving_dir = "./policies/"       # Directory to hold trained policy
+    replay_saving_dir = "./replay_buffer/"  # Directory to hold replay buffer
+    output_saving_dir = "./output/"         # Directory to hold output (plotting, avg. reward data, etc.)
+    create_paths([policy_saving_dir, replay_saving_dir, output_saving_dir]) # Create directories if they do not exist
 
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data/Expert_data_WITH_GRASP/"
+        expert_replay_file_path = "./expert_replay_data/old_expert_data/Expert_data_WITH_GRASP/"
+        with_grasp_str = "WITH grasp"
     else:
-        expert_replay_file_path = "./expert_replay_data/Expert_data_NO_GRASP/"
+        expert_replay_file_path = "./expert_replay_data/old_expert_data/Expert_data_NO_GRASP/"
+        with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
     # Default agent replay buffer file path
@@ -1036,24 +1002,33 @@ if __name__ == "__main__":
         print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, pid_mode="expert_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, pid_mode="expert_only")
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
+
+        expert_output_data_dir = expert_data_dir + "/output"
+        generate_output(info_file_text, expert_output_data_dir, requested_orientation_list, expert_output_data_dir)
 
     # Generate expert data based on Naive controller only
     elif args.mode == "naive_only":
         print("MODE: Naive ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, pid_mode="naive_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, pid_mode="naive_only")
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
+
+        expert_output_data_dir = expert_data_dir + "/output"
+        generate_output(info_file_text, expert_output_data_dir, requested_orientation_list, expert_output_data_dir)
 
     # Generate expert data based on interpolating naive and expert strategies
     elif args.mode == "expert":
         print("MODE: Expert (Interpolation)")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path = GenerateExpertPID_JointVel(expert_replay_size, expert_replay_buffer, pid_mode="expert_naive")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer, pid_mode="expert_naive")
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
+
+        expert_output_data_dir = expert_data_dir + "/output"
+        generate_output(info_file_text, expert_output_data_dir, requested_orientation_list, expert_output_data_dir)
 
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
@@ -1067,7 +1042,7 @@ if __name__ == "__main__":
         expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         # Pre-train policy based on expert data
-        pretrain_model_save_path = pretrain_policy(args.max_episode,args.expert_prob,saving_dir)
+        pretrain_model_save_path = train_policy(args.max_episode,args.expert_prob,saving_dir)
         print("pretrain_model_save_path: ", pretrain_model_save_path)
 
         # Save pre-train agent replay data
@@ -1119,8 +1094,7 @@ if __name__ == "__main__":
         else:
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            expert_replay_buffer, expert_replay_file_path = GenerateExpertPID_JointVel(expert_replay_size,
-                                                                                expert_replay_buffer)
+            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, args.with_grasp_reward, expert_replay_buffer)
         # Train the policy and save it
         train_model_save_path, num_success, num_total = train_policy(args.max_episode,args.expert_prob,saving_dir)
         print("train_model_save_path: ", train_model_save_path)
@@ -1142,110 +1116,75 @@ if __name__ == "__main__":
         eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
                                mode=args.mode, eval_episodes=args.max_episode)
         # Add further evaluation here
+
     # Experiments for RL paper
     elif args.mode == "experiment":
         # Initialize all shape and size options
         all_shapes = env.get_all_objects()
-        shapes = []
-        sizes = ["S", "M", "B"]
+        test_shapes = ["Vase1", "Cone1", "RBowl"]
+        test_sizes = ["M"]
+        all_sizes = ["S", "M", "B"]
+        exp_mode = "train"  # Manually setting mode right now
+
+        shapes_list = []    # Holds all possible shapes
         for shape_key in all_shapes.keys():
             if shape_key[-1] == "S":
-                shapes.append(shape_key[:-1])
+                shapes_list.append(shape_key[:-1])
 
+        train_sizes = ["S", "B"]
+        train_shapes = [shape for shape in shapes_list if shape not in test_shapes]
+
+        if exp_mode == "test":
+            shapes = test_shapes
+            sizes = test_sizes
+        else:
+            shapes = train_shapes
+            sizes = train_sizes
+
+        # Get experiment and stage number from dictionary
         exp_num = args.exp_num
-        # Get experiment and stage number
-        prev_exp_stage, prev_exp_name, exp_stage, exp_name = get_experiment_info(exp_num)
+        prev_exp_stage, prev_exp_num, prev_exp_name, exp_stage, exp_name = get_experiment_info(exp_num)
 
         # Setup directories for experiment output
         expert_replay_file_path, prev_exp_dir, exp_dir = get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name)
 
+        # Get experiment-specific shapes list and orientation combo
         requested_shapes, requested_orientation = get_exp_input(exp_name, shapes, sizes)
+        if requested_orientation == "random":
+            requested_orientation_list = ["normal", "rotated", "top"]
+        else:
+            requested_orientation_list = ["normal"]
 
-        print("Stage: ", exp_stage,", Exp: ", args.exp_num)
-        print("Output directory: ", exp_dir)
+        print("\n------------------------------------------------------")
+        print("EXPERIMENT: ", str(args.exp_num), ", ", with_grasp_str)
+        print("Stage: ", exp_stage, ", Exp: ", args.exp_num)
+        print("Exp. Name: ", exp_name)
         print("Experiment shapes: ", requested_shapes)
         print("Experiment orientation: ", requested_orientation)
+        print("Output directory: ", exp_dir)
 
-        # Fill object list using latin square method
-        env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
+        print("\nPrev. Exp Stage: ", prev_exp_stage, "Exp: ", prev_exp_num)
+        print("Prev. Exp Name: ", prev_exp_name)
+        print("Prev. Stage directory: ", prev_exp_dir)
+        print("------------------------------------------------------")
 
-        # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
-        replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
-        # Get agent replay buffer location from previous experiment
-        agent_replay_file_path = prev_exp_dir + "/replay_buffer"
-        # Fill experience from previous stage into replay buffer
-        replay_buffer.store_saved_data_into_replay(agent_replay_file_path)
+        # Initialize Agent replay buffer for current experiment with experience from previous experiment
+        replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim,
+                                                 agent_replay_size)  # Agent Replay Buffer for current experiment
+        agent_replay_file_path = prev_exp_dir + "/replay_buffer"     # Agent replay buffer location from prev. experiment
+        replay_buffer.store_saved_data_into_replay(agent_replay_file_path)  # Fill experience from prev. stage into replay buffer
 
         # Initialize expert replay buffer, then generate expert pid data to fill it
-        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)            
+        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         # Load expert data from saved expert pid controller replay buffer
         expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
-        
+
         if expert_replay_buffer.size is 0 or replay_buffer.size is 0:
-            print("No experience in replay buffer!")
+            print("No experience in replay buffer! Quitting...")
             quit()
 
-        # Load Pre-Trained policy
-        policy.load(prev_exp_dir + "/policy")
-        print("Expert replay: ", expert_replay_file_path)
-        print("Previous experiment policy: ", prev_exp_dir)
-        
-        # Train policy
-        train_model_save_path, num_success, num_total = train_policy(args.max_episode,args.expert_prob,saving_dir=exp_dir)
-        print("Experiment ",exp_num,", ",exp_name," policy saved at: ",train_model_save_path)
-
-        # Save train agent replay data
-        replay_filename = exp_dir + "/replay_buffer" + "/replay_buffer" + datestr
-        agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
-        print("train_replay_save_path: ", agent_replay_save_path)
-
-        print("Stage: ", exp_stage,", Exp: ", args.exp_num)
-        print("Output directory: ", exp_dir)
-        print("Experiment shapes: ", requested_shapes)
-        print("Experiment orientation: ", requested_orientation)
-
-        # Produce plots
-        # Train Heatmap
-        print("Generating training heatmaps...")
-        generate_heatmaps(plot_type="train", data_dir=exp_dir+"/output/heatmap/train/", saving_dir=exp_dir+"/output/heatmap/train/")
-
-        print("Generating evaluation heatmaps...")
-        # Evaluation Heatmaps
-        generate_heatmaps(plot_type="eval", data_dir=exp_dir + "/output/heatmap/eval/",
-                          saving_dir=exp_dir + "/output/heatmap/eval/")
-
-        print("Generating boxplots...")
-        # Boxplot evaluation reward
-        generate_reward_boxplots(data_dir=exp_dir+"/output/boxplot/eval/", saving_dir=exp_dir+"/output/boxplot/eval/")
-
-        print("Writing to experiment info file...")
-        f = open(exp_dir+"/output/"+"experiment"+str(args.exp_num)+".txt", "a")
-        grasp_text = ""
-        if args.with_grasp_reward is True:
-            grasp_txt = "WITH grasp"
-        else:
-            grasp_text = "NO grasp"
-        exp_text = grasp_text + " Experiment "+str(exp_num)+": "+exp_name+", Stage "+str(exp_stage)+"\nDate: {}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
-        previous_text = "Previous experiment: " + prev_exp_name
-        type_text = "Experiment shapes: " + str(requested_shapes) + "\nExperiment orientation: " + str(requested_orientation)
-        success_text = "# Success: " + str(num_success) + "\n# Failures: " + str(num_total-num_success) + "\n# Total: " + str(num_total)
-        output_text = "Output directory: " + str(exp_dir)
-        f.write(exp_text)
-        f.write(previous_text)
-        f.write(type_text)
-        f.write(success_text)
-        f.write(output_text)
-        f.close()
-
-        print("--------------------------------------------------")
-        print("Finished Experiment!")
-        print(output_text)
-        print(previous_text)
-        print(type_text)
-        print(success_text)
-        print(output_text)
-
-        #rl_experiment(args.exp_num)
+        # Run experiment
+        rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list)
     else:
         print("Invalid mode input")
 

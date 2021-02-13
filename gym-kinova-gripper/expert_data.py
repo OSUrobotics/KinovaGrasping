@@ -21,6 +21,12 @@ from copy import deepcopy
 import matplotlib.pyplot as plt
 import utils
 from pathlib import Path
+import copy # For copying over coordinates
+
+# Import plotting code from other directory
+plot_path = os.getcwd() + "/plotting_code"
+sys.path.insert(1, plot_path)
+from heatmap_coords import add_heatmap_coords, filter_heatmap_coords, coords_dict_to_array, save_coordinates
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -582,33 +588,6 @@ def GenerateTestPID_JointVel(obs, env):
     return action
 
 
-def save_coordinates(x, y, filename):
-    np.save(filename + "_x_arr", x)
-    np.save(filename + "_y_arr", y)
-
-
-def add_heatmap_coords(success_x, success_y, fail_x, fail_y, obj_coords, success):
-    """Add object cooridnates to success/failed coordinates list"""
-    # Get object coordinates, transform to array
-    x_val = obj_coords[0]
-    y_val = obj_coords[1]
-    x_val = np.asarray(x_val).reshape(1)
-    y_val = np.asarray(y_val).reshape(1)
-
-    # Heatmap postion data - get starting object position and mark success/fail based on lift reward
-    if success:
-        # Append initial object coordinates to Successful coordinates array
-        success_x = np.append(success_x, x_val)
-        success_y = np.append(success_y, y_val)
-    else:
-        # Append initial object coordinates to Failed coordinates array
-        fail_x = np.append(fail_x, x_val)
-        fail_y = np.append(fail_y, y_val)
-
-    ret = {"success_x":success_x,"success_y": success_y, "fail_x": fail_x, "fail_y": fail_y}
-    return ret
-
-
 def naive_check_grasp(f_dist_old, f_dist_new):
     """
     Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
@@ -762,7 +741,7 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
     return action
 
 
-def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     @param episode_num: Number of episodes to generate expert data for
     @param replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -771,10 +750,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid = True
 
-    expert_success_x = np.array([])  # Successful object initial x-coordinates
-    expert_success_y = np.array([])  # Successful object initial y-coordinates
-    expert_fail_x = np.array([])  # Failed object initial x-coordinates
-    expert_fail_y = np.array([])  # Files object initial y-coordinates
+    success_coords = {"x": [], "y": [], "orientation": []}
+    fail_coords = {"x": [], "y": [], "orientation": []}
+    # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
+
     all_timesteps = np.array([])  # Keeps track of all timesteps to determine average timesteps needed
     success_timesteps = np.array([])  # Successful episode timesteps count distribution
     fail_timesteps = np.array([])  # Failed episode timesteps count distribution
@@ -786,7 +765,10 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
     # Beginning of episode loop
     for i in range(episode_num):
         print("PID ", i)
-        obs, done = env.reset(), False
+        # Fill training object list using latin square
+        if env.check_obj_file_empty("objects.csv") or episode_num is 0:
+            env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
+        obs, done = env.reset(shape_keys=requested_shapes), False
 
         prev_obs = None         # State observation of the previous state
         ready_for_lift = 0      # Signals if ready for lift, from check_grasp()
@@ -832,6 +814,7 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
             [naive_ret,_] = naive_check_grasp(f_dist_old, f_dist_new)
 
             # Take action (Reinforcement Learning step)
+            env.set_with_grasp_reward(with_grasp)
             next_obs, reward, done, info = env.step(action)
 
             # Add experience to replay buffer
@@ -882,41 +865,60 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
                 env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=str(action), episode_num=i, timestep_num=total_steps,
                                obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=lift_success)
 
-        ret = add_heatmap_coords(expert_success_x, expert_success_y, expert_fail_x, expert_fail_y, obj_local_pos, success)
-        expert_success_x = ret["success_x"]
-        expert_success_y = ret["success_y"]
-        expert_fail_x = ret["fail_x"]
-        expert_fail_y = ret["fail_y"]
+        # Add heatmap coordinates
+        orientation = env.get_orientation()
+        ret = add_heatmap_coords(success_coords, fail_coords, orientation, obj_local_pos, success)
+        success_coords = copy.deepcopy(ret["success_coords"])
+        fail_coords = copy.deepcopy(ret["fail_coords"])
+
         if replay_buffer is not None:
             replay_buffer.add_episode(0)
 
-    print("Final # of Successes: ", len(expert_success_x))
-    print("Final # of Failures: ", len(expert_fail_x))
+    num_success = len(success_coords["x"])
+    num_fail = len(fail_coords["x"])
+    print("Final # of Successes: ", num_success)
+    print("Final # of Failures: ", num_fail)
+    print("Shapes: ", requested_shapes)
+
+    shapes_str = ""
+    if isinstance(requested_shapes, list) is True:
+        for shape in requested_shapes:
+            shapes_str += str(shape) + "_"
+        shapes_str = shapes_str[:-1]
+    else:
+        shapes_str = str(requested_shapes)
+
+    grasp_str = "no_grasp"
+    if with_grasp is True:
+        grasp_str = "with_grasp"
 
     print("Saving coordinates...")
     # Save coordinates
     # Directory for x,y coordinate heatmap data
-    expert_saving_dir = "./"+str(pid_mode)+"_{}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
-    heatmap_saving_dir = Path(expert_saving_dir + "/heatmap")
-    heatmap_saving_dir.mkdir(parents=True, exist_ok=True)
+    expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str)
+    expert_output_saving_dir = expert_saving_dir + "/output"
+    expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
+    heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
+    heatmap_save_path = Path(heatmap_saving_dir)
+    heatmap_save_path.mkdir(parents=True, exist_ok=True)
 
-    np.save(expert_saving_dir + "/success_timesteps", success_timesteps)
-    np.save(expert_saving_dir + "/fail_timesteps", fail_timesteps)
-    np.save(expert_saving_dir + "/all_timesteps", all_timesteps)
+    print("heatmap_saving_dir: ",heatmap_saving_dir)
 
-    expert_total_x = np.append(expert_success_x, expert_fail_x)
-    expert_total_y = np.append(expert_success_y, expert_fail_y)
-    save_coordinates(expert_success_x, expert_success_y, expert_saving_dir + "/heatmap_train_success_new")
-    save_coordinates(expert_fail_x, expert_fail_y, expert_saving_dir + "/heatmap_train_fail_new")
-    save_coordinates(expert_total_x, expert_total_y, expert_saving_dir + "/heatmap_train_total_new")
+    # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
+    filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
+
+    # Heatmap coordinate saving
+    #np.save(expert_output_saving_dir + "/success_timesteps", success_timesteps)
+    #np.save(expert_output_saving_dir + "/fail_timesteps", fail_timesteps)
+    #np.save(expert_output_saving_dir + "/all_timesteps", all_timesteps)
 
     #print("Plotting timestep distribution...")
     #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
 
-    print("Save is: ", str(save))
+    #print("Save is: ", str(save))
     save_filepath = None
     if save and replay_buffer is not None:
-        print("Saving...")
+        print("\nSaving replay buffer...")
 
         # data = {}
         # file = open(filename + "_" + datetime.datetime.now().strftime("%m_%d_%y_%H%M") + ".pkl", 'wb')
@@ -937,11 +939,21 @@ def GenerateExpertPID_JointVel(episode_num, replay_buffer=None, save=True, rende
         # data["reward"] = replay_buffer.reward
         # data["done"] = replay_buffer.not_done
 
-        save_filepath = replay_buffer.save_replay_buffer(expert_saving_dir)
+        save_filepath = replay_buffer.save_replay_buffer(expert_replay_saving_dir)
 
-        print("*** Saved replay buffer to location: ", save_filepath)
-        print("In expert data: replay_buffer.size: ", replay_buffer.size)
-    return replay_buffer, save_filepath
+        # Output info file text
+        name_text = "PID MODE: " + str(pid_mode) + ", Num Grasp trials: " + str(episode_num) + "\nDate: {}".format(datetime.datetime.now().strftime("%m_%d_%y_%H%M"))
+        success_text = "\n\nFinal # of Successes: " + str(num_success) + "\nFinal # of Failures: " + str(num_fail) + "\n"
+        shapes_text = "Shapes: " + str(requested_shapes) + "\n\n"
+        output_dir_text = "Saved replay buffer to location: "+ save_filepath + "\nreplay_buffer.replay_ep_num (# episodes): " + str(replay_buffer.replay_ep_num) + "\nreplay_buffer.size (# trajectories): " + str(replay_buffer.size) + "\nOutput data saved at: " + str(expert_saving_dir)
+
+        text = name_text + success_text + shapes_text + output_dir_text
+
+        print("Saved replay buffer to location: ", save_filepath)
+        print("# Episodes: ", replay_buffer.replay_ep_num)
+        print("# Trajectories: ", replay_buffer.size)
+        print("\nHeatmap coordinate data saved at: ",expert_saving_dir)
+    return replay_buffer, save_filepath, expert_saving_dir, text
 
 
 def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
@@ -1070,8 +1082,9 @@ if __name__ ==  "__main__":
     state_dim = 82
     action_dim = 4
     expert_replay_size = 10
+    with_grasp = False
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    replay_buffer, save_filepath = GenerateExpertPID_JointVel(10, expert_replay_buffer, save=False, render_imgs=True, pid_mode="naive_only")
+    replay_buffer, save_filepath, data_dir, info_file_text = GenerateExpertPID_JointVel(10, "CubeS", with_grasp, expert_replay_buffer, save=False, render_imgs=True, pid_mode="naive_only")
 
     print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")

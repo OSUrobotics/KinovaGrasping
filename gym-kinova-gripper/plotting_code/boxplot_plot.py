@@ -2,13 +2,14 @@ import seaborn as sns
 import numpy as np
 import matplotlib.pyplot as plt
 import os
+from pathlib import Path
 
 '''
     Generates boxplot from evaluation output, specifically avg. 
     reward data (finger, grasp, lift, total).
 '''
 
-def create_boxplot(saving_dir,data,labels,filename):
+def create_boxplot(orientation,saving_dir,data,labels,filename):
     """ Create a boxplot to show averages and spread of data
     saving_dir: Directory where plot will be saved
     x: x-axis data
@@ -54,7 +55,7 @@ def get_boxplot_data(data_dir,filename,tot_episodes,saving_freq):
     return data
 
 
-def generate_reward_boxplots(data_dir, saving_dir, file_list=["finger_reward", "grasp_reward", "lift_reward", "total_reward"], tot_episodes=20000, saving_freq=1000, eval_freq=200):
+def generate_reward_boxplots(orientation, data_dir, saving_dir, file_list=["finger_reward", "grasp_reward", "lift_reward", "total_reward"], tot_episodes=20000, saving_freq=1000, eval_freq=200):
     """Create finger, grasp, lift, total reward evaluation boxplots
     data_dir: Directory location of data file
     saving_dir: Directory to save boxplots at
@@ -63,13 +64,17 @@ def generate_reward_boxplots(data_dir, saving_dir, file_list=["finger_reward", "
     saving_freq: Frequency in which the data files were saved (i.e. 1000)
     eval_freq: Frequency in which the policy was evaluated (i.e. 200)
     """
+    # Create saving directory if it does not exist
+    plot_save_path = Path(saving_dir)
+    plot_save_path.mkdir(parents=True, exist_ok=True)
+
     for file in file_list:
         boxplot_data = get_boxplot_data(data_dir, file, tot_episodes, saving_freq)
 
         freq_vals = np.arange(0,tot_episodes,2000)
 
         boxplot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
-                          "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials", "freq_vals": freq_vals}
+                          "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials, " + orientation + " Orientation", "freq_vals": freq_vals}
 
         create_boxplot(saving_dir, boxplot_data, boxplot_labels, "Eval_Boxplot_"+str(file)+".png")
 

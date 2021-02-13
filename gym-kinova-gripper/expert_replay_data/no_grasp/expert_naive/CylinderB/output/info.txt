@@ -1,0 +1,11 @@
+PID MODE: expert_naive, Num Grasp trials: 2000
+Date: 02_13_21_0457
+
+Final # of Successes: 1555
+Final # of Failures: 445
+Shapes: ['CylinderB']
+
+Saved replay buffer to location: ./expert_replay_data/no_grasp/expert_naive/CylinderB/
+replay_buffer.replay_ep_num (# episodes): 1999
+replay_buffer.size (# trajectories): 41098
+Output data saved at: ./expert_replay_data/no_grasp/expert_naive/CylinderB

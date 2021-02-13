@@ -605,7 +605,7 @@ class KinovaGripper_Env(gym.Env):
         return lift_reward, info, done
 
     # Function to get rewards for RL training
-    def _get_reward(self,action): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
+    def _get_reward(self,with_grasp_reward=False): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
         #TODO: Make sure this works with the new grasp classifier
 
         obj_target = 0.2    # Object height target (z-coord of object center)
@@ -616,7 +616,7 @@ class KinovaGripper_Env(gym.Env):
         #loc_obs=self._get_obs()
 
         # Grasp reward set by grasp classifier, otherwise 0
-        if self.with_grasp_reward is True:
+        if with_grasp_reward is True:
             network_inputs=obs[0:5]
             network_inputs=np.append(network_inputs,obs[6:23])
             network_inputs=np.append(network_inputs,obs[24:])
@@ -652,6 +652,9 @@ class KinovaGripper_Env(gym.Env):
         #else:
         #    finger_reward = 0
         """
+
+        if self.with_grasp_reward is True and grasp_reward > 0:
+            print("!! Grasp Reward is TRUE and You got a Grasp_reward: ",grasp_reward)
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
@@ -725,6 +728,16 @@ class KinovaGripper_Env(gym.Env):
 
     def get_obj_coords(self):
         return self.obj_coords
+
+    # Returns hand orientation (normal, rotated, top)
+    def get_orientation(self):
+        return self.orientation
+
+    def get_with_grasp_reward(self):
+        return self.with_grasp_reward
+
+    def set_with_grasp_reward(self,with_grasp):
+        self.with_grasp_reward=with_grasp
 
     # Dictionary of all possible objects (not just ones currently used)
     def get_all_objects(self):
@@ -821,7 +834,7 @@ class KinovaGripper_Env(gym.Env):
 
     def Generate_Latin_Square(self,max_elements,filename,shape_keys, test = False):
         print("GENERATE LATIN SQUARE")
-        #print("shape keys: ",shape_keys)
+        print("shape keys: ",shape_keys)
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
 
@@ -929,8 +942,6 @@ class KinovaGripper_Env(gym.Env):
         # Load model
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
-
-        # print("random_shape: ",random_shape)
 
         return random_shape, self.objects[random_shape]
 
@@ -1041,7 +1052,7 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,with_grasp=False,env_name="env",shape_keys=["CubeS"],hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self,shape_keys,with_grasp=False,env_name="env",hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
@@ -1049,11 +1060,13 @@ class KinovaGripper_Env(gym.Env):
         #x, y = self.randomize_initial_pose(True) # for data collection
 
         # If True, use Grasp Reward from grasp classifier in reward calculation
-        self.with_grasp_reward = with_grasp
+        self.set_with_grasp_reward(with_grasp)
 
-        # Pretraining and training will have the same coordinate files
-        if mode == "pre-train" or mode == "rand_train":
+        # Expert data generation, pretraining and training will have the same coordinate files
+        if mode != "test":
             mode = "train"
+
+        #print("MODE (for coordinates): ", mode)
 
         # Based on environment, sets amount of objects and object file to store them in
         if env_name == "env":
@@ -1316,7 +1329,7 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork = False): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork=False): #TODO: fix this so that we can rotate the hand
         """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
             action: array of finger joint velocity values (finger1, finger1, finger3)
             graspnetwork: bool, set True to use grasping network to determine reward value
@@ -1367,8 +1380,9 @@ class KinovaGripper_Env(gym.Env):
                     self._sim.data.ctrl[i+7] = finger_velocities[i]
                 self._sim.step()
         obs = self._get_obs()
+
         if not graspnetwork:
-            total_reward, info, done = self._get_reward(action)
+            total_reward, info, done = self._get_reward(self.with_grasp_reward)
         else:
             ### Get this reward for grasp classifier collection ###
             total_reward, info, done = self._get_reward_DataCollection()

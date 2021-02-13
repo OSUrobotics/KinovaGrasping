@@ -1,10 +1,12 @@
 import matplotlib.pyplot as plt
 from matplotlib.ticker import PercentFormatter
 import numpy as np
+np.seterr(divide='ignore', invalid='ignore') # Ignore divide by 0 warnings as we handle for it
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 from PIL import Image
 import os
 import argparse
+from pathlib import Path
 
 def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     """ Create heatmap displaying frequency of object initial starting position coordinates
@@ -125,7 +127,7 @@ def make_img_transparent(fig_filename,saving_dir):
     img.save(saving_dir+fig_filename+".png", "PNG",transparent=True)
 
 
-def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,saving_dir):
+def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,saving_dir):
     """ Calls ferquency and success/fail heatmap plots 
     success_x: Successful initial object position x-coordinates
     success_y: Successful initial object position y-coordinates
@@ -148,6 +150,8 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,sav
     if ep_str != "":
         title_str = ", Evaluated at Ep. " + ep_str
         ep_str = "_" + ep_str
+
+    title_str += " " + orientation + " Orientation"
 
     # Plot frequency heatmap
     freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object" + title_str
@@ -181,12 +185,10 @@ def get_heatmap_coord_data(data_dir,ep_str):
     total_x = np.load(data_dir+"total_x"+ep_str+".npy")
     total_y = np.load(data_dir+"total_y"+ep_str+".npy")
 
-    print("success_x, success_y: (", success_x, ", ", success_y, ")")
-
     return success_x, success_y, fail_x, fail_y, total_x, total_y
 
 
-def generate_heatmaps(plot_type, data_dir, saving_dir, saving_freq=1000, tot_episodes=20000):
+def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, tot_episodes=20000):
     """ Controls whether train or evaluation heatmap plots are generated
     plot_type: Type of plot (train or eval - eval will produce multiple plots)
     data_dir: Directory location of data file (coordinates)
@@ -194,6 +196,14 @@ def generate_heatmaps(plot_type, data_dir, saving_dir, saving_freq=1000, tot_epi
     saving_freq: Frequency at which the data was saved (used for getting filenames)
     tot_episodes: Total number of episodes the data covers (to get up to the last data file)
     """
+    # If input data directory is not found, return back
+    if not os.path.isdir(data_dir):
+        return
+
+    # Create saving directory if it does not exist
+    plot_save_path = Path(saving_dir)
+    plot_save_path.mkdir(parents=True, exist_ok=True)
+
     # FOR EVAL
     if plot_type == "eval":
         for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes / saving_freq), dtype=int):
@@ -203,14 +213,14 @@ def generate_heatmaps(plot_type, data_dir, saving_dir, saving_freq=1000, tot_epi
             success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+ep_str)
             #print("success_x, success_y: (",success_x,", ",success_y,")")
             # Plot coordinate data to frequency and success rate heatmaps
-            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, saving_dir)
+            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
     else:
         # FOR TRAIN
         ep_str = ""
         # Get coordinate data as numpy arrays
         success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, ep_str)
         # Plot coordinate data to frequency and success rate heatmaps
-        create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, saving_dir)
+        create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
 
     print(plot_type + "plots saved at: ", saving_dir)
 
@@ -219,11 +229,13 @@ if __name__ == "__main__":
     parser.add_argument("--data_dir", type=str, action='store', default="./")
     parser.add_argument("--saving_dir", type=str, action='store', default="./")
     parser.add_argument("--plot_type", type=str, action='store', default="train")
+    parser.add_argument("--orientation", type=str, action='store', default="normal")
     args = parser.parse_args()
 
-    data_dir = args.data_dir    # Directory to Get input data from
-    saving_dir = args.saving_dir       # Directory to Save data to
-    plot_type = args.plot_type  # Train or Eval plots
+    data_dir = args.data_dir       # Directory to Get input data from
+    saving_dir = args.saving_dir   # Directory to Save data to
+    plot_type = args.plot_type     # Train or Eval plots
+    orientation = args.orientation # Hand orientation
 
     if data_dir[-1] != "/":
         data_dir += "/"
@@ -231,4 +243,4 @@ if __name__ == "__main__":
     print("Getting heatmap plots data from: ",data_dir)
     print("Saving heatmap plots at: ",saving_dir)
 
-    generate_heatmaps(plot_type, data_dir, saving_dir)
+    generate_heatmaps(plot_type, data_dir, orientation, saving_dir)
