@@ -206,7 +206,7 @@ class ReplayBuffer_Queue(object):
 
 	"""
 
-	"""
+
 	### STEPH TEST ###
 	def sample_batch_nstep(self,batch_size,replay_type):
 		# Samples batch size of replay buffer trajectories for learning using n-step returns
@@ -221,49 +221,60 @@ class ReplayBuffer_Queue(object):
 		#episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
 
 		# STEPH TESTING
-		episode_lengths = [len(timesteps) for timesteps in self.reward]
-		#print("len(episode_lengths): ", len(episode_lengths))
+		# List of episode lengths
+		episode_lengths = [len(self.state[t])-self.n_steps for t in range(self.replay_ep_num)]
+		#print("episode_lengths: ", episode_lengths)
 		#print("self.replay_ep_num: ",self.replay_ep_num)
 
+		#print("len(episode_lengths): ", len(episode_lengths))
+		#print("Replay buffer self.size-1: ", self.size-1)
+		#print("Replay buffer self.replay_ep_num: ", self.replay_ep_num)
+
 		# Select indices based on the entire array
-		timestep_idx_arr = np.random.randint(self.size-1, size=batch_size)
+		timestep_idx_arr = np.random.randint(self.size-(self.n_steps*self.replay_ep_num), size=batch_size+1)
+		#print("self.replay_ep_num: ", self.replay_ep_num)
+		#print("timestep_idx_arr: ", timestep_idx_arr,"\n")
 
 		# Get the episode index based off of size
-		episode_idx_arr = [[]]
-		episode_idx_num = 0
+		episode_idx_arr = []
+
+		# For each desired trajectory index
 		for idx in timestep_idx_arr:
-			size_counter = 0
-			for ep_end_idx in episode_lengths:
-				#print("ep_end_idx : ",ep_end_idx)
+			episode_idx_num = 0 # Start at first episode
+			size_counter = 0 # Sums the size of each episode passed, counting how far through the buffer the index is
 
+			#print("for idx in timstep_idx_arr, idx: ",idx)
+			#print("episode_lengths: ",episode_lengths)
+
+			# Loop through each episode in the replay buffer
+			for ep_end_len in episode_lengths:
+				#print("ep_end_len : ",ep_end_len)
+
+				size_counter += ep_end_len # Add episode length to size counter
+
+				# Check if index of trajectory has already been passed from the episode length
 				if size_counter >= idx:
-					# Index within episode for time step
-					ts_idx_num = size_counter - idx
+					# Get the time step index within the episode
+					ts_idx = ep_end_len - (size_counter-idx)
 
-					# How far from the end the time step is (Checking if its within n-steps)
-					ts_away_from_end = ep_end_idx - ts_idx_num
+					episode_idx_arr.append([episode_idx_num, ts_idx])
+					#print("idx: ",idx," episode_idx_arr: ",episode_idx_arr)
+					#print("Break!!")
+					break # Get out of episode size counting loop to check for the next trajectory
 
-					# If index is within n_steps of the end of the episode, go to next episode at 0
-					if ts_away_from_end - self.n_steps <= 1:
-						#print("TOO CLOSE TO END")
-						# Go to the next episode
-						episode_idx_arr += [episode_idx_num+1, 0]
-					else:
-						# Episode, timestep within episode
-						episode_idx_arr += [episode_idx_num, ts_away_from_end]
-						break # Get out of episode size counting loop
-				else: # Continue adding to the size
-					size_counter += (ep_end_idx-self.n_steps) # Leave room for n-steps
-					episode_idx_num += 1
+				# Otherwise, we haven't gotten to the episode with the time step yet
+				episode_idx_num += 1
 
-		#print("sample_batch_nstep, episode_idx_arr: ", episode_idx_arr)
-		#print("timestep_idx_arr: ",episode_idx_arr)
+		#print("\ntimestep_idx_arr: ", timestep_idx_arr)
+		#print("episode_idx_arr: ", episode_idx_arr)
+		#print("len(timestep_idx_arr): ", len(timestep_idx_arr))
+		#print("len(episode_idx_arr): ", len(episode_idx_arr))
 		#print("batch_size: ",batch_size)
-		#print("episode_idx_arr: ",episode_idx_arr)
-		#quit()
-		## END STEPH TESTING
+		#print("Beginning batch loop to add episodes:")
 
+		#quit()
 		for i in range(batch_size):
+			#print("i: ",i)
 			# Episode index
 			idx = episode_idx_arr[i][0]
 			# Time step within episode index
@@ -286,6 +297,10 @@ class ReplayBuffer_Queue(object):
 			reward_trajectory = temp_reward[trajectory_arr_idx]
 			not_done_trajectory = temp_not_done[trajectory_arr_idx]
 
+			#if np.sum(reward_trajectory) > 0:
+			#	print("!!!!!!!!!!!!!reward is NON ZERo!!!!!!!!!!!!!")
+			#	print("reward: ", reward_trajectory)
+
 			state_arr.append(state_trajectory)
 			action_arr.append(action_trajectory)
 			next_state_arr.append(next_state_trajectory)
@@ -300,8 +315,8 @@ class ReplayBuffer_Queue(object):
 			torch.FloatTensor(not_done_arr).to(self.device)
 		)
 
-	"""
 
+	"""
 	# OLD WORKING VERSION
 	def sample_batch_nstep(self,batch_size,replay_type):
 		# Samples batch size of replay buffer trajectories for learning using n-step returns
@@ -363,7 +378,7 @@ class ReplayBuffer_Queue(object):
 			torch.FloatTensor(reward_arr).to(self.device),
 			torch.FloatTensor(not_done_arr).to(self.device)
 		)
-
+	"""
 
 	def replace(self, reward, done):
 		"""

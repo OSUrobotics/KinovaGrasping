@@ -155,7 +155,7 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
 
     # Plot frequency heatmap
     freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object" + title_str
-    heatmap_freq(total_x,total_y,freq_plot_title,'freq_heatmap'+ep_str+'.jpg',freq_saving_dir)
+    heatmap_freq(total_x,total_y,freq_plot_title,'freq_heatmap'+ep_str+'.png',freq_saving_dir)
 
     # Plot failed (negative success rate) heatmap
     fail_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of Object" + title_str

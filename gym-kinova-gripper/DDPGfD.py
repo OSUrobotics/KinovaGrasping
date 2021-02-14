@@ -90,12 +90,14 @@ class DDPGfD(object):
 		else:
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 
+		"""
 		non_zero_count = 0
 		for elem in reward:
 			if elem != 0:
 				non_zero_count += 1
 
-		print("OG TRAIN, reward non_zero count: ", non_zero_count)
+		print("ORIGINAL TRAIN, reward non_zero count: ", non_zero_count)
+		"""
 
 		# Target Q network
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
@@ -314,7 +316,9 @@ class DDPGfD(object):
 			agent_batch_size = int(self.batch_size * (1 - prob))
 			expert_batch_size = self.batch_size - agent_batch_size
 			# Get batches from respective replay buffers
+			#print("SAMPLING FROM AGENT...")
 			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,"AGENT")
+			#print("SAMPLING FROM EXPERT...")
 			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,"EXPERT")
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
@@ -333,16 +337,18 @@ class DDPGfD(object):
 		reward = reward.unsqueeze(-1)
 		not_done = not_done.unsqueeze(-1)
 
-		#non_zero_count = 0
-		#for row in reward:
-		#	for elem in row:
-		#		if elem != 0:
-		#			non_zero_count += 1
+		"""
+		non_zero_count = 0
+		for row in reward:
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
 
-		#print("TRAIN BATCH, reward non_zero count: ", non_zero_count)
-		#if non_zero_count > 1:
-		#	print("****FOUND A REWARD BIGGER THAN ZERO !!!!!")
+		print("TRAIN BATCH, reward non_zero count: ", non_zero_count)
+		if non_zero_count > 1:
+			print("****FOUND A REWARD BIGGER THAN ZERO !!!!!")
 			#quit()
+		"""
 
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
 		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation

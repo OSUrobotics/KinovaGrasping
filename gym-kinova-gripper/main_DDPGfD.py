@@ -579,7 +579,7 @@ def train_policy(tot_episodes, tr_prob, saving_dir):
         print("---- ", args.mode, " ----")
         # Original saving directory locations for model and tensorboard
         model_save_path = "./policies/" + saving_dir + "/{}_{}/".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
-        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "{}_{}_{}/".format(args.mode, args.policy_name, args.tensorboardindex)
+        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}_{}_{}/".format(args.mode, args.policy_name, args.tensorboardindex)
         output_dir = "./output/" + saving_dir + args.mode
         heatmap_train_dir = output_dir + "/heatmap"
         results_saving_dir = output_dir + "/results"
