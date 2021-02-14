@@ -741,7 +741,7 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
     return action
 
 
-def GenerateExpertPID_JointVel(episode_num, requested_shapes, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     @param episode_num: Number of episodes to generate expert data for
     @param replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -768,7 +768,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, with_grasp, replay
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv") or episode_num is 0:
             env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
-        obs, done = env.reset(shape_keys=requested_shapes), False
+        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation), False
 
         prev_obs = None         # State observation of the previous state
         ready_for_lift = 0      # Signals if ready for lift, from check_grasp()

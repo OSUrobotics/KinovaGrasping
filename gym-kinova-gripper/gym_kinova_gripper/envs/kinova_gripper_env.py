@@ -1052,7 +1052,7 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,shape_keys,with_grasp=False,env_name="env",hand_orientation="normal",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
@@ -1115,7 +1115,6 @@ class KinovaGripper_Env(gym.Env):
                 if random_shape.find("RBowl") != -1:
                     orientation_type = np.random.randint(0.333, 1)
 
-                print("orientation_type: ",orientation_type)
                 if orientation_type <0.333:
                     new_rotation=np.array([0,0,0])+hand_rotation
                 elif orientation_type >0.667:
@@ -1261,6 +1260,7 @@ class KinovaGripper_Env(gym.Env):
                 print("Reset function is not working Properly Check the render")
                 self.render()
         '''
+
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.

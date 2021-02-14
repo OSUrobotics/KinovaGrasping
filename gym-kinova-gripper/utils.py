@@ -275,6 +275,15 @@ class ReplayBuffer_Queue(object):
 		#quit()
 		for i in range(batch_size):
 			#print("i: ",i)
+			print("\ni: ",i,"\nlen(episode_idx_arr): ",len(episode_idx_arr))
+			print("\ntimestep_idx_arr: ", timestep_idx_arr)
+			print("episode_idx_arr: ", episode_idx_arr)
+			print("len(timestep_idx_arr): ", len(timestep_idx_arr))
+			print("len(episode_idx_arr): ", len(episode_idx_arr))
+			print("batch_size: ", batch_size)
+			print("self.replay_ep_num: ", self.replay_ep_num)
+			print("episode_lengths: ", episode_lengths)
+			print("np.sum(episode_lengths): ", np.sum(episode_lengths))
 			# Episode index
 			idx = episode_idx_arr[i][0]
 			# Time step within episode index
