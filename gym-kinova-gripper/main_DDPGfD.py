@@ -512,7 +512,7 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         # Evaluation and recording data for tensorboard
         if episode_num > args.update_after and (episode_num) % args.eval_freq == 0: # episode_num + 1
             print("EVALUATING EPISODE AT: ",episode_num)
-            print("Evaluating with "+str(args.eval_episodes)+" grasping trials")
+            print("Evaluating with "+str(args.eval_num)+" grasping trials")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
                                    mode=args.mode, eval_episodes=args.eval_num)  # , compare=True)
             # Heatmap data - object starting coordinates for evaluation
