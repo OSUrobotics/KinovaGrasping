@@ -1100,7 +1100,7 @@ class KinovaGripper_Env(gym.Env):
             # Rotated orientation is > 0.333
             # Top orientation is > 0.667
             hand_orientation = 'random'
-            orientation_type = np.random.randint(0.333,1)
+            orientation_type = np.random.uniform(0.333,1)
 
         #-1.57,0,-1.57 is side normal
         #-1.57, 0, 0 is side tilted
@@ -1113,7 +1113,7 @@ class KinovaGripper_Env(gym.Env):
 
                 # If the shape is RBowl, only do rotated and top orientations
                 if random_shape.find("RBowl") != -1:
-                    orientation_type = np.random.randint(0.333, 1)
+                    orientation_type = np.random.uniform(0.333, 1)
 
                 if orientation_type <0.333:
                     new_rotation=np.array([0,0,0])+hand_rotation
@@ -1131,7 +1131,7 @@ class KinovaGripper_Env(gym.Env):
 
                 # If the shape is RBowl, only do rotated and top orientations
                 if random_shape.find("RBowl") != -1:
-                    orientation_type = np.random.randint(0.333, 1)
+                    orientation_type = np.random.uniform(0.333, 1)
 
                 print("orientation_type: ",orientation_type)
                 # Initial position
