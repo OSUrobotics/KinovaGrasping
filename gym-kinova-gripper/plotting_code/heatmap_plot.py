@@ -178,14 +178,25 @@ def get_heatmap_coord_data(data_dir,ep_str):
     tot_episodes: Total number of evaluation episodes
     saving_freq: Frequency in which the data files were saved
     """
+    arr_dict = {}
+    file_names = ["success_x","success_y","fail_x","fail_y","total_x","total_y"]
+    for file in file_names:
+        filename = data_dir+file+ep_str+".npy"
+        my_file = Path(filename)
+        if my_file.is_file():
+            arr_dict[file] = np.load(filename)
+        else:
+            arr_dict[file] = np.array([])
+    """
     success_x = np.load(data_dir+"success_x"+ep_str+".npy")
     success_y = np.load(data_dir+"success_y"+ep_str+".npy")
     fail_x = np.load(data_dir+"fail_x"+ep_str+".npy")
     fail_y = np.load(data_dir+"fail_y"+ep_str+".npy")
     total_x = np.load(data_dir+"total_x"+ep_str+".npy")
     total_y = np.load(data_dir+"total_y"+ep_str+".npy")
+    """
 
-    return success_x, success_y, fail_x, fail_y, total_x, total_y
+    return arr_dict["success_x"], arr_dict["success_y"], arr_dict["fail_x"], arr_dict["fail_y"], arr_dict["total_x"], arr_dict["total_y"]
 
 
 def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, tot_episodes=20000):
