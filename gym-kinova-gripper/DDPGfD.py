@@ -369,6 +369,9 @@ class DDPGfD(object):
 
 		# New implementation
 		current_Q = self.critic(state[:, 0], action[:, 0])
+		#print("state[:, 0]: ",state[:, 0])
+		#print("action[:, 0]: ", action[:, 0])
+		#print("current_Q: ",current_Q)
 
 		# New Updated for new rollback method
 		current_Q_n = self.critic(state[:, -1], action[:, -1])
