@@ -1133,7 +1133,6 @@ class KinovaGripper_Env(gym.Env):
                 if random_shape.find("RBowl") != -1:
                     orientation_type = np.random.randint(0.333, 1)
 
-                print("orientation_type: ",orientation_type)
                 # Initial position
                 if orientation_type <0.333:
                     new_rotation=np.array([-1.57,0,-1.57])+hand_rotation

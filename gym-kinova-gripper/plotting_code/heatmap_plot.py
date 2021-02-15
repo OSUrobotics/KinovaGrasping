@@ -187,14 +187,6 @@ def get_heatmap_coord_data(data_dir,ep_str):
             arr_dict[file] = np.load(filename)
         else:
             arr_dict[file] = np.array([])
-    """
-    success_x = np.load(data_dir+"success_x"+ep_str+".npy")
-    success_y = np.load(data_dir+"success_y"+ep_str+".npy")
-    fail_x = np.load(data_dir+"fail_x"+ep_str+".npy")
-    fail_y = np.load(data_dir+"fail_y"+ep_str+".npy")
-    total_x = np.load(data_dir+"total_x"+ep_str+".npy")
-    total_y = np.load(data_dir+"total_y"+ep_str+".npy")
-    """
 
     return arr_dict["success_x"], arr_dict["success_y"], arr_dict["fail_x"], arr_dict["fail_y"], arr_dict["total_x"], arr_dict["total_y"]
 

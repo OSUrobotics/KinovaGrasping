@@ -231,13 +231,18 @@ class ReplayBuffer_Queue(object):
 		#print("Replay buffer self.replay_ep_num: ", self.replay_ep_num)
 
 		# Select indices based on the entire array
-		timestep_idx_arr = np.random.randint(self.size-(self.n_steps*self.replay_ep_num), size=batch_size+1)
+		max_val = np.sum(episode_lengths) -self.n_steps-2
+		other_max = self.size-(self.n_steps*self.replay_ep_num) - self.n_steps-2
+		timestep_idx_arr = np.empty(batch_size) #np.random.randint(max_val, size=batch_size+1)
+		timestep_idx_arr.fill(max_val)
+		ts_arr_copy = timestep_idx_arr
 		#print("self.replay_ep_num: ", self.replay_ep_num)
 		#print("timestep_idx_arr: ", timestep_idx_arr,"\n")
 
 		# Get the episode index based off of size
 		episode_idx_arr = []
 
+		copy_i = 0
 		# For each desired trajectory index
 		for idx in timestep_idx_arr:
 			episode_idx_num = 0 # Start at first episode
@@ -257,6 +262,7 @@ class ReplayBuffer_Queue(object):
 					# Get the time step index within the episode
 					ts_idx = ep_end_len - (size_counter-idx)
 
+					ts_arr_copy[copy_i] = -1
 					episode_idx_arr.append([episode_idx_num, ts_idx])
 					#print("idx: ",idx," episode_idx_arr: ",episode_idx_arr)
 					#print("Break!!")
@@ -264,6 +270,7 @@ class ReplayBuffer_Queue(object):
 
 				# Otherwise, we haven't gotten to the episode with the time step yet
 				episode_idx_num += 1
+			copy_i += 1
 
 		#print("\ntimestep_idx_arr: ", timestep_idx_arr)
 		#print("episode_idx_arr: ", episode_idx_arr)
@@ -275,6 +282,7 @@ class ReplayBuffer_Queue(object):
 		#quit()
 		for i in range(batch_size):
 			#print("i: ",i)
+			"""
 			print("\ni: ",i,"\nlen(episode_idx_arr): ",len(episode_idx_arr))
 			print("\ntimestep_idx_arr: ", timestep_idx_arr)
 			print("episode_idx_arr: ", episode_idx_arr)
@@ -282,15 +290,21 @@ class ReplayBuffer_Queue(object):
 			print("len(episode_idx_arr): ", len(episode_idx_arr))
 			print("batch_size: ", batch_size)
 			print("self.replay_ep_num: ", self.replay_ep_num)
-			print("episode_lengths: ", episode_lengths)
+			#print("episode_lengths: ", episode_lengths)
 			print("np.sum(episode_lengths): ", np.sum(episode_lengths))
+			print("ts_arr_copy: ",ts_arr_copy)
+			print("max_val: ",max_val)
+			print("other_max: ", other_max)
+			"""
 			# Episode index
 			idx = episode_idx_arr[i][0]
 			# Time step within episode index
 			start_idx = episode_idx_arr[i][1]
 
 			# Get the trajectory from starting index to n_steps later
-			trajectory_arr_idx = np.arange(start_idx, start_idx + self.n_steps)
+			trajectory_arr_idx = np.arange(start_idx, start_idx + self.n_steps, dtype=int)
+
+			#print("trajectory_arr_idx: ",trajectory_arr_idx)
 
 			# quick hack - we'll fix this later with for loops. we're gonna use
 			# double the space rn to just make our indexing work with numpy slicing.
