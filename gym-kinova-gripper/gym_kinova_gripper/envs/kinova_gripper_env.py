@@ -1099,8 +1099,17 @@ class KinovaGripper_Env(gym.Env):
         if random_shape.find("RBowl") != -1:
             # Rotated orientation is > 0.333
             # Top orientation is > 0.667
-            hand_orientation = 'random'
-            orientation_type = np.random.uniform(0.333,1)
+            if hand_orientation == 'random':
+                orientation_type = np.random.uniform(0.333,1)
+
+        # If the shape is Lemon, only do normal and top orientations
+        if random_shape.find("Lemon") != -1:
+            # Rotated orientation is > 0.333
+            # Top orientation is > 0.667
+            if hand_orientation == 'random':
+                Choice1 = np.random.uniform(0, 0.333)
+                Choice2 = np.random.uniform(0.667, 1)
+                orientation_type = np.random.choice([Choice1, Choice2])
 
         #-1.57,0,-1.57 is side normal
         #-1.57, 0, 0 is side tilted
@@ -1113,7 +1122,17 @@ class KinovaGripper_Env(gym.Env):
 
                 # If the shape is RBowl, only do rotated and top orientations
                 if random_shape.find("RBowl") != -1:
-                    orientation_type = np.random.uniform(0.333, 1)
+                    if hand_orientation == 'random':
+                        orientation_type = np.random.uniform(0.333, 1)
+
+                # If the shape is Lemon, only do normal and top orientations
+                if random_shape.find("Lemon") != -1:
+                    # Rotated orientation is > 0.333
+                    # Top orientation is > 0.667
+                    if hand_orientation == 'random':
+                        Choice1 = np.random.uniform(0, 0.333)
+                        Choice2 = np.random.uniform(0.667, 1)
+                        orientation_type = np.random.choice([Choice1, Choice2])
 
                 if orientation_type <0.333:
                     new_rotation=np.array([0,0,0])+hand_rotation
@@ -1131,7 +1150,17 @@ class KinovaGripper_Env(gym.Env):
 
                 # If the shape is RBowl, only do rotated and top orientations
                 if random_shape.find("RBowl") != -1:
-                    orientation_type = np.random.uniform(0.333, 1)
+                    if hand_orientation == 'random':
+                        orientation_type = np.random.uniform(0.333, 1)
+
+                # If the shape is Lemon, only do normal and top orientations
+                if random_shape.find("Lemon") != -1:
+                    # Rotated orientation is > 0.333
+                    # Top orientation is > 0.667
+                    if hand_orientation == 'random':
+                        Choice1 = np.random.uniform(0, 0.333)
+                        Choice2 = np.random.uniform(0.667, 1)
+                        orientation_type = np.random.choice([Choice1, Choice2])
 
                 print("orientation_type: ",orientation_type)
                 # Initial position
