@@ -730,7 +730,6 @@ def get_exp_input(exp_name, shapes, sizes):
         exp_shapes += ["Cube" + size for size in sizes]
     else:
         exp_shapes += ["CubeS"]
-    print(exp_shapes)
     # All orientations
     if "orientations" in exp_types:
         exp_orientation = "random"
