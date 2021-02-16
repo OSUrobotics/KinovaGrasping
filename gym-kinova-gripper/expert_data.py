@@ -946,7 +946,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         print("# Episodes: ", replay_buffer.replay_ep_num)
         print("# Trajectories: ", replay_buffer.size)
         print("\nHeatmap coordinate data saved at: ",expert_saving_dir)
-    return replay_buffer, save_filepath, expert_saving_dir, text
+    return replay_buffer, save_filepath, expert_saving_dir, text, num_success, (num_success+num_fail)
 
 
 def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir=None):
