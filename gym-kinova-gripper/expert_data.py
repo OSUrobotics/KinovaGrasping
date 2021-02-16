@@ -902,15 +902,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     heatmap_save_path = Path(heatmap_saving_dir)
     heatmap_save_path.mkdir(parents=True, exist_ok=True)
 
-    print("heatmap_saving_dir: ",heatmap_saving_dir)
-
     # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
     filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
-
-    # Heatmap coordinate saving
-    #np.save(expert_output_saving_dir + "/success_timesteps", success_timesteps)
-    #np.save(expert_output_saving_dir + "/fail_timesteps", fail_timesteps)
-    #np.save(expert_output_saving_dir + "/all_timesteps", all_timesteps)
 
     #print("Plotting timestep distribution...")
     #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)

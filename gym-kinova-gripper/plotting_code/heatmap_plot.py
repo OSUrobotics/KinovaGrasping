@@ -208,9 +208,6 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
     plot_save_path = Path(saving_dir)
     plot_save_path.mkdir(parents=True, exist_ok=True)
 
-    print("In generate_heatmaps, data_dir: ",data_dir)
-    print("In generate_heatmaps, saving_dir: ",saving_dir)
-
     # FOR EVAL
     if plot_type == "eval":
         for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes / saving_freq), dtype=int):
@@ -218,7 +215,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
             ep_str = str(ep_num)
             # Get coordinate data as numpy arrays
             success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+ep_str)
-            #print("success_x, success_y: (",success_x,", ",success_y,")")
+
             # Plot coordinate data to frequency and success rate heatmaps
             create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
     else:
@@ -230,6 +227,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
         create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
 
     print(plot_type + "plots saved at: ", saving_dir)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -246,8 +244,5 @@ if __name__ == "__main__":
 
     if data_dir[-1] != "/":
         data_dir += "/"
-
-    print("Getting heatmap plots data from: ",data_dir)
-    print("Saving heatmap plots at: ",saving_dir)
 
     generate_heatmaps(plot_type, data_dir, orientation, saving_dir)

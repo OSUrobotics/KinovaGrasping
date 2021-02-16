@@ -767,7 +767,7 @@ def get_exp_input(exp_name, shapes, sizes):
     return exp_shapes, exp_orientation
 
 
-def generate_output(text,data_dir,orientations_list,saving_dir):
+def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_total, all_saving_dirs):
     """ Generate heatmaps, boxplots, and output info file """
     # Produce plots
     print("data_dir: ",data_dir)
@@ -799,7 +799,8 @@ def generate_output(text,data_dir,orientations_list,saving_dir):
                                      saving_dir=saving_dir + "/boxplot/eval/" + orientation + "/")
 
     print("Writing to experiment info file...")
-    #create_info_file(num_success, num_total, all_saving_dirs, text)
+    if all_saving_dirs is not None:
+        create_info_file(num_success, num_total, all_saving_dirs, text)
 
 
 def rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list):
@@ -839,7 +840,12 @@ def rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_o
 
     text = exp_text + "\n" + previous_text + "\n" + type_text + "\n" + success_text + "\n" + output_text
 
-    # Generate output plots and info file
+    # Create unique info file
+    f = open(all_saving_dirs["output_dir"] + "/"+str(args.mode)+"_info.txt", "w")
+    f.write(text)
+    f.close()
+
+    # Generate output plots and info file, all saving dirs set to none as it has a unique info file
     generate_output(text, output_dir, requested_orientation_list, saving_dir)
 
     print("--------------------------------------------------")
@@ -930,7 +936,7 @@ if __name__ == "__main__":
     parser.add_argument("--hand_orientation", action='store', type=str)         # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive_only, expert_only, expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10000, type=int)         # Maximum size of agent's replay buffer
-    parser.add_argument("--expert_prob", default=0.7, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--expert_prob", default=0.3, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
     parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
     parser.add_argument("--update_after", default=10, type=int) # Start to update the policy after # episodes have occured
@@ -1073,7 +1079,8 @@ if __name__ == "__main__":
 
     ## Pre-trained Policy ##
     # Default pre-trained policy file path
-    pretrain_model_save_path = "./policies/rl_exp_pretrain_no_grasp_2_7_2021/pre_DDPGfD_kinovaGrip_02_05_21_2324"
+    pretrain_model_save_path = None # FILL WITH AGENT REPLAY FROM PRETRAINING
+    # Previous default pre-train policy: "./policies/rl_exp_pretrain_no_grasp_2_7_2021/pre_DDPGfD_kinovaGrip_02_05_21_2324"
 
     # Initialize timer to analyze run times
     total_time = Timer()
@@ -1117,6 +1124,9 @@ if __name__ == "__main__":
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
+        print("Expert replay Buffer: ", expert_replay_file_path)
+        print("Agent replay Buffer: ", agent_replay_file_path)
+
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
@@ -1146,6 +1156,10 @@ if __name__ == "__main__":
     # Train policy starting with pre-trained policy and sampling from experience
     elif args.mode == "train":
         print("MODE: Train (w/ pre-trained policy")
+        print("Expert replay Buffer: ", expert_replay_file_path)
+        print("Agent replay Buffer: ", agent_replay_file_path)
+        print("Pre-trained Policy: ", pretrain_model_save_path)
+
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
         if agent_replay_file_path is not None:
@@ -1162,12 +1176,9 @@ if __name__ == "__main__":
 
         # Load Pre-Trained policy
         policy.load(pretrain_model_save_path)
-        print("Expert replay: ", expert_replay_file_path)
-        print("Pre-trained policy: ", pretrain_model_save_path)
 
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
-
 
         # Train the policy and save it
         # Initialize timer to analyze run times
@@ -1180,7 +1191,6 @@ if __name__ == "__main__":
 
         # Save train agent replay data
         agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
-        print("From training, agent_replay_save_path: ", agent_replay_save_path)
 
         # Create plots and info file
         generate_output(param_text, all_saving_dirs["output_dir"], requested_orientation_list, all_saving_dirs["output_dir"])
@@ -1188,6 +1198,9 @@ if __name__ == "__main__":
     # Train policy given randomly initialized policy
     elif args.mode == "rand_train":
         print("MODE: Train (Random init policy)")
+        print("Expert replay Buffer: ", expert_replay_file_path)
+        print("Agent replay Buffer: ", agent_replay_file_path)
+
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
@@ -1210,7 +1223,6 @@ if __name__ == "__main__":
 
         # Save train agent replay data
         agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
-        print("In rand_train, agent_replay_save_path: ", agent_replay_save_path)
 
         # Create plots and info file
         generate_output(param_text, all_saving_dirs["output_dir"], requested_orientation_list, all_saving_dirs["output_dir"])
@@ -1218,6 +1230,7 @@ if __name__ == "__main__":
     # Test policy over certain number of episodes -- In Progress
     elif args.mode == "test":
         print("MODE: Test")
+        print("Policy: ", pretrain_model_save_path)
 
         # Load policy
         policy.load(pretrain_model_save_path)   # Change to be complete, trained policy

@@ -662,16 +662,13 @@ class KinovaGripper_Env(gym.Env):
         #    finger_reward = 0
         """
 
+        # STEPH TEST GRASP REWARD
         if self.with_grasp_reward is True and grasp_reward > 0:
             print("!! Grasp Reward is TRUE and You got a Grasp_reward: ",grasp_reward)
-            print("QUIT 1")
-            quit()
 
         if grasp_reward > 0:
             print("!! grasp_reward > 0: ",grasp_reward)
             print("But, self.with_grasp_reward is : ",self.with_grasp_reward)
-            print("QUIT 2")
-            quit()
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
