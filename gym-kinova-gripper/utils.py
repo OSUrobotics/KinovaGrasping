@@ -151,7 +151,7 @@ class ReplayBuffer_Queue(object):
 
 	## OLD WORKING ** OPTIMIZED VERSION ** ##
 	def sample_batch_nstep(self,batch_size,replay_type):
-		# Samples batch size of replay buffer trajectories for learning using n-step returns 
+		# Samples batch size of replay buffer trajectories for learning using n-step returns
 		# Initialize arrays
 		state_trajectory_batch = []
 		action_trajectory_batch = []
@@ -340,7 +340,7 @@ class ReplayBuffer_Queue(object):
 	"""
 	# OLD WORKING VERSION
 	def sample_batch_nstep(self,batch_size,replay_type):
-		# Samples batch size of replay buffer trajectories for learning using n-step returns 
+		# Samples batch size of replay buffer trajectories for learning using n-step returns
 		# Initialize arrays
 		state_arr = []
 		action_arr = []
@@ -801,7 +801,7 @@ class ReplayBuffer_VarStepsEpisode(object):
 		#note: episode is an array (with one element). so we need to access the element with `episode[0]`
 
 		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
-		# sample episode 
+		# sample episode
 		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
 
 		#if self.episodes_count > 10:

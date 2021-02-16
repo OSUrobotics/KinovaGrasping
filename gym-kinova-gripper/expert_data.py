@@ -131,7 +131,7 @@ def generate_lifting_data(env, total_steps, filename, grasp_filename):
                 # pdb.set_trace()
                 obs, reward, _, _ = env.step(action)
 
-            # time.sleep(0.25)    
+            # time.sleep(0.25)
         print(reward)
 
         # record fail or success
@@ -237,7 +237,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
 
             # env.render()
             # print(action)
-            # store data into replay buffer 
+            # store data into replay buffer
             replay_buffer.add(obs, action, next_obs, reward, done)
             # replay_buffer.add(obs, obs[24:28], next_obs, reward, done) # store joint angles as actions
 
@@ -254,7 +254,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
                 action = expert.get_expert_vel(dot_prod, dom_finger)
                 prev_vel = action
                 touch_dot_prod = dot_prod
-            # if object is close to center 
+            # if object is close to center
             if touch_dot_prod > 0.8:  # can only check dot product after fingers are making contact
                 close = 1
             if close == 1:
@@ -293,7 +293,7 @@ def generate_Data(env, num_episode, filename, replay_buffer):
     # data["states_for_lifting"] = states_for_lifting
     # data["label_for_lifting"] = label_for_lifting
     # data["states_when_closing"] = states_when_closing
-    # data["label_when_closing"] = label_when_closing    
+    # data["label_when_closing"] = label_when_closing
     # data["states_ready_grasp"] = states_ready_grasp
     # data["label_ready_grasp"] = label_ready_grasp
 
@@ -391,12 +391,12 @@ class PID(object):
 ### PID nudge controller ###
 # 1. Obtain (noisy) initial position of an object
 # 2. move fingers that closer to the object
-# 3. Move the other when the object is almost at the center of the hand 
+# 3. Move the other when the object is almost at the center of the hand
 # 4. Close grasp
 
 ### PID nudge controller ###
 # 1. Obtain (noisy) initial position of an object
-# 2. Move fingers that further away to the object 
+# 2. Move fingers that further away to the object
 # 3. Close the other finger (nearer one) and make contact "simultaneously"
 # 4. Close fingers to secure grasp
 ##############################################################################
@@ -444,7 +444,7 @@ class ExpertPIDController(object):
         ready_for_lift = 0
         num_consistent_grasps = 1  # Number of time steps the hand has to be in a good grasping position to lift
 
-        ''' Note: only comparing initial X position of object. because we know 
+        ''' Note: only comparing initial X position of object. because we know
         the hand starts at the same position every time (close to origin) '''
 
         # Check if the object is near the center area (less than x-axis 0.03)
@@ -1061,7 +1061,7 @@ def plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_
 # Command line
 '''
 # Collect entire sequence / trajectory
-LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --num_episode 5000 --data_gen 1 --filename data_cube_5 
+LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --num_episode 5000 --data_gen 1 --filename data_cube_5
 
 # Collect grasp data
 LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so python train.py --grasp_total_steps 10 --filename data_cube_5_10_07_19_1612 --grasp_filename data_cube_5_10_07_19_1612_grasp --grasp_validation 1 --data_gen 1
