@@ -87,9 +87,11 @@ def save_coordinates(x,y,file_path,filename,episode_num):
     coord_save_path = Path(file_path)
     coord_save_path.mkdir(parents=True, exist_ok=True)
 
+    print("Saving Heatmap coordinates at: ",file_path + filename)
+
     ep_str = ""
     if episode_num is not None:
         ep_str = "_"+str(episode_num)
 
-    np.save(file_path + filename+"_x"+ep_str, x)
-    np.save(file_path + filename+"_y"+ep_str, y)
+    np.save(file_path + "/" + filename+"_x"+ep_str, x)
+    np.save(file_path+ "/" + filename+"_y"+ep_str, y)

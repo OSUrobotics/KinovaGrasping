@@ -161,7 +161,6 @@ class ReplayBuffer_Queue(object):
 
 		# List of randomly-selected episode indices based on current number of episodes
 		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
-		#print("hi episode_idx_arr: ",episode_idx_arr)
 
 		# Check if any episodes are invalid (episode length less than n_steps)
 		invalid_state_idx = list(filter(lambda x: len(self.state[x]) - self.n_steps <= 1, episode_idx_arr))
@@ -204,8 +203,6 @@ class ReplayBuffer_Queue(object):
 			torch.FloatTensor(reward_trajectory_batch).to(self.device),
 			torch.FloatTensor(not_done_trajectory_batch).to(self.device)
 		)
-
-
 
 	"""
 	### STEPH TEST ###

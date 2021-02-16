@@ -201,11 +201,15 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
     """
     # If input data directory is not found, return back
     if not os.path.isdir(data_dir):
+        print("data_dir not found! data_dir: ",data_dir)
         return
 
     # Create saving directory if it does not exist
     plot_save_path = Path(saving_dir)
     plot_save_path.mkdir(parents=True, exist_ok=True)
+
+    print("In generate_heatmaps, data_dir: ",data_dir)
+    print("In generate_heatmaps, saving_dir: ",saving_dir)
 
     # FOR EVAL
     if plot_type == "eval":
