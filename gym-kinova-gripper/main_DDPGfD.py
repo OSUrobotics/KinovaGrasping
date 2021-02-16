@@ -759,6 +759,7 @@ def get_exp_input(exp_name, shapes, sizes):
         exp_shapes += ["Cube" + size for size in sizes]
     else:
         exp_shapes += ["CubeS"]
+
     # All orientations
     if "orientations" in exp_types:
         exp_orientation = "random"
@@ -898,28 +899,28 @@ def create_info_file(num_success,num_total,all_saving_dirs,extra_text=""):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--policy_name", default="DDPGfD")              # Policy name
+    parser.add_argument("--policy_name", default="DDPGfD")				# Policy name
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0") # OpenAI gym environment name
-    parser.add_argument("--seed", default=2, type=int)                  # Sets Gym, PyTorch and Numpy seeds
-    parser.add_argument("--start_timesteps", default=100, type=int)     # How many time steps purely random policy is run for
-    parser.add_argument("--eval_freq", default=200, type=float)         # How often (time steps) we evaluate
+    parser.add_argument("--seed", default=2, type=int)					# Sets Gym, PyTorch and Numpy seeds
+    parser.add_argument("--start_timesteps", default=100, type=int)		# How many time steps purely random policy is run for
+    parser.add_argument("--eval_freq", default=200, type=float)			# How often (time steps) we evaluate
     parser.add_argument("--eval_num", default=100, type=float)          # Number of grasp trials to evaluate over
-    parser.add_argument("--max_timesteps", default=1e6, type=int)       # Max time steps to run environment for
-    parser.add_argument("--max_episode", default=20000, type=int)       # Max time steps to run environment for
-    parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
-    parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
-    parser.add_argument("--batch_size", default=0, type=int)            # Batch size for both actor and critic - Change to be 64
-    parser.add_argument("--discount", default=0.995, type=float)            # Discount factor
-    parser.add_argument("--tau", default=0.0005, type=float)                # Target network update rate
-    parser.add_argument("--policy_noise", default=0.01, type=float)     # Noise added to target policy during critic update
-    parser.add_argument("--noise_clip", default=0.05, type=float)       # Range to clip target policy noise
-    parser.add_argument("--policy_freq", default=2, type=int)           # Frequency of delayed policy updates
-    parser.add_argument("--tensorboardindex", type=str, default=None)   # Tensorboard log name, found in kinova_gripper_strategy/
-    parser.add_argument("--expert_replay_size", default=20000, type=int)    # Number of episode for loading expert trajectories
+    parser.add_argument("--max_timesteps", default=1e6, type=int)		# Max time steps to run environment for
+    parser.add_argument("--max_episode", default=20000, type=int)		# Max time steps to run environment for
+    parser.add_argument("--save_models", action="store_true")			# Whether or not models are saved
+    parser.add_argument("--expl_noise", default=0.1, type=float)		# Std of Gaussian exploration noise
+    parser.add_argument("--batch_size", default=0, type=int)			# Batch size for both actor and critic - Change to be 64
+    parser.add_argument("--discount", default=0.995, type=float)			# Discount factor
+    parser.add_argument("--tau", default=0.0005, type=float)				# Target network update rate
+    parser.add_argument("--policy_noise", default=0.01, type=float)		# Noise added to target policy during critic update
+    parser.add_argument("--noise_clip", default=0.05, type=float)		# Range to clip target policy noise
+    parser.add_argument("--policy_freq", default=2, type=int)			# Frequency of delayed policy updates
+    parser.add_argument("--tensorboardindex", type=str, default=None)	# Tensorboard log name, found in kinova_gripper_strategy/
+    parser.add_argument("--expert_replay_size", default=20000, type=int)	# Number of episode for loading expert trajectories
     parser.add_argument("--saving_dir", type=str, default=None)             # Directory name to save policy within policies/
     parser.add_argument("--shapes", default='CubeS', action='store', type=str) # Requested shapes to use (in format of object keys)
     parser.add_argument("--hand_orientation", action='store', type=str)         # Requested shapes to use (in format of object keys)
-    parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive_only, expert_only, expert, pre-train, train, rand_train, test, experiment)
+    parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive_only, expert_only, expert, pre-train, train, rand_train, test)
     parser.add_argument("--agent_replay_size", default=10000, type=int)         # Maximum size of agent's replay buffer
     parser.add_argument("--expert_prob", default=0.3, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
@@ -1052,10 +1053,10 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data/with_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data/old_expert_data/Expert_data_WITH_GRASP/"
         with_grasp_str = "WITH grasp"
     else:
-        expert_replay_file_path = "./expert_replay_data/no_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data/old_expert_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
@@ -1130,10 +1131,8 @@ if __name__ == "__main__":
 
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        for shapes_to_load in requested_shapes:
-            expert_replay_file_path = expert_replay_file_path + shapes_to_load +"/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+        # Load expert data from saved expert pid controller replay buffer
+        expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         # Model replay buffer file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1171,10 +1170,8 @@ if __name__ == "__main__":
 
         # Initialize expert replay buffer,
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        for shapes_to_load in requested_shapes:
-            expert_replay_file_path = expert_replay_file_path + shapes_to_load +"/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+        # Load expert data from saved expert pid controller replay buffer
+        expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1283,8 +1280,7 @@ if __name__ == "__main__":
         prev_exp_stage, prev_exp_num, prev_exp_name, exp_stage, exp_name = get_experiment_info(exp_num)
 
         # Setup directories for experiment output
-        #expert_replay_file_path , prev_exp_dir, exp_dir = get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name)
-        _, prev_exp_dir, exp_dir = get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name)
+        expert_replay_file_path, prev_exp_dir, exp_dir = get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name)
 
         # Get experiment-specific shapes list and orientation combo
         requested_shapes, requested_orientation = get_exp_input(exp_name, shapes, sizes)
@@ -1309,16 +1305,13 @@ if __name__ == "__main__":
         # Initialize Agent replay buffer for current experiment with experience from previous experiment
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim,
                                                  agent_replay_size)  # Agent Replay Buffer for current experiment
-        agent_replay_file_path = prev_exp_dir + "/replay_buffer/"     # Agent replay buffer location from prev. experiment
+        agent_replay_file_path = prev_exp_dir + "/replay_buffer"     # Agent replay buffer location from prev. experiment
         replay_buffer.store_saved_data_into_replay(agent_replay_file_path)  # Fill experience from prev. stage into replay buffer
 
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        for shapes_to_load in requested_shapes:
-            expert_replay_file_path = expert_replay_file_path + shapes_to_load +"/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
-        print("load_success")
+        # Load expert data from saved expert pid controller replay buffer
+        expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         if expert_replay_buffer.size == 0 or replay_buffer.size == 0:
             print("No experience in replay buffer! Quitting...")
