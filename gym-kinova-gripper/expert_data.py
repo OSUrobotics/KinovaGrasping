@@ -902,15 +902,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     heatmap_save_path = Path(heatmap_saving_dir)
     heatmap_save_path.mkdir(parents=True, exist_ok=True)
 
-    print("heatmap_saving_dir: ",heatmap_saving_dir)
-
     # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
     filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
-
-    # Heatmap coordinate saving
-    #np.save(expert_output_saving_dir + "/success_timesteps", success_timesteps)
-    #np.save(expert_output_saving_dir + "/fail_timesteps", fail_timesteps)
-    #np.save(expert_output_saving_dir + "/all_timesteps", all_timesteps)
 
     #print("Plotting timestep distribution...")
     #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
@@ -949,7 +942,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
         text = name_text + success_text + shapes_text + output_dir_text
 
-        print("Saved replay buffer to location: ", save_filepath)
+        print("Expert data generation replay buffer saved to location: ", save_filepath)
         print("# Episodes: ", replay_buffer.replay_ep_num)
         print("# Trajectories: ", replay_buffer.size)
         print("\nHeatmap coordinate data saved at: ",expert_saving_dir)
@@ -1084,7 +1077,7 @@ if __name__ ==  "__main__":
     expert_replay_size = 10
     with_grasp = False
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    #replay_buffer, save_filepath, data_dir, info_file_text = GenerateExpertPID_JointVel(10, "CubeS", with_grasp, expert_replay_buffer, save=False, render_imgs=False, pid_mode="naive_only")
+    replay_buffer, save_filepath, data_dir, info_file_text = GenerateExpertPID_JointVel(10, "CubeS", with_grasp, expert_replay_buffer, save=False, render_imgs=True, pid_mode="expert_naive")
 
     #print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")

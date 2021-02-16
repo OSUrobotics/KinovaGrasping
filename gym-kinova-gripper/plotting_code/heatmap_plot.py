@@ -187,14 +187,6 @@ def get_heatmap_coord_data(data_dir,ep_str):
             arr_dict[file] = np.load(filename)
         else:
             arr_dict[file] = np.array([])
-    """
-    success_x = np.load(data_dir+"success_x"+ep_str+".npy")
-    success_y = np.load(data_dir+"success_y"+ep_str+".npy")
-    fail_x = np.load(data_dir+"fail_x"+ep_str+".npy")
-    fail_y = np.load(data_dir+"fail_y"+ep_str+".npy")
-    total_x = np.load(data_dir+"total_x"+ep_str+".npy")
-    total_y = np.load(data_dir+"total_y"+ep_str+".npy")
-    """
 
     return arr_dict["success_x"], arr_dict["success_y"], arr_dict["fail_x"], arr_dict["fail_y"], arr_dict["total_x"], arr_dict["total_y"]
 
@@ -209,6 +201,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
     """
     # If input data directory is not found, return back
     if not os.path.isdir(data_dir):
+        print("data_dir not found! data_dir: ",data_dir)
         return
 
     # Create saving directory if it does not exist
@@ -222,7 +215,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
             ep_str = str(ep_num)
             # Get coordinate data as numpy arrays
             success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+ep_str)
-            #print("success_x, success_y: (",success_x,", ",success_y,")")
+
             # Plot coordinate data to frequency and success rate heatmaps
             create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
     else:
@@ -234,6 +227,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
         create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
 
     print(plot_type + "plots saved at: ", saving_dir)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -250,8 +244,5 @@ if __name__ == "__main__":
 
     if data_dir[-1] != "/":
         data_dir += "/"
-
-    print("Getting heatmap plots data from: ",data_dir)
-    print("Saving heatmap plots at: ",saving_dir)
 
     generate_heatmaps(plot_type, data_dir, orientation, saving_dir)

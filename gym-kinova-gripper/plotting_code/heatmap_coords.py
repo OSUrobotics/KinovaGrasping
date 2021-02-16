@@ -91,5 +91,5 @@ def save_coordinates(x,y,file_path,filename,episode_num):
     if episode_num is not None:
         ep_str = "_"+str(episode_num)
 
-    np.save(file_path + filename+"_x"+ep_str, x)
-    np.save(file_path + filename+"_y"+ep_str, y)
+    np.save(file_path + "/" + filename+"_x"+ep_str, x)
+    np.save(file_path+ "/" + filename+"_y"+ep_str, y)

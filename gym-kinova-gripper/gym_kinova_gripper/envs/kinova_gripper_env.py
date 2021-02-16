@@ -604,6 +604,7 @@ class KinovaGripper_Env(gym.Env):
         info = {"lift_reward":lift_reward}
         return lift_reward, info, done
 
+
     # Function to get rewards for RL training
     def _get_reward(self,with_grasp_reward=False): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
         #TODO: Make sure this works with the new grasp classifier
@@ -622,15 +623,23 @@ class KinovaGripper_Env(gym.Env):
             network_inputs=np.append(network_inputs,obs[24:])
             inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
+            #print("KINOV ENV, ", with_grasp_reward is True)
+            #print("< 0.035, np.max(np.array(obs[41:46])): ",np.max(np.array(obs[41:46])))
+            #print("< 0.015, np.max(np.array(obs[35:40])): ",np.max(np.array(obs[35:40])))
+
+            # STEPH TEST GRASP REWARD
             # If proximal or distal finger position is close enough to object
-            if np.max(np.array(obs[41:46])) < 0.035 or np.max(np.array(obs[35:40])) < 0.015:
-                 # Grasp classifier determines how good grasp is
-                 outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
-                 if (outputs >=0.3) & (not self.Grasp_Reward):
-                     grasp_reward = 5.0
-                     self.Grasp_Reward=True
-                 else:
-                     grasp_reward = 0.0
+            #if np.max(np.array(obs[41:46])) < 0.035 or np.max(np.array(obs[35:40])) < 0.015:
+            # Grasp classifier determines how good grasp is
+            outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
+            #print("KINOV ENV, outputs", outputs)
+            if (outputs >=0.3) & (not self.Grasp_Reward):
+                #print("KINOV ENV, outputs >=0.3 & not self.Grasp_Reward: ", not self.Grasp_Reward)
+                grasp_reward = 5.0
+                self.Grasp_Reward=True
+            else:
+                #print("else: grasp reward is 0, : ",grasp_reward)
+                grasp_reward = 0.0
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
             lift_reward = 50.0
@@ -653,8 +662,13 @@ class KinovaGripper_Env(gym.Env):
         #    finger_reward = 0
         """
 
+        # STEPH TEST GRASP REWARD
         if self.with_grasp_reward is True and grasp_reward > 0:
             print("!! Grasp Reward is TRUE and You got a Grasp_reward: ",grasp_reward)
+
+        if grasp_reward > 0:
+            print("!! grasp_reward > 0: ",grasp_reward)
+            print("But, self.with_grasp_reward is : ",self.with_grasp_reward)
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
@@ -1162,7 +1176,6 @@ class KinovaGripper_Env(gym.Env):
                         Choice2 = np.random.uniform(0.667, 1)
                         orientation_type = np.random.choice([Choice1, Choice2])
 
-                print("orientation_type: ",orientation_type)
                 # Initial position
                 if orientation_type <0.333:
                     new_rotation=np.array([-1.57,0,-1.57])+hand_rotation
