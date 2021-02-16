@@ -234,7 +234,8 @@ class KinovaGripper_Env(gym.Env):
             obs_max = max_joint_states + max_obj_xyz + max_obj_size + max_dot_prod
             self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
         # <---- end of unused section
-
+        self.Grasp_net = pickle.load(open(self.file_dir+'/kinova_description/gc_model.pkl', "rb"))
+        
         #self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_05_28_20_2105local.pt"
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_01_23_20_2052local.pt"
@@ -443,6 +444,7 @@ class KinovaGripper_Env(gym.Env):
         (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
         (1, ) Dot product (wrist) 81
         '''
+        
         '''
         Global obs, all in global coordinates (from simulator 0,0,0)
         (18,) Finger Pos                                        0-17
@@ -614,14 +616,16 @@ class KinovaGripper_Env(gym.Env):
         finger_reward = 0.0 # Finger reward
 
         obs = self._get_obs(state_rep="global")
+        local_obs=self._get_obs(state_rep='local')
         #loc_obs=self._get_obs()
 
         # Grasp reward set by grasp classifier, otherwise 0
         if with_grasp_reward is True:
-            network_inputs=obs[0:5]
-            network_inputs=np.append(network_inputs,obs[6:23])
-            network_inputs=np.append(network_inputs,obs[24:])
-            inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
+            
+            #network_inputs=obs[0:5]
+            #network_inputs=np.append(network_inputs,obs[6:23])
+            #network_inputs=np.append(network_inputs,obs[24:])
+            #inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
             #print("KINOV ENV, ", with_grasp_reward is True)
             #print("< 0.035, np.max(np.array(obs[41:46])): ",np.max(np.array(obs[41:46])))
@@ -631,7 +635,7 @@ class KinovaGripper_Env(gym.Env):
             # If proximal or distal finger position is close enough to object
             #if np.max(np.array(obs[41:46])) < 0.035 or np.max(np.array(obs[35:40])) < 0.015:
             # Grasp classifier determines how good grasp is
-            outputs = self.Grasp_net(inputs).cpu().data.numpy().flatten()
+            outputs = self.Grasp_net.predict(np.array(local_obs[0:75]).reshape(1,-1))#self.Grasp_net(inputs).cpu().data.numpy().flatten()
             #print("KINOV ENV, outputs", outputs)
             if (outputs >=0.3) & (not self.Grasp_Reward):
                 #print("KINOV ENV, outputs >=0.3 & not self.Grasp_Reward: ", not self.Grasp_Reward)
