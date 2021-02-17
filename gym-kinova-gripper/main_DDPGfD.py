@@ -1116,7 +1116,7 @@ if __name__ == "__main__":
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(saving_dir, expert_replay_file_path, "None",
                                             "None", "None")
-
+        # Generate plots and info file
         generate_output("\nPARAMS: \n"+param_text+info_file_text, expert_output_data_dir, requested_orientation_list, expert_output_data_dir, num_success, num_total, all_saving_dirs)
 
     # Pre-train policy using expert data, save pre-trained policy for use in training
