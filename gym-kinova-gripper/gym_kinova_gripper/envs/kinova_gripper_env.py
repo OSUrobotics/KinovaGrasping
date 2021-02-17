@@ -1107,7 +1107,9 @@ class KinovaGripper_Env(gym.Env):
 
         shapes=list(self.objects.keys())
 
-        hand_rotation= 0 #np.random.normal(-0.087,0.087,3)
+        # Initialized as 0, but later noise is added depending on orientation/shape
+        hand_rotation= 0
+        #np.random.normal(-0.087,0.087,3)
         obj=0
 
         # Orientation is initialized as Normal
@@ -1198,13 +1200,41 @@ class KinovaGripper_Env(gym.Env):
                 coords_filename = "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt"
         #print("COORDS FILENAME: ",coords_filename)
 
+        # Based on orientation and shape, add noise
+        orient_file_text = ""
+        orient_text = ""
+        if orientation_type < 0.333:
+            # Normal Orientation
+            self.orientation = 'normal'
+            orient_file_text = 'norm'
+            orient_text = 'normal'
+        elif orientation_type > 0.667:
+            # Top Orientation
+            self.orientation = 'top'
+            orient_file_text = 'top'
+            orient_text = 'top'
+        else:
+            # Rotated orientation
+            self.orientation = 'rotated'
+            orient_file_text = 'side'
+            orient_text = 'side'
+
+        # Orientation noise filename
+        orient_noise_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(mode)+"_orientation_noise/" + str(orient_text) + "/" + random_shape + "_" + orient_file_text + "_rotation.txt"
+        hand_rotation = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename)
+        # Add noise
+        new_rotation += hand_rotation
+        print("ADD NOISE IS TRUE")
+        print("self.orientation: ", self.orientation)
+        print("shape: ", random_shape)
+        print("orient_noise_filename: ", orient_noise_filename)
+        print("hand_rotation: ", hand_rotation)
+
         self.write_xml(new_rotation)
 
         if orientation_type < 0.333:
-            self.orientation = 'normal'
             xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
         elif orientation_type > 0.667:
-            self.orientation = 'top'
             size=self._get_obj_size()
 
             if self.obj_size=='b':
@@ -1217,7 +1247,6 @@ class KinovaGripper_Env(gym.Env):
             #stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.1+size[-1]*1.8])
             xloc,yloc,zloc,f1prox,f2prox,f3prox=-stuff[0],-stuff[1],stuff[2],0,0,0
         else:
-            self.orientation = 'rotated'
             temp=np.matmul(self.Tfw[0:3,0:3],np.array([0.051,-0.075,0.06]))
             #print('temp',temp)
             xloc,yloc,zloc,f1prox,f2prox,f3prox=-temp[0],-temp[1],temp[2],0,0,0
