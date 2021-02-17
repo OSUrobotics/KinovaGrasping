@@ -433,6 +433,10 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         obj_local_pos = obj_local[0:3]
 
         replay_buffer.add_episode(1)
+        # Add orientation noise to be recorded by replay buffer
+        orientation_idx = env.get_orientation_idx()
+        replay_buffer.add_orientation_idx_to_replay(orientation_idx)
+
         timestep = 0
         replay_buffer_recorded_ts = 0
         check_for_lift = True
@@ -1118,6 +1122,7 @@ if __name__ == "__main__":
                                             "None", "None")
         # Generate plots and info file
         generate_output("\nPARAMS: \n"+param_text+info_file_text, expert_output_data_dir, requested_orientation_list, expert_output_data_dir, num_success, num_total, all_saving_dirs)
+
 
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":

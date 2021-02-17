@@ -27,6 +27,8 @@ class ReplayBuffer_Queue(object):
 		self.lift_reward = [[]]
 		self.n_steps = n_steps
 
+		self.orientation_indexes = [] # Hand pose variation and noise
+
 		self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 	def add(self, state, action, next_state, reward, done):
@@ -71,6 +73,7 @@ class ReplayBuffer_Queue(object):
 		self.reward.pop(idx)
 		self.not_done.pop(idx)
 		self.episodes.pop(idx)
+		self.orientation_indexes.pop(idx)
 
 		self.replay_ep_num -= 1
 
@@ -88,6 +91,11 @@ class ReplayBuffer_Queue(object):
 			self.episodes.append([])
 			self.timesteps_count = 0  # Reset count of timesteps within an episode
 		return
+
+	def add_orientation_idx_to_replay(self, idx):
+		""" Add orientation noise for each episode """
+		# Appends for each episode
+		self.orientation_indexes.append(idx)
 
 	def sample(self):
 		""" Sample one episode from replay buffer, learn from full trajectory """
@@ -455,6 +463,7 @@ class ReplayBuffer_Queue(object):
 		np.save(save_filepath + "episodes_info",
 				[self.max_episode, self.size, self.episodes_count,
 				 self.replay_ep_num])
+		np.save(save_filepath + "orientation_indexes", self.orientation_indexes) # Keep track of orientation noise at each timestep
 		# max_episode: Maximum number of episodes, limit to when we remove old episodes
 		# size: Full size of the replay buffer (number of entries over all episodes)
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
@@ -475,6 +484,11 @@ class ReplayBuffer_Queue(object):
 		expert_episodes = np.load(filepath + "episodes.npy", allow_pickle=True).astype(
 			'object')  # Keep track of episode start/finish indexes
 		expert_episodes_info = np.load(filepath + "episodes_info.npy", allow_pickle=True)
+		# Hand pose orientation per time step per episode
+		orient_file = Path(filepath + "orientation_indexes.npy")
+		if orient_file.is_file():
+			expert_orientation_indexes = np.load(filepath + "orientation_indexes.npy", allow_pickle=True).astype('object')
+			self.orientation_indexes = expert_orientation_indexes.tolist()
 
 		# Convert numpy array to list and set to replay buffer
 		self.state = expert_state.tolist()

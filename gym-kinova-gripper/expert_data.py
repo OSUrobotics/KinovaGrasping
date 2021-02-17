@@ -787,6 +787,9 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         # Record episode starting index if replay buffer is passed in
         if replay_buffer is not None:
             replay_buffer.add_episode(1)
+            # Add orientation noise to be recorded by replay buffer
+            orientation_idx = env.get_orientation_idx()
+            replay_buffer.add_orientation_idx_to_replay(orientation_idx)
 
         # Beginning of RL time steps within the current episode
         while not done:
