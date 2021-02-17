@@ -135,6 +135,9 @@ class KinovaGripper_Env(gym.Env):
         self.objects = {}
         self.obj_keys = list()
 
+        # Default index for orientation data files (coords and noise) based on hand pose
+        self.orientation_idx = 0
+
         # Dictionary containing all possible objects and their xml file
         self.all_objects = {}
         # Cube
@@ -747,6 +750,14 @@ class KinovaGripper_Env(gym.Env):
     def get_obj_coords(self):
         return self.obj_coords
 
+    def set_orientation_idx(self, idx):
+        """ Set hand orientation and rotation file index"""
+        self.orientation_idx = idx
+
+    def get_orientation_idx(self):
+        """ Get hand orientation and rotation file index"""
+        return self.orientation_idx
+
     # Returns hand orientation (normal, rotated, top)
     def get_orientation(self):
         return self.orientation
@@ -963,7 +974,7 @@ class KinovaGripper_Env(gym.Env):
         return random_shape, self.objects[random_shape]
 
     # Get the initial object position
-    def sample_initial_valid_object_pos(self,shapeName,coords_filename):
+    def sample_initial_valid_object_pos(self,shapeName,coords_filename,orient_idx=None):
         data = []
         with open(coords_filename) as csvfile:
             checker=csvfile.readline()
@@ -974,12 +985,15 @@ class KinovaGripper_Env(gym.Env):
             reader = csv.reader(csvfile, delimiter=delim)
             for i in reader:
                 data.append([float(i[0]), float(i[1]), float(i[2])])
-        rand_coord = random.choice(data)
+
+        if orient_idx is None:
+            orient_idx = np.random.randint(0, len(data))
+        rand_coord = data[orient_idx]
         x = rand_coord[0]
         y = rand_coord[1]
         z = rand_coord[2]
 
-        return x, y, z
+        return x, y, z, orient_idx
 
     def obj_shape_generator(self,obj_params):
         if obj_params[0] == "Cube":
@@ -1107,7 +1121,7 @@ class KinovaGripper_Env(gym.Env):
         shapes=list(self.objects.keys())
 
         # Initialized as 0, but later noise is added depending on orientation/shape
-        hand_rotation= 0
+        hand_rotation= np.array([0.,0.,0.])
         #np.random.normal(-0.087,0.087,3)
         obj=0
 
@@ -1220,14 +1234,12 @@ class KinovaGripper_Env(gym.Env):
 
         # Orientation noise filename
         orient_noise_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(mode)+"_orientation_noise/" + str(orient_text) + "/" + random_shape + "_" + orient_file_text + "_rotation.txt"
-        hand_rotation = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename)
+        rot_x, rot_y, rot_z, orient_idx = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename, orient_idx=None)
         # Add noise
-        new_rotation += hand_rotation
-        print("ADD NOISE IS TRUE")
-        print("self.orientation: ", self.orientation)
-        print("shape: ", random_shape)
-        print("orient_noise_filename: ", orient_noise_filename)
-        print("hand_rotation: ", hand_rotation)
+        new_rotation += [rot_x, rot_y, rot_z]
+
+        # Set hand pose orientation
+        self.set_orientation_idx(orient_idx)
 
         self.write_xml(new_rotation)
 
@@ -1254,12 +1266,12 @@ class KinovaGripper_Env(gym.Env):
                 if orientation_type >0.667:
                   # Check for coords text file
                   if self.check_obj_file_empty(coords_filename) == False:
-                      x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
+                      x, y, z, _ = self.sample_initial_valid_object_pos(random_shape,coords_filename,orient_idx=self.orientation_idx)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
                 else:
                   if self.check_obj_file_empty(coords_filename) == False:
-                      x, y, z = self.sample_initial_valid_object_pos(random_shape,coords_filename)
+                      x, y, z, _ = self.sample_initial_valid_object_pos(random_shape,coords_filename,orient_idx=self.orientation_idx)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
             elif len(start_pos)==3:
