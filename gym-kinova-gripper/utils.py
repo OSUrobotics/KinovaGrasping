@@ -151,7 +151,7 @@ class ReplayBuffer_Queue(object):
 
 	## OLD WORKING ** OPTIMIZED VERSION ** ##
 	def sample_batch_nstep(self,batch_size,replay_type):
-		# Samples batch size of replay buffer trajectories for learning using n-step returns 
+		# Samples batch size of replay buffer trajectories for learning using n-step returns
 		# Initialize arrays
 		state_trajectory_batch = []
 		action_trajectory_batch = []
@@ -340,7 +340,7 @@ class ReplayBuffer_Queue(object):
 	"""
 	# OLD WORKING VERSION
 	def sample_batch_nstep(self,batch_size,replay_type):
-		# Samples batch size of replay buffer trajectories for learning using n-step returns 
+		# Samples batch size of replay buffer trajectories for learning using n-step returns
 		# Initialize arrays
 		state_arr = []
 		action_arr = []
@@ -444,7 +444,7 @@ class ReplayBuffer_Queue(object):
 		save_path.mkdir(parents=True, exist_ok=True)
 		save_filepath += "/"
 
-		print("Saving replay buffer...")
+		print("Replay buffer saved at: ", save_filepath)
 		np.save(save_filepath + "state", self.state)
 		np.save(save_filepath + "action", self.action)
 		np.save(save_filepath + "next_state", self.next_state)
@@ -465,6 +465,8 @@ class ReplayBuffer_Queue(object):
 		""" Restore replay buffer from saved location """
 		if filepath is None or os.path.isdir(filepath) is False:
 			print("Replay buffer not found!! filepath: ", filepath)
+
+		print("#### Getting replay buffer from SAVED location: ", filepath)
 
 		expert_state = np.load(filepath + "state.npy", allow_pickle=True).astype('object')
 		expert_action = np.load(filepath + "action.npy", allow_pickle=True).astype('object')
@@ -496,6 +498,7 @@ class ReplayBuffer_Queue(object):
 
 		# num_episodes = len(expert_state)
 		num_episodes = self.replay_ep_num
+		print("num_episodes: ", num_episodes)
 
 
 # A buffer that stores and sample based on episodes that have different step size
@@ -801,7 +804,7 @@ class ReplayBuffer_VarStepsEpisode(object):
 		#note: episode is an array (with one element). so we need to access the element with `episode[0]`
 
 		# right here, we're grabbing the RANGE of indices from the beginning index (held in the buffer) to the ending index of the trajectory held in the buffer
-		# sample episode 
+		# sample episode
 		ind = np.arange(self.episodes[episode[0], 0], self.episodes[episode[0], 1])
 
 		#if self.episodes_count > 10:

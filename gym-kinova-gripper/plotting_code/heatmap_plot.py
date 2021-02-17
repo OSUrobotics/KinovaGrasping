@@ -226,6 +226,8 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
         # Plot coordinate data to frequency and success rate heatmaps
         create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
 
+    print(plot_type + "plots saved at: ", saving_dir)
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
