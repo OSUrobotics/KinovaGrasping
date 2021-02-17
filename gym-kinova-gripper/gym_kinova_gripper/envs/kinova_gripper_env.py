@@ -851,8 +851,7 @@ class KinovaGripper_Env(gym.Env):
             return False
 
     def Generate_Latin_Square(self,max_elements,filename,shape_keys, test = False):
-        print("GENERATE LATIN SQUARE")
-        print("shape keys: ",shape_keys)
+        """ Generate uniform list of shapes """
         ### Choose an experiment ###
         self.objects = self.experiment(shape_keys)
 

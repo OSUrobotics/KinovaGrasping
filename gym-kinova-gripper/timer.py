@@ -2,7 +2,7 @@ import time
 
 class TimerError(Exception):
     """Reports for error in timer usage"""
-    print("Uh oh! Error with timer")
+    #print("Uh oh! Error with timer")
 
 class Timer:
     def __init__(self):
@@ -34,5 +34,9 @@ class Timer:
         self._wall_start_time = None
         self._process_start_time = None
 
-        print(f"Wall clock elapsed time: {wall_elapsed_time:0.4f} seconds")
-        print(f"Process elapsed time: {process_elapsed_time:0.4f} seconds")
+        wall_text = f"Wall clock elapsed time: {wall_elapsed_time:0.4f} seconds"
+        elapsed_text = f"Process elapsed time: {process_elapsed_time:0.4f} seconds"
+
+        full_text = wall_text + "\n" + elapsed_text
+
+        return full_text
