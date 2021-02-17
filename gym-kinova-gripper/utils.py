@@ -444,7 +444,7 @@ class ReplayBuffer_Queue(object):
 		save_path.mkdir(parents=True, exist_ok=True)
 		save_filepath += "/"
 
-		print("Saving replay buffer...")
+		print("Replay buffer saved at: ", save_filepath)
 		np.save(save_filepath + "state", self.state)
 		np.save(save_filepath + "action", self.action)
 		np.save(save_filepath + "next_state", self.next_state)
@@ -465,6 +465,8 @@ class ReplayBuffer_Queue(object):
 		""" Restore replay buffer from saved location """
 		if filepath is None or os.path.isdir(filepath) is False:
 			print("Replay buffer not found!! filepath: ", filepath)
+
+		print("#### Getting replay buffer from SAVED location: ", filepath)
 
 		expert_state = np.load(filepath + "state.npy", allow_pickle=True).astype('object')
 		expert_action = np.load(filepath + "action.npy", allow_pickle=True).astype('object')
@@ -496,6 +498,7 @@ class ReplayBuffer_Queue(object):
 
 		# num_episodes = len(expert_state)
 		num_episodes = self.replay_ep_num
+		print("num_episodes: ", num_episodes)
 
 
 # A buffer that stores and sample based on episodes that have different step size
