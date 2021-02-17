@@ -1274,7 +1274,7 @@ if __name__ == "__main__":
                 shapes_list.append(shape_key[:-1])
 
         train_sizes = ["S", "B"]
-        train_shapes = ["Cube", "Cylinder", "Cube45", "Vase2", "Cone2", "Hour", "Bottle", "RBowl", "Lemon", "TBottle"]
+        train_shapes = ["Cube", "Cylinder", "Cube45", "Vase2", "Cone2", "Bottle", "RBowl", "Lemon", "TBottle"]
 
         if exp_mode == "test":
             shapes = test_shapes
