@@ -135,6 +135,9 @@ class KinovaGripper_Env(gym.Env):
         self.objects = {}
         self.obj_keys = list()
 
+        # Shape data for determining correct expert data to retrieve for sampling
+        self.random_shape = 'CubeS'
+
         # Default index for orientation data files (coords and noise) based on hand pose
         self.orientation_idx = 0
 
@@ -750,6 +753,12 @@ class KinovaGripper_Env(gym.Env):
     def get_obj_coords(self):
         return self.obj_coords
 
+    def set_random_shape(self,shape):
+        self.random_shape = shape
+
+    def get_random_shape(self):
+        return self.random_shape
+
     def set_orientation_idx(self, idx):
         """ Set hand orientation and rotation file index"""
         self.orientation_idx = idx
@@ -1334,6 +1343,9 @@ class KinovaGripper_Env(gym.Env):
         # Sets the object coordinates for heatmap tracking and plotting
         self.set_obj_coords(x,y,z)
         self._get_trans_mat_wrist_pose()
+
+        # Set the random shape so it can be retrieved in trainign to get the correct expert replay data
+        self.set_random_shape(random_shape)
 
         ##Testing Code
         '''

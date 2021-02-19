@@ -46,11 +46,15 @@ def get_boxplot_data(data_dir,filename,tot_episodes,saving_freq):
     data = []
     for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes/saving_freq), dtype=int):
         data_str = data_dir+filename+"_"+str(ep_num)+".npy"
-        print("Eval file: ", data_str)
-        data_file = np.load(data_str)[0]
+        my_file = Path(data_str)
+        if my_file.is_file():
+            print("Eval file: ", data_str)
+            data_file = np.load(data_str)[0]
 
-        for eval_data in data_file:
-            data.append(eval_data)
+            for eval_data in data_file:
+                data.append(eval_data)
+        else:
+            print("Boxplot file not found! file: ", data_str)
 
     return data
 
@@ -76,7 +80,8 @@ def generate_reward_boxplots(orientation, data_dir, saving_dir, file_list=["fing
         boxplot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
                           "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials, " + orientation + " Orientation", "freq_vals": freq_vals}
 
-        create_boxplot(saving_dir, boxplot_data, boxplot_labels, "Eval_Boxplot_"+str(file)+".png")
+        if len(boxplot_data) > 0:
+            create_boxplot(saving_dir, boxplot_data, boxplot_labels, "Eval_Boxplot_"+str(file)+".png")
 
 
 if __name__ ==  "__main__":
@@ -87,10 +92,11 @@ if __name__ ==  "__main__":
     saving_freq = 1000
     eval_freq = 200
     saving_dir = "boxplot_output"
+    orientation = "normal"
 
     output_dir = os.path.join(data_dir, saving_dir + "/")
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
 
     # Generates boxplots for each reward (finger, lift, grasp, total)
-    generate_reward_boxplots(data_dir, output_dir, file_list, tot_episodes, saving_freq, eval_freq)
+    generate_reward_boxplots(orientation, data_dir, saving_dir,file_list,tot_episodes, saving_freq, eval_freq)

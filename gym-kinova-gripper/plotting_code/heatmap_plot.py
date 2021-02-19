@@ -243,4 +243,4 @@ if __name__ == "__main__":
     if data_dir[-1] != "/":
         data_dir += "/"
 
-    generate_heatmaps(plot_type, data_dir, orientation, saving_dir)
+    generate_heatmaps(plot_type=plot_type, orientation=orientation, data_dir=data_dir, saving_dir=saving_dir)
