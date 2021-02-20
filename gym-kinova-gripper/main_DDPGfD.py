@@ -33,46 +33,6 @@ from heatmap_coords import add_heatmap_coords, filter_heatmap_coords
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
-"""
-def save_coordinates(x,y,filename,episode_num):
-    # Save heatmap initial object position x,y coordinates
-    x: initial object x-coordinate
-    y: initial object y-coordinate
-    filename: Location to save heatmap coordinates to
-    #
-    # Ensure file path is created if it doesn't exist
-    coord_save_path = Path(filename)
-    coord_save_path.mkdir(parents=True, exist_ok=True)
-
-    ep_str = ""
-    if episode_num is not None:
-        ep_str = "_"+str(episode_num)
-
-    np.save(filename+"_x"+ep_str, x)
-    np.save(filename+"_y"+ep_str, y)
-
-
-def add_heatmap_coords(success_x, success_y, fail_x, fail_y, obj_coords, success):
-    # Add object cooridnates to success/failed coordinates list
-    # Get object coordinates, transform to array
-    x_val = obj_coords[0]
-    y_val = obj_coords[1]
-    x_val = np.asarray(x_val).reshape(1)
-    y_val = np.asarray(y_val).reshape(1)
-
-    # Heatmap postion data - get starting object position and mark success/fail based on lift reward
-    if success:
-        # Append initial object coordinates to Successful coordinates array
-        success_x = np.append(success_x, x_val)
-        success_y = np.append(success_y, y_val)
-    else:
-        # Append initial object coordinates to Failed coordinates array
-        fail_x = np.append(fail_x, x_val)
-        fail_y = np.append(fail_y, y_val)
-
-    ret = {"success_x":success_x,"success_y": success_y, "fail_x": fail_x, "fail_y": fail_y}
-    return ret
-"""
 
 def compare_test():
     """ Compare policy performance """
@@ -785,7 +745,6 @@ def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_
     if os.path.isdir(data_dir+mode_str) is True:
         print("Generating heatmaps...")
         for orientation in orientations_list:
-            print("Getting coords from: data_dir + mode_str + orientation + /",data_dir+mode_str+orientation+"/")
             generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+mode_str+orientation+"/",
                               saving_dir=saving_dir+mode_str+orientation+"/")
     else:

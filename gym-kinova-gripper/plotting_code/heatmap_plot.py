@@ -16,18 +16,23 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     """
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_range = 0.09 - (-0.09)
-    y_range = 0.07
+    x_min = -0.09
+    x_max = 0.09
+    y_min = 0
+    y_max = 0.07
+
+    x_range = x_max - (x_min)
+    y_range = y_max - y_min
     x_bins = int(x_range / 0.002)
     y_bins = int(y_range / 0.002)
 
     # Get total coordinates within their respective bins
-    total_data, x_edges, y_edges = np.histogram2d(total_x,total_y, range=[[-.09, 0.09], [0, 0.07]],bins=(x_bins,y_bins))
+    total_data, x_edges, y_edges = np.histogram2d(total_x,total_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
 
     fig, ax = plt.subplots()
 
     # Plot heatmap from data
-    im = ax.imshow(total_data.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[-.09, 0.09, 0, 0.07])
+    im = ax.imshow(total_data.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
     ax.set_aspect('equal', adjustable='box')
 
     fig.set_size_inches(11,8)
@@ -52,54 +57,60 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
 def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fig_filename,saving_dir,plot_success):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Success rate of grasp trials out of total trials (Negative is failure rate)'
-    x_range = 0.09 - (-0.09)
-    y_range = 0.07
+
+    x_min = -0.09
+    x_max = 0.09
+    y_min = 0
+    y_max = 0.07
+
+    x_range = x_max - (x_min)
+    y_range = y_max - y_min
     x_bins = int(x_range / 0.002)
     y_bins = int(y_range / 0.002)
 
     # Get success/fail coordinates within their respective bins
-    success_data, _, _ = np.histogram2d(success_x, success_y, range=[[-.09, 0.09], [0, 0.07]],bins=(x_bins,y_bins))
-    fail_data, _, _ = np.histogram2d(fail_x, fail_y, range=[[-.09, 0.09], [0, 0.07]],bins=(x_bins,y_bins))
-    total_data, x_edges, y_edges = np.histogram2d(total_x, total_y, range=[[-.09, 0.09], [0, 0.07]],bins=(x_bins,y_bins))
+    success_data, _, _ = np.histogram2d(success_x, success_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
+    fail_data, _, _ = np.histogram2d(fail_x, fail_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
+    total_data, x_edges, y_edges = np.histogram2d(total_x, total_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
 
+    """
     print("\nPlotting: saving_dir+fig_filename",saving_dir+fig_filename)
     print("plot_success: ",plot_success)
     print("success_x: ",success_x)
     print("fail_x: ", fail_x)
+    print("fail_y: ", fail_y)
+    print("len(fail_x): ",len(fail_x))
+    print("sum(fail_data): ",np.sum(fail_data))
+    print("sum(success_data): ", np.sum(success_data))
     print("total_x: ", total_x)
     #print("success_data: ",success_data)
     #print("sum(success_data): ",sum(success_data))
     print("len(success_x): ",len(success_x))
+    """
 
     # Positive Success rate coordinates bins
     if len(fail_x) == 0:
-        print("success_data will be plotted only!!!")
         pos_success_data = total_data #success_data
     else:
         pos_success_data = np.divide(success_data,total_data)
-    pos_success_data = np.nan_to_num(pos_success_data)
-
-    #print("pos_success_data: ",pos_success_data)
+        pos_success_data = np.nan_to_num(pos_success_data)
 
     # Negative Success rate (Failed) coordinates bins
     if len(success_x) == 0:
-        print("fail_data will be plotted only!!!")
         neg_success_data = total_data #fail_data
     else:
         neg_success_data = np.divide(fail_data,total_data)
         neg_success_data = np.nan_to_num(neg_success_data)
     neg_success_data = np.multiply(-1,neg_success_data)
 
-    #print("neg_success_data: ",neg_success_data)
-
     fig = plt.figure()
     ax = fig.add_subplot(111)
 
     # Plot heatmap from data
     if plot_success is True:
-        plt.imshow(pos_success_data.T, cmap=plt.cm.RdBu,  origin='lower',extent=[-.09, 0.09, 0, 0.07],vmin=-1, vmax=1)
+        plt.imshow(pos_success_data.T, cmap=plt.cm.RdBu,  origin='lower',extent=[x_min, x_max, y_min, y_max],vmin=-1, vmax=1)
     else:
-        plt.imshow(neg_success_data.T, cmap=plt.cm.RdBu, origin='lower', extent=[-.09, 0.09, 0, 0.07], vmin=-1, vmax=1)
+        plt.imshow(neg_success_data.T, cmap=plt.cm.RdBu, origin='lower', extent=[x_min, x_max, y_min, y_max], vmin=-1, vmax=1)
 
     ax.set_aspect('equal', adjustable='box')    # Sets histogram bin format
     fig.set_size_inches(11,8)   # Figure size
@@ -120,7 +131,8 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
 
     plt.savefig(saving_dir+fig_filename)
     #plt.show()
-    plt.clf()
+    #plt.clf()
+    #plt.close()
 
 
 def make_img_transparent(fig_filename,saving_dir):
@@ -220,6 +232,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
     saving_freq: Frequency at which the data was saved (used for getting filenames)
     tot_episodes: Total number of episodes the data covers (to get up to the last data file)
     """
+
     # If input data directory is not found, return back
     if not os.path.isdir(data_dir):
         print("data_dir not found! data_dir: ",data_dir)
@@ -244,6 +257,8 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
         ep_str = ""
         # Get coordinate data as numpy arrays
         success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, ep_str)
+        total_x = np.append(success_x,fail_x)
+        total_y = np.append(success_y,fail_y)
         # Plot coordinate data to frequency and success rate heatmaps
         create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, saving_dir)
 
