@@ -229,8 +229,35 @@ class ReplayBuffer_Queue(object):
 		reward_arr = []
 		not_done_arr = []
 
+		"""
+		# Check for non-zero reward (lift or grasp) exist in all episodes
+		non_zero_count = 0
+		print("len(self.reward): ",len(self.reward))
+		print("len(self.reward[0]): ", len(self.reward[0]))
+		num_rows = 0
+		i = 0
+		success_idx = []
+		for row in self.reward:
+			num_rows += 1
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+			if row[-1] > 0:
+				success_idx.append(i)
+			i += 1
+
+		print("success_idx: ", success_idx)
+		print("num_rows: ", num_rows)
+		print("SAMPLE BATCH, reward non_zero count: ", non_zero_count)
+		#quit()
+		#if non_zero_count > 1:
+		#	print("****FOUND A REWARD BIGGER THAN ZERO !!!!!")
+		"""
+
 		# List of randomly-selected episode indices based on current number of episodes
 		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
+
+		"""episode_idx_arr = random.sample(success_idx,64) # Just successful indexes"""
 
 		# Check if any episodes are invalid (episode length less than n_steps)
 		invalid_state_idx = list(filter(lambda x: len(self.state[x]) - self.n_steps <= 1, episode_idx_arr))
@@ -244,15 +271,34 @@ class ReplayBuffer_Queue(object):
 			episode_len = len(self.state[idx])
 
 			# get the ceiling idx. note the stagger b/c of n steps. the 1 is so that we don't pick 0 as an index (see next part)
-			ceiling = np.random.randint(1, (episode_len - self.n_steps) + 2) # + 1
+			ceiling = np.random.randint(1, (episode_len - self.n_steps)+1) # + 2
 
 			# Get random index within valid starting indexes
-			start_idx = np.random.randint(ceiling)
+			start_idx = np.random.randint(ceiling+1)
 			# STEPH TESTING
 			#start_idx = episode_len - self.n_steps
 
 			# Get the trajectory from starting index to n_steps later
 			trajectory_arr_idx = np.arange(start_idx, start_idx + self.n_steps)
+
+			## STEPH BATCH TEST
+			"""
+			print("BEFORE reward_arr: ", reward_arr)
+			print("\n")
+			print("idx: ",idx)
+			print("reward[idx]: ",self.reward[idx])
+			print("len(reward[idx]): ", len(self.reward[idx]))
+			print("len(self.state[idx]): ",len(self.state[idx]))
+			print("episode_len: ",episode_len)
+			print("ceiling [1, max), max: (episode_len - self.n_steps) + 2: ",(episode_len - self.n_steps) + 2)
+			print("ceiling: ", ceiling)
+			print("\n")
+			print("start_idx [0, max), max: ", ceiling)
+			print("start_idx: ",start_idx)
+			print("\n")
+			print("trajectory_arr_idx, [start_idx, start_idx + n_steps), where max:  ",start_idx + self.n_steps)
+			print("trajectory_arr_idx: ",trajectory_arr_idx)
+			"""
 
 			# quick hack - we'll fix this later with for loops. we're gonna use
 			# double the space rn to just make our indexing work with numpy slicing.
@@ -273,6 +319,17 @@ class ReplayBuffer_Queue(object):
 			next_state_arr.append(next_state_trajectory)
 			reward_arr.append(reward_trajectory)
 			not_done_arr.append(not_done_trajectory)
+
+			### STEPH TEST BATCH
+			"""
+			print("\n")
+			print("temp_reward[trajectory_arr_idx]: ", temp_reward[trajectory_arr_idx])
+			print("AFTER reward_arr: ", reward_arr)
+			if temp_reward[-1] > 0:
+				print("temp_reward[-1] > 0, temp_reward: ",temp_reward)
+				print("In sample_batch_nstep, Quitting!! ")
+				quit()
+			"""
 
 		return (
 			torch.FloatTensor(state_arr).to(self.device),

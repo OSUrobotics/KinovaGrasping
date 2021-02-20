@@ -62,14 +62,35 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     fail_data, _, _ = np.histogram2d(fail_x, fail_y, range=[[-.09, 0.09], [0, 0.07]],bins=(x_bins,y_bins))
     total_data, x_edges, y_edges = np.histogram2d(total_x, total_y, range=[[-.09, 0.09], [0, 0.07]],bins=(x_bins,y_bins))
 
+    print("\nPlotting: saving_dir+fig_filename",saving_dir+fig_filename)
+    print("plot_success: ",plot_success)
+    print("success_x: ",success_x)
+    print("fail_x: ", fail_x)
+    print("total_x: ", total_x)
+    #print("success_data: ",success_data)
+    #print("sum(success_data): ",sum(success_data))
+    print("len(success_x): ",len(success_x))
+
     # Positive Success rate coordinates bins
-    pos_success_data = np.divide(success_data,total_data)
+    if len(fail_x) == 0:
+        print("success_data will be plotted only!!!")
+        pos_success_data = total_data #success_data
+    else:
+        pos_success_data = np.divide(success_data,total_data)
     pos_success_data = np.nan_to_num(pos_success_data)
 
+    #print("pos_success_data: ",pos_success_data)
+
     # Negative Success rate (Failed) coordinates bins
-    neg_success_data = np.divide(fail_data,total_data)
-    neg_success_data = np.nan_to_num(neg_success_data)
+    if len(success_x) == 0:
+        print("fail_data will be plotted only!!!")
+        neg_success_data = total_data #fail_data
+    else:
+        neg_success_data = np.divide(fail_data,total_data)
+        neg_success_data = np.nan_to_num(neg_success_data)
     neg_success_data = np.multiply(-1,neg_success_data)
+
+    #print("neg_success_data: ",neg_success_data)
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
@@ -138,11 +159,11 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
     saving_dir: Directory to save plot output to
     """
     # Create frequency and success_rate heatmap plot directories
-    heatmap_saving_dir = saving_dir + "/heatmap_plots/"
+    heatmap_saving_dir = saving_dir + "heatmap_plots/"
     if not os.path.isdir(heatmap_saving_dir):
         os.mkdir(heatmap_saving_dir)
 
-    freq_saving_dir = saving_dir + "/freq_plots/"
+    freq_saving_dir = saving_dir + "freq_plots/"
     if not os.path.isdir(freq_saving_dir):
         os.mkdir(freq_saving_dir)
 

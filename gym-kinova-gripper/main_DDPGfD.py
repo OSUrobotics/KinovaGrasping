@@ -401,9 +401,9 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         boxplot_eval_dir = saving_dir + "/output/boxplot/eval"  # Boxplot saving directory
         create_paths([heatmap_eval_dir, boxplot_eval_dir])      # Create paths if they do not exist
     else:
-        output_dir = "./output/" + saving_dir + "/eval"         # Different output directory than experiments
-        heatmap_eval_dir = output_dir + "/heatmap"
-        boxplot_eval_dir = output_dir + "/boxplot"
+        output_dir = "./output/" + saving_dir         # Different output directory than experiments
+        heatmap_eval_dir = output_dir + "/heatmap/eval"
+        boxplot_eval_dir = output_dir + "/boxplot/eval"
         create_paths([output_dir, heatmap_eval_dir, boxplot_eval_dir])
 
     for _ in range(num_episodes):
@@ -479,9 +479,6 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
                 episode_reward += reward
 
             else:  # Make it happen in one time step
-                # STEPH TEST
-                #print("0.536MAIN DPPG< 0.035, np.max(np.array(obs[41:46])): ",np.max(np.array(state[41:46])))
-                #print("0.548 MAIN DPPG< 0.015, np.max(np.array(obs[35:40])): ",np.max(np.array(state[35:40])))
                 next_state, reward, done, info, episode_reward = lift_hand(env, episode_reward)
                 check_for_lift = False
                 # Determine successful grasp based on lift reward
@@ -591,15 +588,21 @@ def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agen
         output_dir = saving_dir + "/output"
         heatmap_train_dir = saving_dir + "/output/heatmap/train"
         results_saving_dir = saving_dir + "/output/results"
+    elif args.mode == "expert" or args.mode == "naive_only" or args.mode == "expert_only":
+        output_dir = saving_dir + "/output"
+        heatmap_train_dir = output_dir + "/heatmap/expert"
+        model_save_path = "None"
+        results_saving_dir = "None"
+        tensorboard_dir = "None"
     else:
         print("---------- STARTING: ", args.mode, " ---------")
         # Original saving directory locations for model and tensorboard
         model_save_path = "./policies/" + saving_dir + "/{}_{}".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
         tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}_{}_{}/".format(args.mode, args.policy_name,
                                                                                           args.tensorboardindex)
-        output_dir = "./output/" + saving_dir + "/" + args.mode
-        heatmap_train_dir = output_dir + "/heatmap"
-        results_saving_dir = output_dir + "/results"
+        output_dir = "./output/" + saving_dir
+        heatmap_train_dir = output_dir + "/heatmap" + "/" + args.mode
+        results_saving_dir = output_dir + "/results" + "/" + args.mode
 
     # Create directory paths if they do not exist
     if create_dirs is True:
@@ -707,7 +710,7 @@ def get_experiment_info(exp_num):
     return prev_exp_stage, prev_exp_num, prev_exp_name, exp_stage, exp_name
 
 
-def get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name):
+def get_experiment_file_structure(prev_exp_stage, prev_exp_name, exp_stage, exp_name):
     """ Setup experiment file structure with directories for the policy and plot output
     prev_exp_stage: Prev exp stage
     prev_exp_name: Previous exp name
@@ -778,24 +781,26 @@ def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_
     # Produce plots
 
     # Train Heatmap
-    if os.path.isdir(data_dir+"heatmap/train") is True:
+    mode_str = "/heatmap/"+str(args.mode)+"/"
+    if os.path.isdir(data_dir+mode_str) is True:
         print("Generating heatmaps...")
         for orientation in orientations_list:
-            generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+"heatmap/train/"+orientation+"/",
-                              saving_dir=saving_dir+"heatmap/train/"+orientation+"/")
+            print("Getting coords from: data_dir + mode_str + orientation + /",data_dir+mode_str+orientation+"/")
+            generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+mode_str+orientation+"/",
+                              saving_dir=saving_dir+mode_str+orientation+"/")
     else:
-        print("Heatmap dir NOT found: ", data_dir + "/heatmap")
+        print("Heatmap dir NOT found: ", data_dir+mode_str)
 
-    if os.path.isdir(data_dir + "heatmap/eval") is True:
+    if os.path.isdir(data_dir + "/heatmap/eval") is True:
         print("Generating evaluation heatmaps...")
         # Evaluation Heatmaps
         for orientation in orientations_list:
             generate_heatmaps(plot_type="eval", orientation=str(orientation), data_dir=data_dir+"heatmap/eval/"+orientation+"/",
                               saving_dir=saving_dir+"heatmap/eval/"+orientation+"/")
     elif args.mode == "eval":
-        print("Eval Heatmap dir NOT found: ", data_dir + "/heatmap")
+        print("Eval Heatmap dir NOT found: ", data_dir + "/heatmap/eval")
 
-    if os.path.isdir(data_dir+"/boxplot") is True:
+    if os.path.isdir(data_dir+"/boxplot/eval/") is True:
         print("Generating boxplots...")
         # Boxplot evaluation reward
         for orientation in orientations_list:
@@ -935,7 +940,7 @@ if __name__ == "__main__":
     parser.add_argument("--expert_prob", default=0.3, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
     parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
-    parser.add_argument("--update_after", default=10, type=int) # Start to update the policy after # episodes have occured
+    parser.add_argument("--update_after", default=100, type=int) # Start to update the policy after # episodes have occured
     parser.add_argument("--update_freq", default=4, type=int)   # Update the policy every # of episodes
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
@@ -1095,14 +1100,14 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_only")
+        print("Expert ONLY expert_data_dir: ", expert_data_dir)
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
-        expert_output_data_dir = expert_data_dir + "/output"
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(saving_dir, expert_replay_file_path, "None",
-                                            "None", "None")
+        all_saving_dirs = setup_directories(expert_data_dir, expert_replay_file_path, "None",
+                                            "None", "None",create_dirs=False)
 
-        generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=expert_output_data_dir, orientations_list=requested_orientation_list, saving_dir=expert_output_data_dir, num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
+        generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
     # Generate expert data based on Naive controller only
     elif args.mode == "naive_only":
@@ -1110,14 +1115,14 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="naive_only")
+        print("Naive ONLY expert_data_dir: ", expert_data_dir)
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
-        expert_output_data_dir = expert_data_dir + "/output"
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(saving_dir, expert_replay_file_path, "None",
-                                            "None", "None")
+        all_saving_dirs = setup_directories(expert_data_dir, expert_replay_file_path, "None",
+                                            "None", "None",create_dirs=False)
 
-        generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=expert_output_data_dir, orientations_list=requested_orientation_list, saving_dir=expert_output_data_dir, num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
+        generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
     # Generate expert data based on interpolating naive and expert strategies
     elif args.mode == "expert":
@@ -1126,14 +1131,14 @@ if __name__ == "__main__":
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
 
         expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
+        print("Expert (Interpolation) expert_data_dir: ", expert_data_dir)
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
-        expert_output_data_dir = expert_data_dir + "/output"
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(saving_dir, expert_replay_file_path, "None",
-                                            "None", "None")
+        all_saving_dirs = setup_directories(expert_data_dir, expert_replay_file_path, "None",
+                                            "None", "None",create_dirs=False)
         # Generate plots and info file
-        generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=expert_output_data_dir, orientations_list=requested_orientation_list, saving_dir=expert_output_data_dir, num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
+        generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
@@ -1147,9 +1152,10 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         for shapes_to_load in requested_shapes:
-            expert_replay_file_path = expert_replay_file_path + shapes_to_load +"/replay_buffer/"
+            shape_replay_file_path = expert_replay_file_path + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
             # Load expert data from saved expert pid controller replay buffer
-            expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+            print("Loading expert replay buffer: ",shape_replay_file_path)
+            expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
 
         # Model replay buffer file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1188,7 +1194,7 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         for shapes_to_load in requested_shapes:
-            shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load +"/replay_buffer/"
+            shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
             # Load expert data from saved expert pid controller replay buffer
             expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
 
@@ -1299,7 +1305,7 @@ if __name__ == "__main__":
         prev_exp_stage, prev_exp_num, prev_exp_name, exp_stage, exp_name = get_experiment_info(exp_num)
 
         # Setup directories for experiment output
-        expert_replay_file_path, prev_exp_dir, exp_dir = get_experiment_file_strucutre(prev_exp_stage, prev_exp_name, exp_stage, exp_name)
+        expert_replay_file_path, prev_exp_dir, exp_dir = get_experiment_file_structure(prev_exp_stage, prev_exp_name, exp_stage, exp_name)
 
         # Get experiment-specific shapes list and orientation combo
         requested_shapes, requested_orientation = get_exp_input(exp_name, shapes, sizes)
@@ -1330,7 +1336,7 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         for shapes_to_load in requested_shapes:
-            shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load +"/replay_buffer/"
+            shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
             # Load expert data from saved expert pid controller replay buffer
             expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
 

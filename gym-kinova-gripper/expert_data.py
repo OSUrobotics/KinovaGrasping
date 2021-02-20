@@ -898,7 +898,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     print("Saving coordinates...")
     # Save coordinates
     # Directory for x,y coordinate heatmap data
-    expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str)
+    expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
     expert_output_saving_dir = expert_saving_dir + "/output"
     expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
     heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
