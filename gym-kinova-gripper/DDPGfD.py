@@ -86,26 +86,34 @@ class DDPGfD(object):
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
 
 		if expert_or_random == "expert":
+			print("in regular TRAIN, sample from EXPERT...")
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 
-		"""
+
 		non_zero_count = 0
 		for elem in reward:
 			if elem != 0:
 				non_zero_count += 1
 
 		print("ORIGINAL TRAIN, reward non_zero count: ", non_zero_count)
-		"""
 
 		# Target Q network
+		#print("Target Q")
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
+		#print(target_Q.shape)
+		#print("target_Q: ",target_Q)
 		target_Q = reward + (self.discount * target_Q).detach()  # bellman equation
+		#print(target_Q.shape)
+		#print("target_Q: ",target_Q)
 
+		#print("Target_QN")
 		# Compute the target Q_N value
 		rollreward = []
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
+		#print(target_QN.shape)
+		#print("target_QN: ",target_Q)
 
 		ep_timesteps = episode_step
 		if state.shape[0] < episode_step:
@@ -116,28 +124,58 @@ class DDPGfD(object):
 				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
 				rollreward.append(roll_reward)
 
+		#print("After Calc len(rollreward): ",len(rollreward))
+		#print("After Calc rollreward: ", rollreward)
+
 		if len(rollreward) != ep_timesteps - (self.n - 1):
 			raise ValueError
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
 
+		#print("After reshape len(rollreward): ",len(rollreward))
+		#print("After reshape rollreward: ", rollreward)
+
 		# Calculate target network
 		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation <= this is the final N step return
+
+		#print("Target QN")
+		#print("Target_QN.shape: ",target_QN.shape)
+		#print("Target_QN: ", target_QN)
 
 		# Get current Q estimate
 		current_Q = self.critic(state, action)
 
+		#print("current_Q")
+		#print("current_Q.shape: ",current_Q.shape)
+		#print("current_Q: ", current_Q)
+
 		current_Q_n = self.critic(state[:(ep_timesteps - (self.n - 1))], action[:(ep_timesteps - (self.n - 1))])
+
+		#print("current_Q_n")
+		#print("current_Q_n.shape: ",current_Q_n.shape)
+		#print("current_Q_n: ", current_Q_n)
 
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
 
+		#print("critic_L1loss")
+		#print("critic_L1loss.shape: ",critic_L1loss.shape)
+		#print("critic_L1loss: ", critic_L1loss)
+
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
 		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
+
+		#print("critic_LNloss")
+		#print("critic_LNloss.shape: ",critic_LNloss.shape)
+		#print("critic_LNloss: ", critic_LNloss)
 
 		# Total critic loss
 		lambda_1 = 0.5 # hyperparameter to control n loss
 		critic_loss = critic_L1loss + lambda_1 * critic_LNloss
+
+		#print("critic_loss")
+		#print("critic_loss.shape: ", critic_loss.shape)
+		#print("critic_loss: ", critic_loss)
 
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
@@ -146,6 +184,10 @@ class DDPGfD(object):
 
 		# Compute actor loss
 		actor_loss = -self.critic(state, self.actor(state)).mean()
+
+		#print("actor_loss")
+		#print("actor_loss.shape: ", actor_loss.shape)
+		#print("actor_loss: ", actor_loss)
 
 		# Optimize the actor
 		self.actor_optimizer.zero_grad()
@@ -181,9 +223,9 @@ class DDPGfD(object):
 			agent_batch_size = int(self.batch_size * (1 - prob))
 			expert_batch_size = self.batch_size - agent_batch_size
 			# Get batches from respective replay buffers
-			#print("SAMPLING FROM AGENT...")
+			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
 			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,"AGENT")
-			#print("SAMPLING FROM EXPERT...")
+			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
 			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,"EXPERT")
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
@@ -202,8 +244,9 @@ class DDPGfD(object):
 		reward = reward.unsqueeze(-1)
 		not_done = not_done.unsqueeze(-1)
 
-		"""
+
 		# Check for non-zero reward (lift or grasp) exist in sample
+		"""
 		non_zero_count = 0
 		for row in reward:
 			for elem in row:
@@ -211,25 +254,24 @@ class DDPGfD(object):
 					non_zero_count += 1
 
 		print("TRAIN BATCH, reward non_zero count: ", non_zero_count)
-		if non_zero_count > 1:
-			print("****FOUND A REWARD (in the batch) BIGGER THAN ZERO !!!!!")
-			print("TRAIN Batch, Quitting!!")
-			quit()
 		"""
+
+
+		#if non_zero_count > 1:
+		#	print("****FOUND A REWARD (in the batch) BIGGER THAN ZERO !!!!!")
 
 		### FOR TESTING:
 		assert_batch_size = 64
 		assert_n_steps = 5
 		assert_mod_state_dim = 82
 
-		""""
-		print("Batch sizes shape")
-		print("state.shape: ", state.shape)
-		print("action.shape: ", action.shape)
-		print("next_state.shape: ", next_state.shape)
-		print("reward.shape: ", reward.shape)
-		print("not_done.shape: ", not_done.shape)
-		"""
+		#print("Batch sizes shape")
+		#print("state.shape: ", state.shape)
+		#print("action.shape: ", action.shape)
+		#print("next_state.shape: ", next_state.shape)
+		#print("reward.shape: ", reward.shape)
+		#print("not_done.shape: ", not_done.shape)
+
 
 		assert state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
 		assert next_state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
@@ -240,9 +282,11 @@ class DDPGfD(object):
 		#print("Target Q")
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
 		#print(target_Q.shape)
+		#print("target_Q: ",target_Q)
 		assert target_Q.shape == (assert_batch_size, 1)
 		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
 		#print(target_Q.shape)
+		#print("target_Q: ",target_Q)
 		assert target_Q.shape == (assert_batch_size, 1)
 
 		#This is the updated version, assuming that we're sampling from a batch.
@@ -250,64 +294,73 @@ class DDPGfD(object):
 		#print("Target action")
 		target_action = self.actor_target(next_state[:, -1])
 		#print(target_action.shape)
+		#print("target_action: ", target_action)
 		assert target_action.shape == (assert_batch_size, 4)
 
 		#print("Target Critic Q value")
 		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
 		#print(target_critic_val.shape)
+		#print("target_critic_val: ",target_critic_val)
 		assert target_Q.shape == (assert_batch_size, 1)
 
 		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
 		#print("N step return before calculation (N=5)")
 		#print(n_step_return.shape)
+		#print("n_step_return: ", n_step_return)
 		assert n_step_return.shape == (assert_batch_size,)
 
 		for i in range(self.n):
 			n_step_return += (self.discount ** i) * reward[:, i].squeeze(-1)
 
-		#print("N step return before calculation (N=5)")
+		#print("N step return after calculation (N=5)")
 		#print(n_step_return.shape)
-		assert n_step_return.shape == (assert_batch_size,)
+		#print("n_step_return: ", n_step_return)
+
+		#assert n_step_return.shape == (assert_batch_size,)
 
 		#print("Target QN, N STEPS")
 		# this is the n step return with the added value fn estimation
 		target_QN = n_step_return + (self.discount ** self.n) * target_critic_val.squeeze(-1)
 		#print(target_QN.shape)
+		#print("target_QN: ",target_QN)
 		assert target_QN.shape == (assert_batch_size,)
 		target_QN = target_QN.unsqueeze(dim=-1)
 		#print(target_QN.shape)
+		#print("target_QN: ", target_QN)
 		assert target_QN.shape == (assert_batch_size, 1)
 
 		#print("Current Q")
 		# New implementation
 		current_Q = self.critic(state[:, 0], action[:, 0])
 		#print(current_Q.shape)
+		#print("current_Q: ", current_Q)
 		assert current_Q.shape == (assert_batch_size, 1)
 
 		#print("Current QN (N Step)")
 		# New Updated for new rollback method
 		current_Q_n = self.critic(state[:, -1], action[:, -1])
 		#print(current_Q_n.shape)
+		#print("current_Q_n: ",current_Q_n)
 		assert current_Q_n.shape == (assert_batch_size, 1)
 
 		#print("CRITIC L1 Loss:")
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
-		#print("critic_L1loss: ", critic_L1loss)
 		#print(critic_L1loss.shape)
+		#print("critic_L1loss: ", critic_L1loss)
 
 		#print("CRITIC LN Loss:")
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
 		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
-		#print("critic_LNloss: ", critic_LNloss)
 		#print(critic_LNloss.shape)
+		#print("critic_LNloss: ", critic_LNloss)
 
 		#print("CRITIC Loss (L1 loss + lambda * LN Loss):")
 		# Total critic loss
 		lambda_1 = 0.5 # hyperparameter to control n loss
 		critic_loss = critic_L1loss + lambda_1 * critic_LNloss
-		#print("critic_loss: ", critic_loss)
 		#print(critic_loss.shape)
+		#print("critic_loss: ", critic_loss)
 
 		# Optimize the critic
 		self.critic_optimizer.zero_grad()
@@ -317,16 +370,13 @@ class DDPGfD(object):
 		# Compute actor loss
 		actor_loss = -self.critic(state, self.actor(state)).mean()
 		#print("Actor loss: ")
-		#print("actor_loss: ",actor_loss)
 		#print(actor_loss.shape)
+		#print("actor_loss: ",actor_loss)
 
 		# Optimize the actor
 		self.actor_optimizer.zero_grad()
 		actor_loss.backward()
 		self.actor_optimizer.step()
-
-		#print("Quitting from Train Batch!!")
-		#quit()
 
 		if self.total_it % self.network_repl_freq == 0:
 			# Update the frozen target models

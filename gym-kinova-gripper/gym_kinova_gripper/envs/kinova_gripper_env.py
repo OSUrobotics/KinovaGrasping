@@ -1245,8 +1245,9 @@ class KinovaGripper_Env(gym.Env):
         # Orientation noise filename
         orient_noise_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(mode)+"_orientation_noise/" + str(orient_text) + "/" + random_shape + "_" + orient_file_text + "_rotation.txt"
         rot_x, rot_y, rot_z, orient_idx = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename, orient_idx=None)
+        ## STEPH TEST NO NOISE
         # Add noise
-        new_rotation += [rot_x, rot_y, rot_z]
+        # new_rotation += [rot_x, rot_y, rot_z]
 
         # Set hand pose orientation
         self.set_orientation_idx(orient_idx)
@@ -1285,10 +1286,9 @@ class KinovaGripper_Env(gym.Env):
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
             elif len(start_pos)==3:
-
-            	######################################
-            	## TO Test Real world data Uncomment##
-            	######################################
+                ######################################
+                ## TO Test Real world data Uncomment##
+                ######################################
                 #start_pos.append(1)
                 #self._get_trans_mat_wrist_pose()
                 #temp_start_pos = np.matmul(self.Twf, start_pos)

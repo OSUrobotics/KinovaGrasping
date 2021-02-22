@@ -302,6 +302,7 @@ def eval_lift_hand(env_lift, tot_reward, curr_reward):
 
     return next_state, reward, done, info, tot_reward
 
+
 def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,critic_loss,critic_L1loss,critic_LNloss):
     """ Write important data about policy performance to tensorboard Summary Writer
     writer: Tensorboard Summary Writer
@@ -310,6 +311,7 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     avg_rewards: Dictionary of average reward values for Finger, Grasp, and Lift rewards over evaluation grasp trials
     actor_loss,critic_loss,critic_L1loss,critic_LNloss
     """
+    
     writer.add_scalar("Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_reward, episode_num)
     writer.add_scalar("NEW Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["total_reward"], episode_num)
     writer.add_scalar("Episode finger reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["finger_reward"],
@@ -325,7 +327,7 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     return writer
 
 
-def update_policy(evaluations, episode_num, num_episodes, writer, prob,
+def update_policy(evaluations, episode_num, num_episodes, prob,
                   type_of_training, train_success_coords, train_fail_coords, saving_dir, max_num_timesteps=30):
     """ Update policy network based on expert or agent step, evaluate every eval_freq episodes
     evaluations: Output average reward list for plotting
@@ -365,6 +367,9 @@ def update_policy(evaluations, episode_num, num_episodes, writer, prob,
         heatmap_eval_dir = output_dir + "/heatmap/eval"
         boxplot_eval_dir = output_dir + "/boxplot/eval"
         create_paths([output_dir, heatmap_eval_dir, boxplot_eval_dir])
+
+    # Tensorboard writer
+    writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
 
     for _ in range(num_episodes):
         env = gym.make(args.env_name)
@@ -588,8 +593,6 @@ def train_policy(tot_episodes, tr_prob, all_saving_dirs):
     tr_prob: Probability of sampling from expert replay buffer within training
     """
 
-    tr_writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
-    #tr_ep = int(tot_episodes/4)
     tr_ep = tot_episodes
     evals = []
     curr_episode = 0         # Counts number of episodes done within training
@@ -602,7 +605,7 @@ def train_policy(tot_episodes, tr_prob, all_saving_dirs):
 
     # Begin training updates
     evals, curr_episode, success_coords, fail_coords = \
-        update_policy(evals,curr_episode,tr_ep,tr_writer,tr_prob,"TRAIN", train_success_coords, train_fail_coords, all_saving_dirs["saving_dir"])
+        update_policy(evals,curr_episode,tr_ep,tr_prob,"TRAIN", train_success_coords, train_fail_coords, all_saving_dirs["saving_dir"])
     tr_prob = tr_prob - red_expert_prob
 
     # Save object postions from training
@@ -878,7 +881,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", default=2, type=int)                  # Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--start_timesteps", default=100, type=int)     # How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=200, type=float)         # How often (time steps) we evaluate
-    parser.add_argument("--eval_num", default=100, type=float)          # Number of grasp trials to evaluate over
+    parser.add_argument("--eval_num", default=100, type=int)          # Number of grasp trials to evaluate over
     parser.add_argument("--max_timesteps", default=1e6, type=int)       # Max time steps to run environment for
     parser.add_argument("--max_episode", default=20000, type=int)       # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
