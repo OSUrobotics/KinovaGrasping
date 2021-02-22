@@ -898,10 +898,18 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     print("Saving coordinates...")
     # Save coordinates
     # Directory for x,y coordinate heatmap data
-    expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str)
+    # STEPH TEST NO NOISE
+    expert_saving_dir = " expert_replay_data_NO_NOISE/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
+    #expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
     expert_output_saving_dir = expert_saving_dir + "/output"
     expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
+    expert_save_path = Path(expert_saving_dir)
+    expert_save_path.mkdir(parents=True, exist_ok=True)
+    print("heatmap_saving_dir: ", expert_saving_dir)
+    print("expert_save_path: ", expert_save_path)
+
     heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
+    print("heatmap_saving_dir: ", heatmap_saving_dir)
     heatmap_save_path = Path(heatmap_saving_dir)
     heatmap_save_path.mkdir(parents=True, exist_ok=True)
 
@@ -1080,7 +1088,10 @@ if __name__ ==  "__main__":
     expert_replay_size = 10
     with_grasp = False
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    replay_buffer, save_filepath, data_dir, info_file_text = GenerateExpertPID_JointVel(10, "CubeS", with_grasp, expert_replay_buffer, save=False, render_imgs=True, pid_mode="expert_naive")
+    text = ""
+    num_success = 0
+    total = 0
+    replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=False, replay_buffer=expert_replay_buffer, save=False, render_imgs=True, pid_mode="expert_naive")
 
     #print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")

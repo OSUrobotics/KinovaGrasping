@@ -1,0 +1,17 @@
+Heatmap Coords 
+Saved at: ./expert_replay_data/no_grasp/expert_naive/CubeS/normal/output/heatmap/expert
+
+Total # Success: 1256
+Total # Fail: 744
+
+Normal Orientation
+# Success: 1256
+# Fail: 744
+
+Rotated Orientation
+# Success: 0
+# Fail: 0
+
+Top Orientation
+# Success: 0
+# Fail: 0

@@ -672,13 +672,14 @@ class KinovaGripper_Env(gym.Env):
         #    finger_reward = 0
         """
 
-        # STEPH TEST GRASP REWARD
+        """"# STEPH TEST GRASP REWARD
         if self.with_grasp_reward is True and grasp_reward > 0:
             print("!! Grasp Reward is TRUE and You got a Grasp_reward: ",grasp_reward)
 
         if grasp_reward > 0:
             print("!! grasp_reward > 0: ",grasp_reward)
             print("But, self.with_grasp_reward is : ",self.with_grasp_reward)
+        """
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward
 
@@ -1244,8 +1245,9 @@ class KinovaGripper_Env(gym.Env):
         # Orientation noise filename
         orient_noise_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(mode)+"_orientation_noise/" + str(orient_text) + "/" + random_shape + "_" + orient_file_text + "_rotation.txt"
         rot_x, rot_y, rot_z, orient_idx = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename, orient_idx=None)
+        ## STEPH TEST NO NOISE
         # Add noise
-        new_rotation += [rot_x, rot_y, rot_z]
+        # new_rotation += [rot_x, rot_y, rot_z]
 
         # Set hand pose orientation
         self.set_orientation_idx(orient_idx)
@@ -1284,10 +1286,9 @@ class KinovaGripper_Env(gym.Env):
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
             elif len(start_pos)==3:
-
-            	######################################
-            	## TO Test Real world data Uncomment##
-            	######################################
+                ######################################
+                ## TO Test Real world data Uncomment##
+                ######################################
                 #start_pos.append(1)
                 #self._get_trans_mat_wrist_pose()
                 #temp_start_pos = np.matmul(self.Twf, start_pos)
