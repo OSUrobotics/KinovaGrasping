@@ -1035,10 +1035,10 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data/with_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/expert_naive/"
         with_grasp_str = "WITH grasp"
     else:
-        expert_replay_file_path = "./expert_replay_data/no_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/expert_naive/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
