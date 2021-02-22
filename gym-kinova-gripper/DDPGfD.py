@@ -336,15 +336,6 @@ class DDPGfD(object):
 		#print("current_Q: ", current_Q)
 		assert current_Q.shape == (assert_batch_size, 1)
 
-		#print("Current QN (N Step)")
-		### STEPH Remove
-		# New Updated for new rollback method
-		current_Q_n = self.critic(state[:, -1], action[:, -1])
-		#print(current_Q_n.shape)
-		#print("current_Q_n: ",current_Q_n)
-		assert current_Q_n.shape == (assert_batch_size, 1)
-		### STEPH Remove
-
 		#print("CRITIC L1 Loss:")
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
@@ -353,8 +344,7 @@ class DDPGfD(object):
 
 		#print("CRITIC LN Loss:")
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
-		### STEPH change to be: critic_LNloss = F.mse_loss(current_Q, target_QN)
-		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
+		critic_LNloss = F.mse_loss(current_Q, target_QN)
 		#print(critic_LNloss.shape)
 		#print("critic_LNloss: ", critic_LNloss)
 
