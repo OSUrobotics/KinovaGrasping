@@ -100,9 +100,10 @@ class ReplayBuffer_Queue(object):
 	def sample(self):
 		""" Sample one episode from replay buffer, learn from full trajectory """
 		# Choose one random episode between [0,episode_count)
-		#episode_idx = random.choice(np.arange(0, self.replay_ep_num))
+		episode_idx = random.choice(np.arange(0, self.replay_ep_num))
 
 		## STEPH TEST
+		"""
 		non_zero_count = 0
 		num_rows = 0
 		i = 0
@@ -117,6 +118,7 @@ class ReplayBuffer_Queue(object):
 			i += 1
 		episode_idx = random.sample(success_idx, 1)  # Just successful indexes
 		episode_idx = episode_idx[0]
+		"""
 
 		# Get the beginning timestep index and the ending timestep index within an episode
 		ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
@@ -124,13 +126,13 @@ class ReplayBuffer_Queue(object):
 		# Randomly select 30 time steps from the episode
 		selected_indexes = random.choices(ind, k=30)
 
-		temp_test_success_rewards = [self.reward[episode_idx][x] for x in selected_indexes]
-		num_succ_temp = 0
-		for rew in temp_test_success_rewards:
-			if rew > 0:
-				num_succ_temp += 0
+		#temp_test_success_rewards = [self.reward[episode_idx][x] for x in selected_indexes]
+		#num_succ_temp = 0
+		#for rew in temp_test_success_rewards:
+		#	if rew > 0:
+		#		num_succ_temp += 0
 
-		print("In regular sample, selected indexes includes # non-zeros: ",num_succ_temp)
+		#print("In regular sample, selected indexes includes # non-zeros: ",num_succ_temp)
 
 		return (
 			torch.FloatTensor([self.state[episode_idx][x] for x in selected_indexes]).to(self.device),
