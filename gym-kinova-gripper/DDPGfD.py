@@ -256,41 +256,40 @@ class DDPGfD(object):
 		print("TRAIN BATCH, reward non_zero count: ", non_zero_count)
 		"""
 
-
 		#if non_zero_count > 1:
 		#	print("****FOUND A REWARD (in the batch) BIGGER THAN ZERO !!!!!")
 
 		### FOR TESTING:
-		assert_batch_size = 64
-		assert_n_steps = 5
+		assert_batch_size = self.batch_size * 5
+		#assert_n_steps = 5
 		assert_mod_state_dim = 82
 
-		#print("Batch sizes shape")
-		#print("state.shape: ", state.shape)
-		#print("action.shape: ", action.shape)
-		#print("next_state.shape: ", next_state.shape)
-		#print("reward.shape: ", reward.shape)
-		#print("not_done.shape: ", not_done.shape)
+
+		"""
+		print("Batch sizes shape")
+		print("state.shape: ", state.shape)
+		print("action.shape: ", action.shape)
+		print("next_state.shape: ", next_state.shape)
+		print("reward.shape: ", reward.shape)
+		print("not_done.shape: ", not_done.shape)
+		"""
 
 
-		assert state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
-		assert next_state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
-		assert action.shape == (assert_batch_size, assert_n_steps, 4)
-		assert reward.shape == (assert_batch_size, assert_n_steps, 1)
-		assert not_done.shape == (assert_batch_size, assert_n_steps, 1)
+		#assert state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
+		#assert next_state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
+		#assert action.shape == (assert_batch_size, assert_n_steps, 4)
+		#assert reward.shape == (assert_batch_size, assert_n_steps, 1)
+		#assert not_done.shape == (assert_batch_size, assert_n_steps, 1)
 
 		#print("Target Q")
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
-		#print(target_Q.shape)
-		#print("target_Q: ",target_Q)
 		assert target_Q.shape == (assert_batch_size, 1)
-		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
+		#target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
 		#print(target_Q.shape)
 		#print("target_Q: ",target_Q)
 		assert target_Q.shape == (assert_batch_size, 1)
 
 		#This is the updated version, assuming that we're sampling from a batch.
-
 		#print("Target action")
 		target_action = self.actor_target(next_state[:, -1])
 		#print(target_action.shape)
@@ -303,7 +302,7 @@ class DDPGfD(object):
 		#print("target_critic_val: ",target_critic_val)
 		assert target_Q.shape == (assert_batch_size, 1)
 
-		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
+		n_step_return = torch.zeros(assert_batch_size).to(device)  # shape: (self.batch_size,)
 		#print("N step return before calculation (N=5)")
 		#print(n_step_return.shape)
 		#print("n_step_return: ", n_step_return)
@@ -370,6 +369,9 @@ class DDPGfD(object):
 		self.actor_optimizer.zero_grad()
 		actor_loss.backward()
 		self.actor_optimizer.step()
+
+		#print("Quitting from train")
+		#quit()
 
 		if self.total_it % self.network_repl_freq == 0:
 			# Update the frozen target models

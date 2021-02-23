@@ -302,6 +302,8 @@ class ReplayBuffer_Queue(object):
 		reward_arr = []
 		not_done_arr = []
 
+		#print("In SAMPLE BATCH")
+
 		if batch_size < 1:
 			return (
 				torch.FloatTensor(state_arr).to(self.device),
@@ -311,8 +313,9 @@ class ReplayBuffer_Queue(object):
 				torch.FloatTensor(not_done_arr).to(self.device)
 			)
 
-		"""
+
 		# Check for non-zero reward (lift or grasp) exist in all episodes
+		"""
 		non_zero_count = 0
 		num_rows = 0
 		i = 0
@@ -325,7 +328,8 @@ class ReplayBuffer_Queue(object):
 			if row[-1] > 0:
 				success_idx.append(i)
 			i += 1
-		#episode_idx_arr = random.sample(success_idx, 64) # Just successful indexes
+		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+		print("IN SAMPLE BATCH: non_zero_reward: ",non_zero_count)
 		"""
 
 		# List of randomly-selected episode indices based on current number of episodes
@@ -343,15 +347,24 @@ class ReplayBuffer_Queue(object):
 			episode_len = len(self.state[idx])
 
 			# get the ceiling idx. note the stagger b/c of n steps. the 1 is so that we don't pick 0 as an index (see next part)
-			ceiling = np.random.randint(1, (episode_len - self.n_steps)+1)
+			#ceiling = np.random.randint(1, (episode_len - self.n_steps)+1)
+			ceiling = episode_len - self.n_steps
 
 			# Get random index within valid starting indexes
-			start_idx = np.random.randint(ceiling+1)
+			#start_idx = np.random.randint(ceiling+1)
 			# STEPH TESTING
-			#start_idx = episode_len - self.n_steps
+			#end_idx = episode_len - self.n_steps
 
 			# Get the trajectory from starting index to n_steps later
-			trajectory_arr_idx = np.arange(start_idx, start_idx + self.n_steps)
+			num_ts_from_ep = 5
+			trajectory_arr_idx = []
+			for num in range(num_ts_from_ep-1):
+				start_idx = np.random.randint(ceiling)
+				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
+
+			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
+
+			#trajectory_arr_idx = np.arange(0, start_idx)
 
 			## STEPH BATCH TEST
 			"""
@@ -380,17 +393,13 @@ class ReplayBuffer_Queue(object):
 			temp_reward = np.array(self.reward[idx])
 			temp_not_done = np.array(self.not_done[idx])
 
-			state_trajectory = temp_state[trajectory_arr_idx]
-			action_trajectory = temp_action[trajectory_arr_idx]
-			next_state_trajectory = temp_next_state[trajectory_arr_idx]
-			reward_trajectory = temp_reward[trajectory_arr_idx]
-			not_done_trajectory = temp_not_done[trajectory_arr_idx]
+			for row in trajectory_arr_idx:
+				state_arr.append(temp_state[row])
+				action_arr.append(temp_action[row])
+				next_state_arr.append(temp_next_state[row])
+				reward_arr.append(temp_reward[row])
+				not_done_arr.append(temp_not_done[row])
 
-			state_arr.append(state_trajectory)
-			action_arr.append(action_trajectory)
-			next_state_arr.append(next_state_trajectory)
-			reward_arr.append(reward_trajectory)
-			not_done_arr.append(not_done_trajectory)
 
 			### STEPH TEST BATCH
 			"""
