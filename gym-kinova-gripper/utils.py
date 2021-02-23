@@ -73,7 +73,8 @@ class ReplayBuffer_Queue(object):
 		self.reward.pop(idx)
 		self.not_done.pop(idx)
 		self.episodes.pop(idx)
-		self.orientation_indexes.pop(idx)
+		if len(self.orientation_indexes) > 0:
+			self.orientation_indexes.pop(idx)
 
 		self.replay_ep_num -= 1
 
@@ -118,6 +119,41 @@ class ReplayBuffer_Queue(object):
 			i += 1
 		episode_idx = random.sample(success_idx, 1)  # Just successful indexes
 		episode_idx = episode_idx[0]
+		"""
+		"""
+		non_zero_count = 0
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
+		test_lift_reward_count = 0
+		num_rows = 0
+		i = 0
+		success_idx = []
+		for row in self.reward:
+			num_rows += 1
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+					if elem < 5:
+						finger_reward_count += 1
+					elif elem < 10:
+						grasp_reward_count += 1
+					elif elem > 49:
+						test_lift_reward_count += 1
+					elif elem >= 10:
+						print("IN OG SAMPLE, ELEM >= 10: ",elem)
+						lift_reward_count += 1
+			i += 1
+		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+		print("IN OG SAMPLE: non_zero_reward: ",non_zero_count)
+		print("IN OG SAMPLE: finger_reward_count: ", finger_reward_count)
+		print("IN OG SAMPLE: grasp_reward_count: ", grasp_reward_count)
+		print("IN OG SAMPLE: lift_reward_count: ", lift_reward_count)
+		print("IN OG SAMPLE: test_lift_reward_count: ", test_lift_reward_count)
+		print("IN OG SAMPLE: num_rows: ", num_rows)
+		print("IN OG SAMPLE: replay_buffer.replay_ep_num: ", self.replay_ep_num)
+		print("IN OG SAMPLE: replay_buffer.size: ", self.size)
+		print("IN OG SAMPLE: replay_buffer.timesteps_count: ", self.timesteps_count)
 		"""
 
 		# Get the beginning timestep index and the ending timestep index within an episode
@@ -304,7 +340,7 @@ class ReplayBuffer_Queue(object):
 		reward_arr = []
 		not_done_arr = []
 
-		#print("In SAMPLE BATCH")
+		#print("In SAMPLE BATCH, self.n_steps: ", self.n_steps)
 
 		if batch_size < 1:
 			return (
@@ -332,6 +368,42 @@ class ReplayBuffer_Queue(object):
 			i += 1
 		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
 		print("IN SAMPLE BATCH: non_zero_reward: ",non_zero_count)
+		"""
+
+		"""
+		non_zero_count = 0
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
+		test_lift_reward_count = 0
+		num_rows = 0
+		i = 0
+		success_idx = []
+		for row in self.reward:
+			num_rows += 1
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+					if elem < 5:
+						finger_reward_count += 1
+					elif elem < 10:
+						grasp_reward_count += 1
+					elif elem > 49:
+						test_lift_reward_count += 1
+					elif elem >= 10:
+						print("IN OG SAMPLE, ELEM >= 10: ",elem)
+						lift_reward_count += 1
+			i += 1
+		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+		print("IN BATCH SAMPLE: non_zero_reward: ",non_zero_count)
+		print("IN BATCH SAMPLE: finger_reward_count: ", finger_reward_count)
+		print("IN BATCH SAMPLE: grasp_reward_count: ", grasp_reward_count)
+		print("IN BATCH SAMPLE: lift_reward_count: ", lift_reward_count)
+		print("IN BATCH SAMPLE: test_lift_reward_count: ", test_lift_reward_count)
+		print("IN BATCH SAMPLE: num_rows: ", num_rows)
+		print("IN BATCH SAMPLE: replay_buffer.replay_ep_num: ", self.replay_ep_num)
+		print("IN BATCH SAMPLE: replay_buffer.size: ", self.size)
+		print("IN BATCH SAMPLE: replay_buffer.timesteps_count: ", self.timesteps_count)
 		"""
 
 		# List of randomly-selected episode indices based on current number of episodes

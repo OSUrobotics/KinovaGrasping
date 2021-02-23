@@ -468,18 +468,18 @@ def update_policy(evaluations, episode_num, num_episodes, prob,
 
         # Train agent after collecting sufficient data:
         if episode_num > args.update_after: # Update policy after 100 episodes (have enough experience in agent replay buffer)
-            if episode_num % args.update_freq: # Update every 4 episodes
-                for learning in range(args.update_num): # Number of times to update the policy
-                    if args.batch_size == 0:
-                        # Single episode training using full trajectory
-                        actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
+            #if episode_num % args.update_freq: # Update every 4 episodes
+            for learning in range(args.update_num): # Number of times to update the policy
+                if args.batch_size == 0:
+                    # Single episode training using full trajectory
+                    actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
+                                                                                     expert_replay_buffer,
+                                                                                     replay_buffer, prob)
+                else:
+                    # Batch training using n-steps
+                    actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
                                                                                          expert_replay_buffer,
                                                                                          replay_buffer, prob)
-                    else:
-                        # Batch training using n-steps
-                        actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
-                                                                                             expert_replay_buffer,
-                                                                                             replay_buffer, prob)
 
         # Evaluation and recording data for tensorboard
         if episode_num+1 == num_episodes or (episode_num > args.update_after and (episode_num) % args.eval_freq == 0):
@@ -1118,6 +1118,9 @@ if __name__ == "__main__":
             # Load expert data from saved expert pid controller replay buffer
             print("Loading expert replay buffer: ",shape_replay_file_path)
             expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
+        #expert_replay_file_path = "./expert_replay_data/Expert_data_OLD_20000/"
+        #print("Loading expert replay buffer: ", expert_replay_file_path)
+        #expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         # Model replay buffer file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr

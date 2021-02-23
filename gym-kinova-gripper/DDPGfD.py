@@ -77,6 +77,8 @@ class DDPGfD(object):
 		""" Update policy based on full trajectory of one episode """
 		self.total_it += 1
 
+		print("IN TRAIN, prob: ", prob)
+
 		# Determine which replay buffer to sample from
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			expert_or_random = "agent"
@@ -91,13 +93,24 @@ class DDPGfD(object):
 		else:
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 
-
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
 		non_zero_count = 0
 		for elem in reward:
 			if elem != 0:
 				non_zero_count += 1
+				if elem < 5:
+					finger_reward_count += 1
+				elif elem < 10:
+					grasp_reward_count += 1
+				elif elem >= 10:
+					lift_reward_count += 1
+		print("\nIN OG TRAIN: non_zero_reward: ",non_zero_count)
+		print("IN OG TRAIN: finger_reward_count: ", finger_reward_count)
+		print("IN OG TRAIN: grasp_reward_count: ", grasp_reward_count)
+		print("IN OG TRAIN: lift_reward_count: ", lift_reward_count)
 
-		print("ORIGINAL TRAIN, reward non_zero count: ", non_zero_count)
 
 		# Target Q network
 		#print("Target Q")
@@ -255,6 +268,30 @@ class DDPGfD(object):
 
 		print("TRAIN BATCH, reward non_zero count: ", non_zero_count)
 		"""
+
+		"""
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
+		non_zero_count = 0
+		for row in reward:
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+					if elem < 5:
+						finger_reward_count += 1
+					elif elem < 10:
+						grasp_reward_count += 1
+					elif elem >= 10:
+						lift_reward_count += 1
+
+		print("\nIN BATCH TRAIN: non_zero_reward: ",non_zero_count)
+		print("IN BATCH TRAIN: finger_reward_count: ", finger_reward_count)
+		print("IN BATCH TRAIN: grasp_reward_count: ", grasp_reward_count)
+		print("IN BATCH TRAIN: lift_reward_count: ", lift_reward_count)
+		"""
+
+		#print("TRAIN BATCH, self.n: ",self.n)
 
 		#if non_zero_count > 1:
 		#	print("****FOUND A REWARD (in the batch) BIGGER THAN ZERO !!!!!")
