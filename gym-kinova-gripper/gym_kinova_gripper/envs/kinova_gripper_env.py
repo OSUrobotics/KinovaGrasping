@@ -661,16 +661,18 @@ class KinovaGripper_Env(gym.Env):
         """ Finger Reward
         # obs[41:46]: DISTAL Finger-Object distance 41) "f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", 46) "f3_dist_1"
         # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
-        
+        """
+
+        # STEPH TEST WITH FINGER REWARD
         # Original Finger reward
-        # finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
+        finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
         # Negative or 0 Finger Reward: Negative velocity --> fingers moving outward/away from object
         #if any(n < 0 for n in action):
         #    finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
         #else:
         #    finger_reward = 0
-        """
+
 
         """"# STEPH TEST GRASP REWARD
         if self.with_grasp_reward is True and grasp_reward > 0:

@@ -1113,14 +1113,14 @@ if __name__ == "__main__":
 
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        for shapes_to_load in requested_shapes:
-            shape_replay_file_path = expert_replay_file_path + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            print("Loading expert replay buffer: ",shape_replay_file_path)
-            expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
-        #expert_replay_file_path = "./expert_replay_data/Expert_data_OLD_20000/"
-        #print("Loading expert replay buffer: ", expert_replay_file_path)
-        #expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+        #for shapes_to_load in requested_shapes:
+        #    shape_replay_file_path = expert_replay_file_path + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
+        #    # Load expert data from saved expert pid controller replay buffer
+        #    print("Loading expert replay buffer: ",shape_replay_file_path)
+        #    expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
+        expert_replay_file_path = "./expert_replay_data/Expert_data_OLD_20000/"
+        print("Loading expert replay buffer: ", expert_replay_file_path)
+        expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         # Model replay buffer file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
