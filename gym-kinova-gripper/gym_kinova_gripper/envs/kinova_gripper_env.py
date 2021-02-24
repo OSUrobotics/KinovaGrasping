@@ -663,9 +663,8 @@ class KinovaGripper_Env(gym.Env):
         # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
         """
 
-        # STEPH TEST WITH FINGER REWARD
         # Original Finger reward
-        finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
+        #finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
         # Negative or 0 Finger Reward: Negative velocity --> fingers moving outward/away from object
         #if any(n < 0 for n in action):

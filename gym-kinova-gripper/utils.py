@@ -330,8 +330,8 @@ class ReplayBuffer_Queue(object):
 	"""
 
 
-	# OLD WORKING VERSION
-	def sample_batch_nstep(self,batch_size,replay_type):
+	# WORKING VERSION
+	def sample_batch_nstep(self,batch_size,num_ts_from_ep=5):
 		# Samples batch size of replay buffer trajectories for learning using n-step returns
 		# Initialize arrays
 		state_arr = []
@@ -339,8 +339,6 @@ class ReplayBuffer_Queue(object):
 		next_state_arr = []
 		reward_arr = []
 		not_done_arr = []
-
-		#print("In SAMPLE BATCH, self.n_steps: ", self.n_steps)
 
 		if batch_size < 1:
 			return (
@@ -350,7 +348,6 @@ class ReplayBuffer_Queue(object):
 				torch.FloatTensor(reward_arr).to(self.device),
 				torch.FloatTensor(not_done_arr).to(self.device)
 			)
-
 
 		# Check for non-zero reward (lift or grasp) exist in all episodes
 		"""
@@ -410,35 +407,26 @@ class ReplayBuffer_Queue(object):
 		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
 
 		# Check if any episodes are invalid (episode length less than n_steps)
-		invalid_state_idx = list(filter(lambda x: len(self.state[x]) - self.n_steps <= 1, episode_idx_arr))
-		if len(invalid_state_idx) > 0:
-			print("There are len(invalid_state_idx) invalid indexes!!: ", len(invalid_state_idx))
-			print("invalid_state_idx: ", invalid_state_idx)
-			print("len(self.state[0]): ", len(self.state[0]))
+		#invalid_state_idx = list(filter(lambda x: len(self.state[x]) - self.n_steps <= 1, episode_idx_arr))
+		#if len(invalid_state_idx) > 0:
+		#	print("There are len(invalid_state_idx) invalid indexes!!: ", len(invalid_state_idx))
+		#	print("invalid_state_idx: ", invalid_state_idx)
+		#	print("len(self.state[0]): ", len(self.state[0]))
 
 		for idx in episode_idx_arr:
 			# Get episode length (number of time steps)
 			episode_len = len(self.state[idx])
 
 			# get the ceiling idx. note the stagger b/c of n steps. the 1 is so that we don't pick 0 as an index (see next part)
-			#ceiling = np.random.randint(1, (episode_len - self.n_steps)+1)
 			ceiling = episode_len - self.n_steps
 
-			# Get random index within valid starting indexes
-			#start_idx = np.random.randint(ceiling+1)
-			# STEPH TESTING
-			#end_idx = episode_len - self.n_steps
-
 			# Get the trajectory from starting index to n_steps later
-			num_ts_from_ep = 5
 			trajectory_arr_idx = []
 			for num in range(num_ts_from_ep-1):
 				start_idx = np.random.randint(ceiling)
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
 			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
-
-			#trajectory_arr_idx = np.arange(0, start_idx)
 
 			## STEPH BATCH TEST
 			"""
@@ -473,18 +461,6 @@ class ReplayBuffer_Queue(object):
 				next_state_arr.append(temp_next_state[row])
 				reward_arr.append(temp_reward[row])
 				not_done_arr.append(temp_not_done[row])
-
-
-			### STEPH TEST BATCH
-			"""
-			print("\n")
-			print("temp_reward[trajectory_arr_idx]: ", temp_reward[trajectory_arr_idx])
-			print("AFTER reward_arr: ", reward_arr)
-			if temp_reward[-1] > 0:
-				print("temp_reward[-1] > 0, temp_reward: ",temp_reward)
-				print("In sample_batch_nstep, Quitting!! ")
-				quit()
-			"""
 
 		return (
 			torch.FloatTensor(state_arr).to(self.device),

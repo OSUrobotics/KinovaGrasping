@@ -77,8 +77,6 @@ class DDPGfD(object):
 		""" Update policy based on full trajectory of one episode """
 		self.total_it += 1
 
-		print("IN TRAIN, prob: ", prob)
-
 		# Determine which replay buffer to sample from
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			expert_or_random = "agent"
@@ -88,11 +86,11 @@ class DDPGfD(object):
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
 
 		if expert_or_random == "expert":
-			print("in regular TRAIN, sample from EXPERT...")
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 
+		"""
 		finger_reward_count = 0
 		grasp_reward_count = 0
 		lift_reward_count = 0
@@ -110,7 +108,7 @@ class DDPGfD(object):
 		print("IN OG TRAIN: finger_reward_count: ", finger_reward_count)
 		print("IN OG TRAIN: grasp_reward_count: ", grasp_reward_count)
 		print("IN OG TRAIN: lift_reward_count: ", lift_reward_count)
-
+		"""
 
 		# Target Q network
 		#print("Target Q")
@@ -217,7 +215,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, prob=0.3):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 
@@ -225,11 +223,11 @@ class DDPGfD(object):
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			#print("AGENT")
 			expert_or_random = "agent"
-			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,"AGENT")
+			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			#print("EXPERT")
 			expert_or_random = "expert"
-			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,"EXPERT")
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
 			# Get prob % of batch from expert and (1-prob) from agent
@@ -237,9 +235,9 @@ class DDPGfD(object):
 			expert_batch_size = self.batch_size - agent_batch_size
 			# Get batches from respective replay buffers
 			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
-			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,"AGENT")
+			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,num_trajectories)
 			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
-			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,"EXPERT")
+			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,num_trajectories)
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
 			state = torch.cat((torch.squeeze(agent_state), torch.squeeze(expert_state)), 0)
@@ -291,13 +289,8 @@ class DDPGfD(object):
 		print("IN BATCH TRAIN: lift_reward_count: ", lift_reward_count)
 		"""
 
-		#print("TRAIN BATCH, self.n: ",self.n)
-
-		#if non_zero_count > 1:
-		#	print("****FOUND A REWARD (in the batch) BIGGER THAN ZERO !!!!!")
-
 		### FOR TESTING:
-		assert_batch_size = self.batch_size * 5
+		assert_batch_size = self.batch_size * num_trajectories
 		#assert_n_steps = 5
 		assert_mod_state_dim = 82
 
@@ -406,9 +399,6 @@ class DDPGfD(object):
 		self.actor_optimizer.zero_grad()
 		actor_loss.backward()
 		self.actor_optimizer.step()
-
-		#print("Quitting from train")
-		#quit()
 
 		if self.total_it % self.network_repl_freq == 0:
 			# Update the frozen target models
