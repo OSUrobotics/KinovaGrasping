@@ -633,22 +633,15 @@ class KinovaGripper_Env(gym.Env):
             #network_inputs=np.append(network_inputs,obs[24:])
             #inputs = torch.FloatTensor(np.array(network_inputs)).to(device)
 
-            #print("KINOV ENV, ", with_grasp_reward is True)
-            #print("< 0.035, np.max(np.array(obs[41:46])): ",np.max(np.array(obs[41:46])))
-            #print("< 0.015, np.max(np.array(obs[35:40])): ",np.max(np.array(obs[35:40])))
-
-            # STEPH TEST GRASP REWARD
             # If proximal or distal finger position is close enough to object
             #if np.max(np.array(obs[41:46])) < 0.035 or np.max(np.array(obs[35:40])) < 0.015:
             # Grasp classifier determines how good grasp is
             outputs = self.Grasp_net.predict(np.array(local_obs[0:75]).reshape(1,-1))#self.Grasp_net(inputs).cpu().data.numpy().flatten()
-            #print("KINOV ENV, outputs", outputs)
+
             if (outputs >=0.3) & (not self.Grasp_Reward):
-                #print("KINOV ENV, outputs >=0.3 & not self.Grasp_Reward: ", not self.Grasp_Reward)
                 grasp_reward = 5.0
                 self.Grasp_Reward=True
             else:
-                #print("else: grasp reward is 0, : ",grasp_reward)
                 grasp_reward = 0.0
 
         if abs(obs[23] - obj_target) < 0.005 or (obs[23] >= obj_target):
@@ -662,23 +655,15 @@ class KinovaGripper_Env(gym.Env):
         # obs[41:46]: DISTAL Finger-Object distance 41) "f1_dist", "f1_dist_1", "f2_dist", "f2_dist_1", "f3_dist", 46) "f3_dist_1"
         # obs[35:40]: PROXIMAL Finger-Object distance 35) "f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1", "f3_prox", 40) "f3_prox_1"
         
+
         # Original Finger reward
-        # finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
+        #finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
 
         # Negative or 0 Finger Reward: Negative velocity --> fingers moving outward/away from object
         #if any(n < 0 for n in action):
         #    finger_reward = -np.sum((np.array(obs[41:46])) + (np.array(obs[35:40])))
         #else:
         #    finger_reward = 0
-        """
-
-        """"# STEPH TEST GRASP REWARD
-        if self.with_grasp_reward is True and grasp_reward > 0:
-            print("!! Grasp Reward is TRUE and You got a Grasp_reward: ",grasp_reward)
-
-        if grasp_reward > 0:
-            print("!! grasp_reward > 0: ",grasp_reward)
-            print("But, self.with_grasp_reward is : ",self.with_grasp_reward)
         """
 
         reward = 0.2*finger_reward + lift_reward + grasp_reward

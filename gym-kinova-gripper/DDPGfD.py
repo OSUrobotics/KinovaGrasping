@@ -86,18 +86,29 @@ class DDPGfD(object):
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
 
 		if expert_or_random == "expert":
-			print("in regular TRAIN, sample from EXPERT...")
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
 			state, action, next_state, reward, not_done = replay_buffer.sample()
 
-
+		"""
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
 		non_zero_count = 0
 		for elem in reward:
 			if elem != 0:
 				non_zero_count += 1
-
-		print("ORIGINAL TRAIN, reward non_zero count: ", non_zero_count)
+				if elem < 5:
+					finger_reward_count += 1
+				elif elem < 10:
+					grasp_reward_count += 1
+				elif elem >= 10:
+					lift_reward_count += 1
+		print("\nIN OG TRAIN: non_zero_reward: ",non_zero_count)
+		print("IN OG TRAIN: finger_reward_count: ", finger_reward_count)
+		print("IN OG TRAIN: grasp_reward_count: ", grasp_reward_count)
+		print("IN OG TRAIN: lift_reward_count: ", lift_reward_count)
+		"""
 
 		# Target Q network
 		#print("Target Q")
@@ -204,7 +215,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, prob=0.3):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 
@@ -212,11 +223,11 @@ class DDPGfD(object):
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			#print("AGENT")
 			expert_or_random = "agent"
-			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,"AGENT")
+			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			#print("EXPERT")
 			expert_or_random = "expert"
-			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,"EXPERT")
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
 			# Get prob % of batch from expert and (1-prob) from agent
@@ -224,9 +235,9 @@ class DDPGfD(object):
 			expert_batch_size = self.batch_size - agent_batch_size
 			# Get batches from respective replay buffers
 			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
-			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,"AGENT")
+			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,num_trajectories)
 			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
-			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,"EXPERT")
+			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,num_trajectories)
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
 			state = torch.cat((torch.squeeze(agent_state), torch.squeeze(expert_state)), 0)
@@ -244,70 +255,45 @@ class DDPGfD(object):
 		reward = reward.unsqueeze(-1)
 		not_done = not_done.unsqueeze(-1)
 
-
-		# Check for non-zero reward (lift or grasp) exist in sample
-		"""
-		non_zero_count = 0
-		for row in reward:
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-
-		print("TRAIN BATCH, reward non_zero count: ", non_zero_count)
-		"""
-
-
-		#if non_zero_count > 1:
-		#	print("****FOUND A REWARD (in the batch) BIGGER THAN ZERO !!!!!")
-
 		### FOR TESTING:
-		assert_batch_size = 64
-		assert_n_steps = 5
-		assert_mod_state_dim = 82
+		#assert_batch_size = self.batch_size * num_trajectories
+		num_timesteps_sampled = len(reward)
 
-		#print("Batch sizes shape")
-		#print("state.shape: ", state.shape)
-		#print("action.shape: ", action.shape)
-		#print("next_state.shape: ", next_state.shape)
-		#print("reward.shape: ", reward.shape)
-		#print("not_done.shape: ", not_done.shape)
+		#assert_n_steps = 5
+		#assert_mod_state_dim = 82
 
-
-		assert state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
-		assert next_state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
-		assert action.shape == (assert_batch_size, assert_n_steps, 4)
-		assert reward.shape == (assert_batch_size, assert_n_steps, 1)
-		assert not_done.shape == (assert_batch_size, assert_n_steps, 1)
+		#assert state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
+		#assert next_state.shape == (assert_batch_size, assert_n_steps, assert_mod_state_dim)
+		#assert action.shape == (assert_batch_size, assert_n_steps, 4)
+		#assert reward.shape == (assert_batch_size, assert_n_steps, 1)
+		#assert not_done.shape == (assert_batch_size, assert_n_steps, 1)
 
 		#print("Target Q")
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
-		#print(target_Q.shape)
-		#print("target_Q: ",target_Q)
-		assert target_Q.shape == (assert_batch_size, 1)
+		#assert target_Q.shape == (assert_batch_size, 1)
+
 		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
 		#print(target_Q.shape)
 		#print("target_Q: ",target_Q)
-		assert target_Q.shape == (assert_batch_size, 1)
-
-		#This is the updated version, assuming that we're sampling from a batch.
+		#assert target_Q.shape == (assert_batch_size, 1)
 
 		#print("Target action")
 		target_action = self.actor_target(next_state[:, -1])
 		#print(target_action.shape)
 		#print("target_action: ", target_action)
-		assert target_action.shape == (assert_batch_size, 4)
+		#assert target_action.shape == (assert_batch_size, 4)
 
 		#print("Target Critic Q value")
 		target_critic_val = self.critic_target(next_state[:, -1], target_action)  # shape: (self.batch_size, 1)
 		#print(target_critic_val.shape)
 		#print("target_critic_val: ",target_critic_val)
-		assert target_Q.shape == (assert_batch_size, 1)
+		#assert target_Q.shape == (assert_batch_size, 1)
 
-		n_step_return = torch.zeros(self.batch_size).to(device)  # shape: (self.batch_size,)
+		n_step_return = torch.zeros(num_timesteps_sampled).to(device)  # shape: (self.batch_size,)
 		#print("N step return before calculation (N=5)")
 		#print(n_step_return.shape)
 		#print("n_step_return: ", n_step_return)
-		assert n_step_return.shape == (assert_batch_size,)
+		#assert n_step_return.shape == (assert_batch_size,)
 
 		for i in range(self.n):
 			n_step_return += (self.discount ** i) * reward[:, i].squeeze(-1)
@@ -315,7 +301,6 @@ class DDPGfD(object):
 		#print("N step return after calculation (N=5)")
 		#print(n_step_return.shape)
 		#print("n_step_return: ", n_step_return)
-
 		#assert n_step_return.shape == (assert_batch_size,)
 
 		#print("Target QN, N STEPS")
@@ -323,27 +308,18 @@ class DDPGfD(object):
 		target_QN = n_step_return + (self.discount ** self.n) * target_critic_val.squeeze(-1)
 		#print(target_QN.shape)
 		#print("target_QN: ",target_QN)
-		assert target_QN.shape == (assert_batch_size,)
+		#assert target_QN.shape == (assert_batch_size,)
 		target_QN = target_QN.unsqueeze(dim=-1)
 		#print(target_QN.shape)
 		#print("target_QN: ", target_QN)
-		assert target_QN.shape == (assert_batch_size, 1)
+		#assert target_QN.shape == (assert_batch_size, 1)
 
 		#print("Current Q")
 		# New implementation
 		current_Q = self.critic(state[:, 0], action[:, 0])
 		#print(current_Q.shape)
 		#print("current_Q: ", current_Q)
-		assert current_Q.shape == (assert_batch_size, 1)
-
-		#print("Current QN (N Step)")
-		### STEPH Remove
-		# New Updated for new rollback method
-		current_Q_n = self.critic(state[:, -1], action[:, -1])
-		#print(current_Q_n.shape)
-		#print("current_Q_n: ",current_Q_n)
-		assert current_Q_n.shape == (assert_batch_size, 1)
-		### STEPH Remove
+		#assert current_Q.shape == (assert_batch_size, 1)
 
 		#print("CRITIC L1 Loss:")
 		# L_1 loss (Loss between current state, action and reward, next state, action)
@@ -353,8 +329,7 @@ class DDPGfD(object):
 
 		#print("CRITIC LN Loss:")
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
-		### STEPH change to be: critic_LNloss = F.mse_loss(current_Q, target_QN)
-		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
+		critic_LNloss = F.mse_loss(current_Q, target_QN)
 		#print(critic_LNloss.shape)
 		#print("critic_LNloss: ", critic_LNloss)
 

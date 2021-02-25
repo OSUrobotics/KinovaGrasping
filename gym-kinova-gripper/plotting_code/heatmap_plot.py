@@ -73,12 +73,15 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     fail_data, _, _ = np.histogram2d(fail_x, fail_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
     total_data, x_edges, y_edges = np.histogram2d(total_x, total_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
 
-    """
+    """ Testing plotting
     print("\nPlotting: saving_dir+fig_filename",saving_dir+fig_filename)
     print("plot_success: ",plot_success)
     print("success_x: ",success_x)
+    print("success_y: ", success_y)
     print("fail_x: ", fail_x)
     print("fail_y: ", fail_y)
+    print("x_bins: ",x_bins)
+    print("y_bins: ", y_bins)
     print("len(fail_x): ",len(fail_x))
     print("sum(fail_data): ",np.sum(fail_data))
     print("sum(success_data): ", np.sum(success_data))
@@ -87,6 +90,7 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     #print("sum(success_data): ",sum(success_data))
     print("len(success_x): ",len(success_x))
     """
+
 
     # Positive Success rate coordinates bins
     if len(fail_x) == 0:
