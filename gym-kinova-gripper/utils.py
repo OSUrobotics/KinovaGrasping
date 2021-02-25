@@ -349,60 +349,6 @@ class ReplayBuffer_Queue(object):
 				torch.FloatTensor(not_done_arr).to(self.device)
 			)
 
-		# Check for non-zero reward (lift or grasp) exist in all episodes
-		"""
-		non_zero_count = 0
-		num_rows = 0
-		i = 0
-		success_idx = []
-		for row in self.reward:
-			num_rows += 1
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-			if row[-1] > 0:
-				success_idx.append(i)
-			i += 1
-		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
-		print("IN SAMPLE BATCH: non_zero_reward: ",non_zero_count)
-		"""
-
-		"""
-		non_zero_count = 0
-		finger_reward_count = 0
-		grasp_reward_count = 0
-		lift_reward_count = 0
-		test_lift_reward_count = 0
-		num_rows = 0
-		i = 0
-		success_idx = []
-		for row in self.reward:
-			num_rows += 1
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-					if elem < 5:
-						finger_reward_count += 1
-					elif elem < 10:
-						grasp_reward_count += 1
-					elif elem > 49:
-						test_lift_reward_count += 1
-					elif elem >= 10:
-						print("IN OG SAMPLE, ELEM >= 10: ",elem)
-						lift_reward_count += 1
-			i += 1
-		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
-		print("IN BATCH SAMPLE: non_zero_reward: ",non_zero_count)
-		print("IN BATCH SAMPLE: finger_reward_count: ", finger_reward_count)
-		print("IN BATCH SAMPLE: grasp_reward_count: ", grasp_reward_count)
-		print("IN BATCH SAMPLE: lift_reward_count: ", lift_reward_count)
-		print("IN BATCH SAMPLE: test_lift_reward_count: ", test_lift_reward_count)
-		print("IN BATCH SAMPLE: num_rows: ", num_rows)
-		print("IN BATCH SAMPLE: replay_buffer.replay_ep_num: ", self.replay_ep_num)
-		print("IN BATCH SAMPLE: replay_buffer.size: ", self.size)
-		print("IN BATCH SAMPLE: replay_buffer.timesteps_count: ", self.timesteps_count)
-		"""
-
 		# List of randomly-selected episode indices based on current number of episodes
 		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
 
@@ -422,30 +368,13 @@ class ReplayBuffer_Queue(object):
 
 			# Get the trajectory from starting index to n_steps later
 			trajectory_arr_idx = []
+
+			num_ts_from_ep = ceiling
 			for num in range(num_ts_from_ep-1):
 				start_idx = np.random.randint(ceiling)
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
 			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
-
-			## STEPH BATCH TEST
-			"""
-			print("BEFORE reward_arr: ", reward_arr)
-			print("\n")
-			print("idx: ",idx)
-			print("reward[idx]: ",self.reward[idx])
-			print("len(reward[idx]): ", len(self.reward[idx]))
-			print("len(self.state[idx]): ",len(self.state[idx]))
-			print("episode_len: ",episode_len)
-			print("ceiling [1, max), max: (episode_len - self.n_steps) + 2: ",(episode_len - self.n_steps) + 2)
-			print("ceiling: ", ceiling)
-			print("\n")
-			print("start_idx [0, max), max: ", ceiling)
-			print("start_idx: ",start_idx)
-			print("\n")
-			print("trajectory_arr_idx, [start_idx, start_idx + n_steps), where max:  ",start_idx + self.n_steps)
-			print("trajectory_arr_idx: ",trajectory_arr_idx)
-			"""
 
 			# quick hack - we'll fix this later with for loops. we're gonna use
 			# double the space rn to just make our indexing work with numpy slicing.
@@ -582,9 +511,47 @@ class ReplayBuffer_Queue(object):
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
 		# replay_ep_num: Number of episodes currently in the replay buffer
 
+		non_zero_count = 0
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
+		test_lift_reward_count = 0
+		num_rows = 0
+		i = 0
+		success_idx = []
+		for row in self.reward:
+			num_rows += 1
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+					if elem < 5:
+						finger_reward_count += 1
+					elif elem < 10:
+						grasp_reward_count += 1
+					elif elem > 49:
+						lift_reward_count += 1
+
+			i += 1
+		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+		text = ""
+		text += "\nREPLAY BUFFER: "
+		text += "\nfilepath: " + filepath
+		text += "\nnon_zero_reward: "+str(non_zero_count)
+		text += "\nfinger_reward_count: "+str(finger_reward_count)
+		text += "\ngrasp_reward_count: "+str(grasp_reward_count)
+		text += "\nlift_reward_count: "+str(lift_reward_count)
+		text += "\nnum_rows: "+str(num_rows)
+		text += "\nreplay_buffer.replay_ep_num: "+str(self.replay_ep_num)
+		text += "\nreplay_buffer.size: "+str(self.size)
+		text += "\nreplay_buffer.timesteps_count: "+str(self.timesteps_count)
+
+		print(text)
+
 		# If there is a trailing empty entry [], remove it
 		if len(self.reward[-1]) == 0:
 			self.remove_episode(-1)
+
+		return text
 
 
 # A buffer that stores and sample based on episodes that have different step size

@@ -1037,10 +1037,12 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data/Expert_data_WITH_GRASP"
+        #"./expert_replay_data_NO_NOISE/with_grasp/expert_naive/"
         with_grasp_str = "WITH grasp"
     else:
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data/Expert_data_NO_GRASP/"
+        #"./expert_replay_data_NO_NOISE/no_grasp/expert_naive/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
@@ -1120,9 +1122,9 @@ if __name__ == "__main__":
         #    # Load expert data from saved expert pid controller replay buffer
         #    print("Loading expert replay buffer: ",shape_replay_file_path)
         #    expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
-        expert_replay_file_path = "./expert_replay_data/Expert_data_OLD_20000/"
+
         print("Loading expert replay buffer: ", expert_replay_file_path)
-        expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+        replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
         # Model replay buffer file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1143,7 +1145,7 @@ if __name__ == "__main__":
         agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
 
         # Create plots and info file
-        generate_output(text="\nPARAMS: \n"+param_text+train_time_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
+        generate_output(text="\nPARAMS: \n"+param_text+train_time_text+"\n"+replay_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
     # Train policy starting with pre-trained policy and sampling from experience
     elif args.mode == "train":
