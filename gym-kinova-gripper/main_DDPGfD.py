@@ -634,11 +634,13 @@ def get_experiment_info(exp_num):
     # Experiment #: [pretrain_policy_exp #, stage_policy]
     stage0 = "pretrain_policy"  # Expert policy with small cube
     stage1 = {"1": ["0", "sizes"], "2": ["0", "shapes"], "3": ["0", "orientations"]}
-    stage2 = {"4": ["1", "sizes_shapes"], "5": ["1", "sizes_orientations"], "6": ["2", "shapes_orientations"],
-              "7": ["2", "shapes_sizes"], "8": ["3", "orientations_sizes"], "9": ["3", "orientations_shapes"]}
-    stage3 = {"10": ["4", "sizes_shapes_orientations"], "11": ["5", "sizes_orientations_shapes"],
-              "12": ["6", "shapes_orientations_sizes"], "13": ["7", "shapes_sizes_orientations"],
-              "14": ["8", "orientations_sizes_shapes"], "15": ["9", "orientations_shapes_sizes"]}
+    stage2 = {"4": ["1", "sizes_shapes_orientations"], "5": ["2", "shapes_sizes_orientations"], "6": ["3", "orientations_sizes_shapes"]}
+
+    #stage2 = {"4": ["1", "sizes_shapes"], "5": ["1", "sizes_orientations"], "6": ["2", "shapes_orientations"],
+    #          "7": ["2", "shapes_sizes"], "8": ["3", "orientations_sizes"], "9": ["3", "orientations_shapes"]}
+    #stage3 = {"10": ["4", "sizes_shapes_orientations"], "11": ["5", "sizes_orientations_shapes"],
+    #          "12": ["6", "shapes_orientations_sizes"], "13": ["7", "shapes_sizes_orientations"],
+    #          "14": ["8", "orientations_sizes_shapes"], "15": ["9", "orientations_shapes_sizes"]}
 
     print("stage1.keys(): ",stage1.keys())
     print("exp_num: ",exp_num)
@@ -719,6 +721,9 @@ def get_exp_input(exp_name, shapes, sizes):
     """
     exp_types = exp_name.split('_')
     exp_shapes = []
+
+    if exp_name == "kitchen_sink":
+        exp_types = ["shapes", "sizes", "orientations"]
 
     # All shapes
     if "shapes" in exp_types and "sizes" in exp_types:
@@ -886,7 +891,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_episode", default=20000, type=int)       # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
-    parser.add_argument("--batch_size", default=64, type=int)            # Batch size for both actor and critic - Change to be 64
+    parser.add_argument("--batch_size", default=0, type=int)            # Batch size for both actor and critic - Change to be 64 for batch train, 0 for single ep sample
     parser.add_argument("--discount", default=0.995, type=float)            # Discount factor
     parser.add_argument("--tau", default=0.0005, type=float)                # Target network update rate
     parser.add_argument("--policy_noise", default=0.01, type=float)     # Noise added to target policy during critic update
@@ -903,7 +908,7 @@ if __name__ == "__main__":
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
     parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
     parser.add_argument("--update_after", default=100, type=int) # Start to update the policy after # episodes have occured
-    parser.add_argument("--update_freq", default=4, type=int)   # Update the policy every # of episodes
+    parser.add_argument("--update_freq", default=1, type=int)   # Update the policy every # of episodes
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--num_traj", default=5, type=int)  # Number of trajectories to sample per episode in train_batch sampling
@@ -1250,7 +1255,7 @@ if __name__ == "__main__":
     elif args.mode == "experiment":
         # Initialize all shape and size options
         all_shapes = env.get_all_objects()
-        test_shapes = ["Vase1", "Cone1", "RBowl"]
+        test_shapes = ["Vase1", "RBowl"]
         test_sizes = ["M"]
         all_sizes = ["S", "M", "B"]
         exp_mode = "train"  # Manually setting mode right now
@@ -1261,7 +1266,7 @@ if __name__ == "__main__":
                 shapes_list.append(shape_key[:-1])
 
         train_sizes = ["S", "B"]
-        train_shapes = ["Cube", "Cylinder", "Cube45", "Vase2", "Cone2", "Bottle", "RBowl", "Lemon", "TBottle"]
+        train_shapes = ["Cube", "Cylinder", "Cube45", "Vase2", "Bottle", "Bowl", "TBottle"]
 
         if exp_mode == "test":
             shapes = test_shapes
