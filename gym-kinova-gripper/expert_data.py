@@ -348,7 +348,7 @@ class PID(object):
         #    action = 0.8
         if action < 0.05:  # Old velocity
             action = 0.05
-        #print("TOUCH VEL, action: ", action)
+        print("TOUCH VEL, action: ", action)
         return action
 
     def check_grasp(self, f_dist_old, f_dist_new):
@@ -449,33 +449,33 @@ class ExpertPIDController(object):
 
         # Check if the object is near the center area (less than x-axis 0.03)
         if abs(self.init_obj_pose) <= 0.03:
-            # print("CHECK 1: Object is near the center")
+            print("CHECK 1: Object is near the center")
             f1, f2, f3 = constant_velocity, constant_velocity, constant_velocity
 
             # Check if change in object dot product to wrist center versus the initial dot product is greater than 0.01
             if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
-                # print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
+                print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
                 # start lowering velocity of the three fingers
                 f1, f2, f3 = constant_velocity, (constant_velocity / 2), (constant_velocity / 2)
 
                 # Check if object is grasped - distal finger distance hasn't moved
                 if pid.check_grasp(f_dist_old, f_dist_new) is True:
-                    # print("Check 2A: Object is grasped, ready for lift")
+                    print("Check 2A: Object is grasped, ready for lift")
                     if ready_for_lift >= num_consistent_grasps:
-                        #print("Ready for lift!!!: ", ready_for_lift)
+                        print("Ready for lift!!!: ", ready_for_lift)
                         wrist, f1, f2, f3 = wrist_lift_velocity, (
                                     finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
                     ready_for_lift += 1
         else:
-            # print("CHECK 3: Object is on extreme left OR right sides")
+            print("CHECK 3: Object is on extreme left OR right sides")
             # object on right hand side, move 2-fingered side
             # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
             if self.init_obj_pose > 0.0:
-                # print("CHECK 4: Object is on RIGHT side")
+                print("CHECK 4: Object is on RIGHT side")
                 # Only Small change in object dot prod to wrist from initial position, must move more
                 if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
                     """ PRE-contact """
-                    # print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
+                    print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
                     f1 = 0.0  # frontal finger doesn't move
                     f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
                     f3 = f2  # other double side finger moves at same speed
@@ -483,29 +483,29 @@ class ExpertPIDController(object):
                 else:
                     """ POST-contact """
                     # now finger-object distance has been changed a decent amount.
-                    # print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
+                    print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
                     # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
                     if abs(1 - obj_dot_prod) > 0.01:
-                        # print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
+                        print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
                         # start to close the PID stuff
                         f1 = min_velocity # frontal finger moves slightly
                         f2 = pid.velocity(obj_dot_prod)  # get PID velocity
                         f3 = f2  # other double side finger moves at same speed
                         wrist = 0.0
                     else:  # goal is within 0.01 of being reached:
-                        # print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
+                        print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
                         # start to close from the first finger
                         f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                         f2 = 0.0
                         f3 = 0.0
                         wrist = 0.0
 
-                    # print("Check 9a: Check for grasp (small distal finger movement)")
+                    print("Check 9a: Check for grasp (small distal finger movement)")
                     # Check for a good grasp (small distal finger movement)
                     if pid.check_grasp(f_dist_old, f_dist_new) is True:
-                        # print("CHECK 9: Yes! Good grasp, move ALL fingers")
+                        print("CHECK 9: Yes! Good grasp, move ALL fingers")
                         if ready_for_lift >= num_consistent_grasps:
-                            #print("Ready for lift!!!: ", ready_for_lift)
+                            print("Ready for lift!!!: ", ready_for_lift)
                             wrist, f1, f2, f3 = wrist_lift_velocity, (
                                         finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
                         ready_for_lift += 1
@@ -513,11 +513,11 @@ class ExpertPIDController(object):
             # object on left hand side, move 1-fingered side
             # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
-                # print("CHECK 10: Object is on the LEFT side")
+                print("CHECK 10: Object is on the LEFT side")
                 # Only Small change in object dot prod to wrist from initial position, must move more
                 if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
                     """ PRE-contact """
-                    # print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
+                    print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
                     f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                     f2 = 0.0
                     f3 = 0.0
@@ -525,17 +525,17 @@ class ExpertPIDController(object):
                 else:
                     """ POST-contact """
                     # now finger-object distance has been changed a decent amount.
-                    # print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
+                    print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
                     # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
                     if abs(1 - obj_dot_prod) > 0.01:
-                        # print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
+                        print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
                         f1 = pid.velocity(obj_dot_prod)
                         f2 = min_velocity  # 0.05
                         f3 = min_velocity  # 0.05
                         wrist = 0.0
                     else:
                         # Goal is within 0.01 of being reached:
-                        # print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
+                        print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
                         # start to close from the first finger
                         # nudge with thumb
                         f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
@@ -543,13 +543,13 @@ class ExpertPIDController(object):
                         f1 = 0.0
                         wrist = 0.0
 
-                    # print("Check 15a: Check for grasp (small distal finger movement)")
+                    print("Check 15a: Check for grasp (small distal finger movement)")
                     # Check for a good grasp (small distal finger movement)
                     if pid.check_grasp(f_dist_old, f_dist_new) is True:
-                        # print("CHECK 15: Good grasp - moving ALL fingers")
+                        print("CHECK 15: Good grasp - moving ALL fingers")
                         # wrist, f1, f2, f3 = 0.6, 0.15, 0.3, 0.3
                         if ready_for_lift >= num_consistent_grasps:
-                            #print("Ready for lift!!!: ", ready_for_lift)
+                            print("Ready for lift!!!: ", ready_for_lift)
                             wrist, f1, f2, f3 = wrist_lift_velocity, (
                                         finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
                             # ready_for_lift = 0
@@ -559,8 +559,8 @@ class ExpertPIDController(object):
         hand_velocities = np.array([wrist, f1, f2, f3])
         hand_velocities = check_vel_in_range(hand_velocities, min_velocity, max_velocity, finger_lift_velocity)
 
-        #print("f1: ", hand_velocities[1], " f2: ", hand_velocities[2], " f3: ", hand_velocities[3], " wrist: ",
-        #      hand_velocities[0])
+        print("f1: ", hand_velocities[1], " f2: ", hand_velocities[2], " f3: ", hand_velocities[3], " wrist: ",
+              hand_velocities[0])
         self.f1_vels.append(f1)
         self.f2_vels.append(f2)
         self.f3_vels.append(f3)
@@ -648,6 +648,7 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
     object_x_coord = obs[21]  # Object x coordinate position
     # Action is Naive Controller by default
     action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
+    print("pid_mode: ",pid_mode)
 
     # Check for Naive Only or Expert Only setting
     # Only Naive constant velocity
@@ -669,6 +670,7 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
 
     # Only Expert nudge strategy
     elif pid_mode == "expert_only":
+        print("You made it into expert_only")
         # Expert Nudge controller strategy
         action, ready_for_lift, f1_vels, f2_vels, f3_vels, wrist_vels = controller.NudgeController(
             prev_obs, obs, env.action_space, constant_velocity, min_velocity, max_velocity,
@@ -737,6 +739,8 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
     # Checks the grasp is good over num_consistent_grasps number of trials
     if ready_for_lift >= num_consistent_grasps:
         action[0] = wrist_lift_velocity
+
+    print("**** action: ",action)
 
     return action
 

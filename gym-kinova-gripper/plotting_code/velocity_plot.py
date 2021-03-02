@@ -114,8 +114,11 @@ def get_replay_buffer_paths(full_path):
     replay_paths = {}
     for path in glob.glob(full_path):
         name = os.path.basename(path)
-        replay_paths[name] = path
-
+        path = path.replace("\\", "/")
+        #print("Name: ",name)
+        #print("path: ",path)
+        replay_paths[name] = path + "/"
+    #print("replay_paths.items(): ",replay_paths.items())
     return replay_paths
 
 
@@ -131,19 +134,36 @@ if __name__ == "__main__":
     batch_path = "../replay_buffer/2_18_STEPH_TEST_BATCH/replay_buffer_02_18_21_2100/"
     single_path = "../replay_buffer/2_18_STEPH_TEST_SINGLE_EP/replay_buffer_02_18_21_2258/"
 
-    all_replay_paths = {"Expert NO Grasp": expert_no_grasp_path, "Expert WITH Grasp": expert_w_grasp_path, "Batch": batch_path, "Single": single_path}
+    #all_replay_paths = {"Expert NO Grasp": expert_no_grasp_path, "Expert WITH Grasp": expert_w_grasp_path, "Batch": batch_path, "Single": single_path}
 
+    """
     expert_pid_no_grasp_paths = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/no_grasp/expert_naive/*")
     naive_pid_no_grasp_paths = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/no_grasp/naive_only/*")
 
     expert_pid_with_grasp_paths = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/with_grasp/expert_naive/*")
     naive_pid_with_grasp_paths = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/with_grasp/naive_only/*")
+    """
+
+    test_naive_only_pid_no_grasp_path = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/no_grasp/naive_only/*/normal/replay_buffer")
+    test_expert_only_pid_no_grasp_path = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/no_grasp/expert_only/*/normal/replay_buffer")
+    test_expert_naive_pid_no_grasp_path = get_replay_buffer_paths("../expert_replay_data_NO_NOISE/no_grasp/expert_naive/*/normal/replay_buffer")
+
+    #import copy
+    #test_expert_naive_pid_no_grasp_dict = copy.deepcopy(test_expert_naive_pid_no_grasp_path)
+    #print("test_expert_naive_pid_no_grasp_dict keys: ",test_expert_naive_pid_no_grasp_dict.keys())
+    #print("test_expert_naive_pid_no_grasp_dict values: ", test_expert_naive_pid_no_grasp_dict.values())
+
+    all_replay_paths = {"Test Naive Only": test_naive_only_pid_no_grasp_path, "Test Expert Only": test_expert_only_pid_no_grasp_path, "Test Expert Niave: ": test_expert_naive_pid_no_grasp_path}
 
     # Evaluate each replay buffer for its reward makeup and policy output action (finger velocity) stats
-    for name, replay_file_path in all_replay_paths.items():
-        # Load the replay buffer (expert replay buffer)
-        replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, replay_size)
-        replay_text = replay_buffer.store_saved_data_into_replay(replay_file_path)
+    for replay_path_type, replay_path_dict in all_replay_paths.items():
+        print("\n\n========== Evaluating ", replay_path_type," ===========")
+        print("Evaluating replay_path_dict", replay_path_dict)
+        for name, replay_file_path in replay_path_dict.items():
+            print("name: ", name, "\nreplay_file_path: ", replay_file_path)
+            # Load the replay buffer (expert replay buffer)
+            replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, replay_size)
+            replay_text = replay_buffer.store_saved_data_into_replay(replay_file_path)
 
-        # Evaluate policy action output (finger velocities) from replay buffer
-        evaluate_replay_velocities(name, replay_buffer)
+            # Evaluate policy action output (finger velocities) from replay buffer
+            evaluate_replay_velocities(name, replay_buffer)

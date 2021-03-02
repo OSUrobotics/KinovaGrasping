@@ -432,10 +432,16 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
 
             # Follow policy until ready for lifting, then switch to set controller
             if not ready_for_lift:
+                #old_action = (
+                #        policy.select_action(np.array(state))
+                #        + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
+                #).clip(-max_action, max_action)
+
                 action = (
                         policy.select_action(np.array(state))
-                        + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
-                ).clip(-max_action, max_action)
+                        + np.absolute(np.random.normal(0, max_action * args.expl_noise, size=action_dim))
+                ).clip(0, max_action)
+
                 # Perform action obs, total_reward, done, info
                 env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = env.step(action)
@@ -1042,12 +1048,12 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/expert_naive/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_WITH_GRASP/"
         with_grasp_str = "WITH grasp"
     else:
         # All shapes replay buffer
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/expert_naive/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
