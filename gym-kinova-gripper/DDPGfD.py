@@ -73,7 +73,7 @@ class DDPGfD(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.7):
+	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.7, mod_state_idx=np.arange(82)):
 		""" Update policy based on full trajectory of one episode """
 		self.total_it += 1
 
@@ -98,6 +98,16 @@ class DDPGfD(object):
 
 		print("ORIGINAL TRAIN, reward non_zero count: ", non_zero_count)
 		"""
+
+		print("single batch...")
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
+		# modify state dimensions
+		state = state[:, mod_state_idx]
+		next_state = next_state[:, mod_state_idx]
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
+
 
 		# Target Q network
 		target_Q = self.critic_target(next_state, self.actor_target(next_state))
@@ -162,7 +172,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, prob=0.3):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, prob=0.3, mod_state_idx=np.arange(82)):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 
@@ -201,6 +211,15 @@ class DDPGfD(object):
 
 		reward = reward.unsqueeze(-1)
 		not_done = not_done.unsqueeze(-1)
+
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
+		# modify state dimensions
+		state = state[:, :, mod_state_idx]
+		next_state = next_state[:, :, mod_state_idx]
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
+
 
 		""" # Check for non-zero reward (lift or grasp) exist in sample
 		non_zero_count = 0
