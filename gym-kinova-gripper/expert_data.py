@@ -27,6 +27,7 @@ import copy # For copying over coordinates
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
 from heatmap_coords import add_heatmap_coords, filter_heatmap_coords, coords_dict_to_array, save_coordinates
+from trajectory_plot import plot_trajectory
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -648,7 +649,6 @@ def get_action(prev_obs, obs, total_steps, controller, env, f_dist_old, f_dist_n
     object_x_coord = obs[21]  # Object x coordinate position
     # Action is Naive Controller by default
     action = np.array([0, constant_velocity, constant_velocity, constant_velocity])
-    print("pid_mode: ",pid_mode)
 
     # Check for Naive Only or Expert Only setting
     # Only Naive constant velocity
@@ -785,7 +785,6 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         obj_local = np.matmul(env.Tfw,obj_local)
         obj_local_pos = obj_local[0:3]
 
-        action_str = None
         controller = ExpertPIDController(obs)   # Initiate expert PID controller
 
         # Record episode starting index if replay buffer is passed in
@@ -843,7 +842,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
             action_str = "Wrist: " + str(action[0]) + "\nFinger1: " + str(action[1]) + "\nFinger2: " + str(
                 action[2]) + "\nFinger3: " + str(action[3]) + "\nready_for_lift: " + str(
-                ready_for_lift) + "\nf_all_change: " + str(naive_ret) + "\nobject center height: " + str(obs[23]) +\
+                ready_for_lift) + "\nf_all_change: " + str(naive_ret) + "\nObject Local x,y: (" + str(obj_local_pos[0]) + ", ", str(obj_local_pos[1]) +") " + "\nobject center height: " + str(obs[23]) +\
                          "\ntimestep reward: " + str(reward) +"\nfinger reward: " + str(info["finger_reward"]) +\
                          "\ngrasp reward: " + str(info["grasp_reward"]) + "\nlift reward: " + str(info["lift_reward"])
 
@@ -869,7 +868,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         # print("!!!!!!!!!!###########LIFT REWARD:#######!!!!!!!!!!!", info["lift_reward"])
         if render_imgs is True:
             if total_steps % 1 == 0:
-                env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=str(action), episode_num=i, timestep_num=total_steps,
+                image = env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=str(action), episode_num=i, timestep_num=total_steps,
                                obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=lift_success)
 
         # Add heatmap coordinates
@@ -880,6 +879,11 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
         if replay_buffer is not None:
             replay_buffer.add_episode(0)
+            episode_length = replay_buffer.episodes[i][1] # Ending index of the final episode time step
+
+            # If the episode contains time step experience, plot the trajectory
+            if episode_length > 0:
+                plot_trajectory(replay_buffer.state[i], replay_buffer.action[i], i, None)
 
     num_success = len(success_coords["x"])
     num_fail = len(fail_coords["x"])
@@ -909,13 +913,15 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
     expert_save_path = Path(expert_saving_dir)
     expert_save_path.mkdir(parents=True, exist_ok=True)
-    print("heatmap_saving_dir: ", expert_saving_dir)
-    print("expert_save_path: ", expert_save_path)
 
     heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
-    print("heatmap_saving_dir: ", heatmap_saving_dir)
     heatmap_save_path = Path(heatmap_saving_dir)
     heatmap_save_path.mkdir(parents=True, exist_ok=True)
+
+    print("\n--------- Saving Directories --------------")
+    print("Main saving directory: ", expert_saving_dir)
+    print("Output (data, plots) saved to: ", expert_output_saving_dir)
+    print("Heatmap data saved to: ", expert_saving_dir)
 
     # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
     filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
@@ -923,8 +929,6 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     #print("Plotting timestep distribution...")
     #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
 
-    #print("Save is: ", str(save))
-    save_filepath = None
     if save and replay_buffer is not None:
         print("\nSaving replay buffer...")
 
@@ -957,10 +961,11 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
         text = name_text + success_text + shapes_text + output_dir_text
 
-        print("Expert data generation replay buffer saved to location: ", save_filepath)
+        print("Expert Replay Buffer Saved to: ", save_filepath)
+        print("---- Replay Buffer Info -----")
         print("# Episodes: ", replay_buffer.replay_ep_num)
         print("# Trajectories: ", replay_buffer.size)
-        print("\nHeatmap coordinate data saved at: ",expert_saving_dir)
+
     return replay_buffer, save_filepath, expert_saving_dir, text, num_success, (num_success+num_fail)
 
 
@@ -1087,15 +1092,11 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 if __name__ ==  "__main__":
     # testing #
     # Initialize expert replay buffer, then generate expert pid data to fill it
-    state_dim = 82
-    action_dim = 4
-    expert_replay_size = 10
+    pid_mode = "naive_only"
+    replay_size = 10
     with_grasp = False
-    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-    text = ""
-    num_success = 0
-    total = 0
-    replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=False, replay_buffer=expert_replay_buffer, save=False, render_imgs=True, pid_mode="expert_naive")
+    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4, max_episode=replay_size)
+    replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=expert_replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
 
     #print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")

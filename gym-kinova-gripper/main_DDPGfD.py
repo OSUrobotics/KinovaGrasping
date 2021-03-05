@@ -203,7 +203,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #####
             # Not ready for lift, continue agent grasping following the policy
             if not ready_for_lift:
-                action = policy.select_action(np.array(state[0:82]))
+                action = policy.select_action(np.array(state[0:82])) # Due to the sigmoid should be between (0,max_action)
                 eval_env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = eval_env.step(action)
                 cumulative_reward += reward
@@ -275,6 +275,7 @@ def lift_hand(env_lift, tot_reward):
     env_lift: Mujoco environment
     tot_reward: Total cumulative reward
     """
+    # action only used to move hand, not recorded in replay buffer and is NOT used to update policy
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
     env_lift.with_grasp_reward = args.with_grasp_reward
@@ -293,6 +294,7 @@ def eval_lift_hand(env_lift, tot_reward, curr_reward):
     tot_reward: Total cumulative reward
     curr_reward: Current time step reward
     """
+    # action only used to move hand, not recorded in replay buffer and is NOT used to update policy
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
     env_lift.with_grasp_reward = args.with_grasp_reward
@@ -462,9 +464,12 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
 
         replay_buffer.add_episode(0)  # Add entry for new episode
 
+        # Remove any invalid episodes (episodes shorter than n-step length for policy training)
         episode_len = replay_buffer_recorded_ts # Number of timesteps within the episode recorded by replay buffer
         if episode_len - replay_buffer.n_steps <= 1:
             replay_buffer.remove_episode(-1)  # If episode is invalid length (less that n-steps), remove it
+        if episode_num > 0 and len(replay_buffer.episodes[0]) - replay_buffer.n_steps <= 1:
+            replay_buffer.remove_episode(0) # Remove episode at initial index if empty
 
         # Add heatmap coordinates (local coordinates)
         orientation = env.get_orientation()
@@ -918,6 +923,7 @@ if __name__ == "__main__":
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--num_traj", default=5, type=int)  # Number of trajectories to sample per episode in train_batch sampling
+    parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
 
     args = parser.parse_args()
 
@@ -996,6 +1002,11 @@ if __name__ == "__main__":
         print("with_grasp_reward must be True or False")
         raise ValueError
 
+    if args.render_imgs == "True" or args.render_imgs == "true":
+        args.render_imgs = True
+    else:
+        args.render_imgs = False
+
     saving_dir = args.saving_dir
     if saving_dir is None:
         saving_dir = "%s_%s" % (args.policy_name, args.mode) + datestr
@@ -1048,12 +1059,12 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/expert_naive/CubeS/normal/replay_buffer/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_WITH_GRASP/"
         with_grasp_str = "WITH grasp"
     else:
         # All shapes replay buffer
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/expert_naive/CubeS/normal/replay_buffer/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
@@ -1077,7 +1088,7 @@ if __name__ == "__main__":
         print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="expert_only")
         print("Expert ONLY expert_data_dir: ", expert_data_dir)
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1092,7 +1103,7 @@ if __name__ == "__main__":
         print("MODE: Naive ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="naive_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="naive_only")
         print("Naive ONLY expert_data_dir: ", expert_data_dir)
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1108,7 +1119,7 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
 
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="expert_naive")
         print("Expert (Interpolation) expert_data_dir: ", expert_data_dir)
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1227,7 +1238,7 @@ if __name__ == "__main__":
         else:
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
+            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="expert_naive")
 
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
