@@ -1,3 +1,6 @@
+import os
+os.environ['CUDA_LAUNCH_BLOCKING'] = "1"
+
 import copy
 import numpy as np
 import torch
@@ -73,7 +76,7 @@ class DDPGfD(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.7):
+	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.7, mod_state_idx=np.arange(82)):
 		""" Update policy based on full trajectory of one episode """
 		self.total_it += 1
 
@@ -109,6 +112,15 @@ class DDPGfD(object):
 		print("IN OG TRAIN: grasp_reward_count: ", grasp_reward_count)
 		print("IN OG TRAIN: lift_reward_count: ", lift_reward_count)
 		"""
+
+		print("single batch...")
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
+		# modify state dimensions
+		state = state[:, mod_state_idx]
+		next_state = next_state[:, mod_state_idx]
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
 
 		# Target Q network
 		#print("Target Q")
@@ -215,7 +227,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3, mod_state_idx=np.arange(82)):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 
@@ -239,21 +251,36 @@ class DDPGfD(object):
 			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
 			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,num_trajectories)
 
+			print("what's going on here")
+			print(agent_state.shape)
+			print(expert_state.shape)
+
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
 			state = torch.cat((torch.squeeze(agent_state), torch.squeeze(expert_state)), 0)
 			action = torch.cat((torch.squeeze(agent_action), torch.squeeze(expert_action)), 0)
 			next_state = torch.cat((torch.squeeze(agent_next_state), torch.squeeze(expert_next_state)), 0)
 			reward = torch.cat((torch.squeeze(agent_reward), torch.squeeze(expert_reward)), 0)
 			not_done = torch.cat((torch.squeeze(agent_not_done), torch.squeeze(expert_not_done)), 0)
-			if self.batch_size == 1:
-				state = state.unsqueeze(0)
-				action = action.unsqueeze(0)
-				next_state = next_state.unsqueeze(0)
-				reward = reward.unsqueeze(0)
-				not_done = not_done.unsqueeze(0)
+			# if self.batch_size == 1:
+			# 	state = state.unsqueeze(0)
+			# 	action = action.unsqueeze(0)
+			# 	next_state = next_state.unsqueeze(0)
+			# 	reward = reward.unsqueeze(0)
+			# 	not_done = not_done.unsqueeze(0)
+
+			# print(state.shape)
+			# print("okay done")
 
 		reward = reward.unsqueeze(-1)
 		not_done = not_done.unsqueeze(-1)
+
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
+		# modify state dimensions
+		state = state[:, :, mod_state_idx]
+		next_state = next_state[:, :, mod_state_idx]
+		print('state dimensions: ', state.shape)
+		print('next state dimensions: ', next_state.shape)
 
 		### FOR TESTING:
 		#assert_batch_size = self.batch_size * num_trajectories

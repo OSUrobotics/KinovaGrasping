@@ -203,7 +203,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #####
             # Not ready for lift, continue agent grasping following the policy
             if not ready_for_lift:
-                action = policy.select_action(np.array(state[0:82]))
+                # TODO: State action selection here
+                # modify here
+                # old_state_idx = np.array(state[0:82])
+
+                action = policy.select_action(np.array(state)[state_idx_arr])
                 eval_env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = eval_env.step(action)
                 cumulative_reward += reward
@@ -432,8 +436,11 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
 
             # Follow policy until ready for lifting, then switch to set controller
             if not ready_for_lift:
+                # TODO: Action selection
+                print("taking action...")
+                print(np.array(state)[state_idx_arr].shape)
                 action = (
-                        policy.select_action(np.array(state))
+                        policy.select_action(np.array(state)[state_idx_arr])
                         + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
                 ).clip(-max_action, max_action)
                 # Perform action obs, total_reward, done, info
@@ -474,12 +481,14 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
                     # Single episode training using full trajectory
                     actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
                                                                                      expert_replay_buffer,
-                                                                                     replay_buffer, prob)
+                                                                                     replay_buffer, prob,
+                                                                                         mod_state_idx=state_idx_arr)
                 else:
                     # Batch training using n-steps
                     actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
                                                                                          expert_replay_buffer,
-                                                                                         replay_buffer, num_trajectories, prob)
+                                                                                         replay_buffer, num_trajectories, prob,
+                                                                                               mod_state_idx=state_idx_arr)
 
         # Evaluation and recording data for tensorboard
         if episode_num+1 == num_episodes or (episode_num > args.update_after and (episode_num) % args.eval_freq == 0):
@@ -908,6 +917,9 @@ if __name__ == "__main__":
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--num_traj", default=5, type=int)  # Number of trajectories to sample per episode in train_batch sampling
 
+    parser.add_argument("--state_range", default='all',
+                        type=str)  # string - from ('all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real')
+
     args = parser.parse_args()
 
     """ Setup the environment, state, and action space """
@@ -928,8 +940,70 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
+
+    # for reference: state space correspondence
+    '''
+    Local obs, all in local coordinates (from the center of the palm)
+    (18,) Finger Pos                                        0-18
+    (3,) Wrist Pos                                            18-21
+    (3,) Obj Pos                                            21-24
+    (9,) Joint States                                        24-33
+    (3,) Obj Size                                            33-36
+    (12,) Finger Object Distance                            36-48
+    (2,) X and Z angle                                        48-50
+    (17,) Rangefinder data                                    50-67
+    (3,) Gravity vector in local coordinates                    67-70
+    (3,) Object location based on rangefinder data                70-73
+    (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
+    (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
+    (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
+    (1, ) Dot product (wrist) 81
+    
+    Global obs, all in global coordinates (from simulator 0,0,0)
+    (18,) Finger Pos                                        0-18
+    (3,) Wrist Pos                                            18-21
+    (3,) Obj Pos                                            21-24
+    (9,) Joint States                                        24-33
+    (3,) Obj Size                                            33-36
+    (12,) Finger Object Distance                            36-48
+    (2,) X and Z angle                                        48-50
+    (17,) Rangefinder data                                    50-67
+    '''
+
+    finger_pos_idx = np.arange(0, 18)
+    wrist_pos_idx = np.arange(18, 21)
+    obj_pos_idx = np.arange(21, 24)
+    joint_states_idx = np.arange(24, 33)
+    obj_size_idx = np.arange(33, 36)
+    finger_obj_dist_idx = np.arange(36, 48)
+    x_z_angle_idx = np.arange(48, 50)
+    rangefinder_data_idx = np.arange(50, 67)
+    gravity_vector_in_local_coords = np.arange(67, 70)
+    object_location_rangefinder = np.arange(70, 73)
+    ratio_sideshape_sidehand = np.array([73])
+    ratio_topshape_tophand = np.array([74])
+    f1_prox_idx = np.array([75])
+    f2_prox_idx = np.array([76])
+    f3_prox_idx = np.array([77])
+    f1_dist_idx = np.array([78])
+    f2_dist_idx = np.array([79])
+    f3_dist_idx = np.array([80])
+    dot_prod_wrist = np.array([81])
+
+    # modified state space code
+    assert args.state_range in ['all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real']
+    if args.state_range == 'all':
+        state_idx_arr = np.arange(0, 82)
+    if args.state_range == 'nigel_rangefinder':
+        state_idx_arr = np.concatenate((obj_pos_idx, rangefinder_data_idx, obj_size_idx), axis=0)
+    if args.state_range == 'nigel_norangefinder':
+        state_idx_arr = np.concatenate((obj_pos_idx, finger_obj_dist_idx, obj_size_idx), axis=0)
+    if args.state_range == 'all_real':
+        state_idx_arr = np.concatenate((obj_pos_idx, joint_states_idx, obj_size_idx, finger_obj_dist_idx, x_z_angle_idx))
+
     # Set dimensions for state and action spaces - policy initialization
-    state_dim = 82  # State dimension dependent on the length of the state space
+    state_dim = 82  # base state dimension... for the replay buffer
+    modified_state_dim = len(state_idx_arr) # State dimension that is dependent on the length of the state space
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
     max_action_trained = env.action_space.high  # a vector of max actions
@@ -960,7 +1034,7 @@ if __name__ == "__main__":
     env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
 
     kwargs = {
-        "state_dim": state_dim,
+        "state_dim": modified_state_dim,
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
