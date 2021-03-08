@@ -931,7 +931,7 @@ class KinovaGripper_Env(gym.Env):
         return x, y, z
 
     # Get the initial object Orientation
-    def sample_initial_valid_object_orr(self,shapeName,coords_filename):
+    def sample_initial_valid_object_orr(self,shapeName,coords_filename, counter):
         data = []
         with open(coords_filename) as csvfile:
             checker=csvfile.readline()
@@ -948,7 +948,7 @@ class KinovaGripper_Env(gym.Env):
                     k.append(i[a]) 
                 i = k
                 data.append([float(i[0]), float(i[1]), float(i[2])])
-        rand_coord = random.choice(data)
+        rand_coord = data[counter]
         x = rand_coord[0]
         y = rand_coord[1]
         z = rand_coord[2]
@@ -1085,7 +1085,7 @@ class KinovaGripper_Env(gym.Env):
             elif hand_orientation == 'top':
                 orrientat = 'top'
             orr_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(hand_orientation)+"/"+random_shape +"_"+str(orrientat)+"_rotation.txt"
-            hand_rotation= self.sample_initial_valid_object_orr(random_shape,orr_filename) #np.random.normal(-0.087,0.087,3)
+            hand_rotation= self.sample_initial_valid_object_orr(random_shape,orr_filename,counter) #np.random.normal(-0.087,0.087,3)
         else:  
             hand_rotation= 0
         obj=0
