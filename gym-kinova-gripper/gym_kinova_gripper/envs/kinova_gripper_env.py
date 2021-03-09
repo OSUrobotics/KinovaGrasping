@@ -435,16 +435,16 @@ class KinovaGripper_Env(gym.Env):
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         '''
         Local obs, all in local coordinates (from the center of the palm)
-        (18,) Finger Pos                                        0-18
-        (3,) Wrist Pos                                            18-21
-        (3,) Obj Pos                                            21-24
-        (9,) Joint States                                        24-33
-        (3,) Obj Size                                            33-36
-        (12,) Finger Object Distance                            36-48
-        (2,) X and Z angle                                        48-50
-        (17,) Rangefinder data                                    50-67
-        (3,) Gravity vector in local coordinates                    67-70
-        (3,) Object location based on rangefinder data                70-73
+        (18,) Finger Pos                                        0-17: (0: x, 1: y, 2: z) "f1_prox", (3-5) "f2_prox", (6-8) "f3_prox", (9-11) "f1_dist", (12-14) "f2_dist", (15-17) "f3_dist"
+        (3,) Wrist Pos                                          18-20 (18: x, 19: y, 20: z)
+        (3,) Obj Pos                                            21-23 (21: x, 22: y, 23: z)
+        (9,) Joint States                                       24-32
+        (3,) Obj Size                                           33-35
+        (12,) Finger Object Distance                            36-47
+        (2,) X and Z angle                                      48-49
+        (17,) Rangefinder data                                  50-66
+        (3,) Gravity vector in local coordinates                67-69
+        (3,) Object location based on rangefinder data          70-72
         (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
         (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
         (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
@@ -1358,7 +1358,7 @@ class KinovaGripper_Env(gym.Env):
             self._viewer._paused=True
 
 
-    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay=None, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
+    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
         # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)

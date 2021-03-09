@@ -16,7 +16,7 @@ import pickle
 import datetime
 import csv
 import timer
-from expert_data import GenerateExpertPID_JointVel, GenerateTestPID_JointVel, naive_check_grasp
+from expert_data import GenerateExpertPID_JointVel, GenerateTestPID_JointVel, check_grasp
 from timer import Timer
 from pathlib import Path
 import pathlib
@@ -198,12 +198,12 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             f_dist_new = curr_state_lift_check[9:17]
 
             if check_for_lift and wait_for_check:
-                [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
+                [ready_for_lift, _] = check_grasp(f_dist_old, f_dist_new)
 
             #####
             # Not ready for lift, continue agent grasping following the policy
             if not ready_for_lift:
-                action = policy.select_action(np.array(state[0:82]))
+                action = policy.select_action(np.array(state[0:82])) # Due to the sigmoid should be between (0,max_action)
                 eval_env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = eval_env.step(action)
                 cumulative_reward += reward
@@ -275,6 +275,7 @@ def lift_hand(env_lift, tot_reward):
     env_lift: Mujoco environment
     tot_reward: Total cumulative reward
     """
+    # action only used to move hand, not recorded in replay buffer and is NOT used to update policy
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
     env_lift.with_grasp_reward = args.with_grasp_reward
@@ -293,6 +294,7 @@ def eval_lift_hand(env_lift, tot_reward, curr_reward):
     tot_reward: Total cumulative reward
     curr_reward: Current time step reward
     """
+    # action only used to move hand, not recorded in replay buffer and is NOT used to update policy
     action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity,
                        finger_lift_velocity])
     env_lift.with_grasp_reward = args.with_grasp_reward
@@ -428,14 +430,20 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
             f_dist_new = curr_state_lift_check[9:17]
 
             if check_for_lift and wait_for_check:
-                [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
+                [ready_for_lift, _] = check_grasp(f_dist_old, f_dist_new)
 
             # Follow policy until ready for lifting, then switch to set controller
             if not ready_for_lift:
+                #old_action = (
+                #        policy.select_action(np.array(state))
+                #        + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
+                #).clip(-max_action, max_action)
+
                 action = (
                         policy.select_action(np.array(state))
-                        + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
-                ).clip(-max_action, max_action)
+                        + np.absolute(np.random.normal(0, max_action * args.expl_noise, size=action_dim))
+                ).clip(0, max_action)
+
                 # Perform action obs, total_reward, done, info
                 env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = env.step(action)
@@ -456,9 +464,12 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
 
         replay_buffer.add_episode(0)  # Add entry for new episode
 
+        # Remove any invalid episodes (episodes shorter than n-step length for policy training)
         episode_len = replay_buffer_recorded_ts # Number of timesteps within the episode recorded by replay buffer
         if episode_len - replay_buffer.n_steps <= 1:
             replay_buffer.remove_episode(-1)  # If episode is invalid length (less that n-steps), remove it
+        if episode_num > 0 and len(replay_buffer.episodes[0]) - replay_buffer.n_steps <= 1:
+            replay_buffer.remove_episode(0) # Remove episode at initial index if empty
 
         # Add heatmap coordinates (local coordinates)
         orientation = env.get_orientation()
@@ -634,11 +645,13 @@ def get_experiment_info(exp_num):
     # Experiment #: [pretrain_policy_exp #, stage_policy]
     stage0 = "pretrain_policy"  # Expert policy with small cube
     stage1 = {"1": ["0", "sizes"], "2": ["0", "shapes"], "3": ["0", "orientations"]}
-    stage2 = {"4": ["1", "sizes_shapes"], "5": ["1", "sizes_orientations"], "6": ["2", "shapes_orientations"],
-              "7": ["2", "shapes_sizes"], "8": ["3", "orientations_sizes"], "9": ["3", "orientations_shapes"]}
-    stage3 = {"10": ["4", "sizes_shapes_orientations"], "11": ["5", "sizes_orientations_shapes"],
-              "12": ["6", "shapes_orientations_sizes"], "13": ["7", "shapes_sizes_orientations"],
-              "14": ["8", "orientations_sizes_shapes"], "15": ["9", "orientations_shapes_sizes"]}
+    stage2 = {"4": ["1", "sizes_shapes_orientations"], "5": ["2", "shapes_sizes_orientations"], "6": ["3", "orientations_sizes_shapes"]}
+
+    #stage2 = {"4": ["1", "sizes_shapes"], "5": ["1", "sizes_orientations"], "6": ["2", "shapes_orientations"],
+    #          "7": ["2", "shapes_sizes"], "8": ["3", "orientations_sizes"], "9": ["3", "orientations_shapes"]}
+    #stage3 = {"10": ["4", "sizes_shapes_orientations"], "11": ["5", "sizes_orientations_shapes"],
+    #          "12": ["6", "shapes_orientations_sizes"], "13": ["7", "shapes_sizes_orientations"],
+    #          "14": ["8", "orientations_sizes_shapes"], "15": ["9", "orientations_shapes_sizes"]}
 
     print("stage1.keys(): ",stage1.keys())
     print("exp_num: ",exp_num)
@@ -719,6 +732,9 @@ def get_exp_input(exp_name, shapes, sizes):
     """
     exp_types = exp_name.split('_')
     exp_shapes = []
+
+    if exp_name == "kitchen_sink":
+        exp_types = ["shapes", "sizes", "orientations"]
 
     # All shapes
     if "shapes" in exp_types and "sizes" in exp_types:
@@ -874,7 +890,10 @@ def create_info_file(num_success,num_total,all_saving_dirs,extra_text=""):
     print("------------------------------------")
 
 
-if __name__ == "__main__":
+def setup_args(args=None):
+    """ Set important variables based on command line arguments OR passed on argument values
+    returns: Full set of arguments to be parsed
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--policy_name", default="DDPGfD")              # Policy name
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0") # OpenAI gym environment name
@@ -886,7 +905,7 @@ if __name__ == "__main__":
     parser.add_argument("--max_episode", default=20000, type=int)       # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
-    parser.add_argument("--batch_size", default=64, type=int)            # Batch size for both actor and critic - Change to be 64
+    parser.add_argument("--batch_size", default=0, type=int)            # Batch size for both actor and critic - Change to be 64 for batch train, 0 for single ep sample
     parser.add_argument("--discount", default=0.995, type=float)            # Discount factor
     parser.add_argument("--tau", default=0.0005, type=float)                # Target network update rate
     parser.add_argument("--policy_noise", default=0.01, type=float)     # Noise added to target policy during critic update
@@ -903,13 +922,19 @@ if __name__ == "__main__":
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
     parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
     parser.add_argument("--update_after", default=100, type=int) # Start to update the policy after # episodes have occured
-    parser.add_argument("--update_freq", default=4, type=int)   # Update the policy every # of episodes
+    parser.add_argument("--update_freq", default=1, type=int)   # Update the policy every # of episodes
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--num_traj", default=5, type=int)  # Number of trajectories to sample per episode in train_batch sampling
+    parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
 
     args = parser.parse_args()
+    return args
 
+
+if __name__ == "__main__":
+    # Set up environment based on command-line arguments or passes in arguments
+    args = setup_args()
     """ Setup the environment, state, and action space """
 
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
@@ -985,6 +1010,11 @@ if __name__ == "__main__":
         print("with_grasp_reward must be True or False")
         raise ValueError
 
+    if args.render_imgs == "True" or args.render_imgs == "true":
+        args.render_imgs = True
+    else:
+        args.render_imgs = False
+
     saving_dir = args.saving_dir
     if saving_dir is None:
         saving_dir = "%s_%s" % (args.policy_name, args.mode) + datestr
@@ -1037,12 +1067,12 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_WITH_GRASP/"
         with_grasp_str = "WITH grasp"
     else:
         # All shapes replay buffer
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/expert_naive/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
@@ -1066,7 +1096,7 @@ if __name__ == "__main__":
         print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="expert_only")
         print("Expert ONLY expert_data_dir: ", expert_data_dir)
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1081,7 +1111,7 @@ if __name__ == "__main__":
         print("MODE: Naive ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="naive_only")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="naive_only")
         print("Naive ONLY expert_data_dir: ", expert_data_dir)
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1097,7 +1127,7 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
 
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="expert_naive")
         print("Expert (Interpolation) expert_data_dir: ", expert_data_dir)
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1216,7 +1246,7 @@ if __name__ == "__main__":
         else:
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=False, pid_mode="expert_naive")
+            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="expert_naive")
 
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1250,7 +1280,7 @@ if __name__ == "__main__":
     elif args.mode == "experiment":
         # Initialize all shape and size options
         all_shapes = env.get_all_objects()
-        test_shapes = ["Vase1", "Cone1", "RBowl"]
+        test_shapes = ["Vase1", "RBowl"]
         test_sizes = ["M"]
         all_sizes = ["S", "M", "B"]
         exp_mode = "train"  # Manually setting mode right now
@@ -1261,7 +1291,7 @@ if __name__ == "__main__":
                 shapes_list.append(shape_key[:-1])
 
         train_sizes = ["S", "B"]
-        train_shapes = ["Cube", "Cylinder", "Cube45", "Vase2", "Cone2", "Bottle", "RBowl", "Lemon", "TBottle"]
+        train_shapes = ["Cube", "Cylinder", "Cube45", "Vase2", "Bottle", "Bowl", "TBottle"]
 
         if exp_mode == "test":
             shapes = test_shapes

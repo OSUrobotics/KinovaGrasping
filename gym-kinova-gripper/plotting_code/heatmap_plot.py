@@ -8,6 +8,7 @@ import os
 import argparse
 from pathlib import Path
 
+
 def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     """ Create heatmap displaying frequency of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
@@ -35,7 +36,7 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     im = ax.imshow(total_data.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
     ax.set_aspect('equal', adjustable='box')
 
-    fig.set_size_inches(11,8)
+    fig.set_size_inches(11,7)
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
     ax.xaxis.set_minor_locator(MultipleLocator(0.001))
     ax.yaxis.set_major_locator(MultipleLocator(0.01))
@@ -50,9 +51,11 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     cb = plt.colorbar(mappable=im,shrink=0.6)
     cb.set_label(cb_label)
 
-    #plt.show()
-    plt.savefig(saving_dir+fig_filename)
-    plt.clf()
+    if saving_dir is None:
+        plt.show()
+    else:
+        plt.savefig(saving_dir+fig_filename)
+        plt.clf()
 
 def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fig_filename,saving_dir,plot_success):
     """ Create heatmap displaying success rate of object initial position coordinates """

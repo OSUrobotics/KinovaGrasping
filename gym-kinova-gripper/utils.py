@@ -12,7 +12,7 @@ class ReplayBuffer_Queue(object):
 		self.size = 0				# Full size of the replay buffer (number of entries over all episodes)
 		self.episodes_count = 0		# Number of episodes that have occurred (may be more than max replay buffer side)
 		self.replay_ep_num = 0		# Number of episodes currently in the replay buffer
-		self.episodes = [[]]		# Keep track of episode start/finish indexes
+		self.episodes = []		# Keep track of episode start/finish indexes
 		self.timesteps_count = 0		# Keeps track of the number of timesteps within an episode for sampling purposed
 
 		# each of these are a queue
@@ -85,12 +85,20 @@ class ReplayBuffer_Queue(object):
 		"""
 		# call it when each episode starts
 		if start:
-			self.episodes[-1].append(self.timesteps_count)
+			if self.replay_ep_num == 0:
+				self.episodes.append([self.timesteps_count])
+			else:
+				self.episodes[-1].append(self.timesteps_count)
 		# call it when each episode ends
 		else:
-			self.episodes[-1].append(self.timesteps_count)
-			self.episodes.append([])
-			self.timesteps_count = 0  # Reset count of timesteps within an episode
+			if self.replay_ep_num == 0:
+				self.episodes.append(self.timesteps_count)
+				self.episodes.append([])
+				self.timesteps_count = 0  # Reset count of timesteps within an episode
+			else:
+				self.episodes[-1].append(self.timesteps_count)
+				self.episodes.append([])
+				self.timesteps_count = 0  # Reset count of timesteps within an episode
 		return
 
 	def add_orientation_idx_to_replay(self, idx):
@@ -332,7 +340,7 @@ class ReplayBuffer_Queue(object):
 		self.not_done.append([])
 
 		# If over max number of episodes for replay buffer
-		if self.replay_ep_num >= self.max_episode:
+		if self.replay_ep_num > self.max_episode:
 			self.remove_episode()
 
 		return old_reward
