@@ -16,7 +16,7 @@ import pickle
 import datetime
 import csv
 import timer
-from expert_data import GenerateExpertPID_JointVel, GenerateTestPID_JointVel, naive_check_grasp
+from expert_data import GenerateExpertPID_JointVel, GenerateTestPID_JointVel, check_grasp
 from timer import Timer
 from pathlib import Path
 import pathlib
@@ -198,7 +198,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             f_dist_new = curr_state_lift_check[9:17]
 
             if check_for_lift and wait_for_check:
-                [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
+                [ready_for_lift, _] = check_grasp(f_dist_old, f_dist_new)
 
             #####
             # Not ready for lift, continue agent grasping following the policy
@@ -430,7 +430,7 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
             f_dist_new = curr_state_lift_check[9:17]
 
             if check_for_lift and wait_for_check:
-                [ready_for_lift, _] = naive_check_grasp(f_dist_old, f_dist_new)
+                [ready_for_lift, _] = check_grasp(f_dist_old, f_dist_new)
 
             # Follow policy until ready for lifting, then switch to set controller
             if not ready_for_lift:
@@ -890,7 +890,10 @@ def create_info_file(num_success,num_total,all_saving_dirs,extra_text=""):
     print("------------------------------------")
 
 
-if __name__ == "__main__":
+def setup_args(args=None):
+    """ Set important variables based on command line arguments OR passed on argument values
+    returns: Full set of arguments to be parsed
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument("--policy_name", default="DDPGfD")              # Policy name
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0") # OpenAI gym environment name
@@ -926,7 +929,12 @@ if __name__ == "__main__":
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
 
     args = parser.parse_args()
+    return args
 
+
+if __name__ == "__main__":
+    # Set up environment based on command-line arguments or passes in arguments
+    args = setup_args()
     """ Setup the environment, state, and action space """
 
     file_name = "%s_%s_%s" % (args.policy_name, args.env_name, str(args.seed))
