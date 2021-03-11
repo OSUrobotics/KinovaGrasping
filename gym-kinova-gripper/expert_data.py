@@ -607,8 +607,8 @@ def NaiveController(lift_check, velocities):
     return action
 
 
-def get_action(obs, lift_check, controller, env, pid_mode="expert_naive"):
-    """ Get action based on controller (Naive, Expert_Only, Expert-Naive interpolation)
+def get_action(obs, lift_check, controller, env, pid_mode="combined"):
+    """ Get action based on controller (Naive, position-dependent, combined interpolation)
         obs: Current state observation
         controller: Initialized expert PID controller
         env: Current Mujoco environment needed for expert PID controller
@@ -621,11 +621,11 @@ def get_action(obs, lift_check, controller, env, pid_mode="expert_naive"):
     action = np.array([0, velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
 
     # NAIVE CONTROLLER: Close all fingers at a constant speed
-    if pid_mode == "naive_only":
+    if pid_mode == "naive":
         action = NaiveController(lift_check, velocities)
 
     # POSITION-DEPENDENT CONTROLLER: Only move fingers based on object x-coord position within hand
-    elif pid_mode == "expert_only":
+    elif pid_mode == "position-dependent":
         action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
 
     # COMBINED CONTROLLER: Interpolate Naive and Position-Dependent controller output based on object x-coord position within hand
@@ -638,7 +638,7 @@ def get_action(obs, lift_check, controller, env, pid_mode="expert_naive"):
         # Object x position within the side-middle ranges, interpolate expert/naive velocity output
         elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
             # Interpolate between naive and expert velocities
-            # Expert_Only controller action (finger velocity based on object location within hand)
+            # position-dependent controller action (finger velocity based on object location within hand)
             expert_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
             # Naive controller action (fingers move at constant velocity)
             naive_action = NaiveController(lift_check, velocities)
@@ -650,7 +650,7 @@ def get_action(obs, lift_check, controller, env, pid_mode="expert_naive"):
             else:
                 wrist_vel = velocities["wrist_lift_velocity"] #naive_action[0] + expert_action[0] / 2
 
-            # Interpolate finger velocity values between Expert_Only and Naive action output
+            # Interpolate finger velocity values between position-dependent and Naive action output
             finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
 
             action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
@@ -687,7 +687,7 @@ def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_re
     return action_str
 
 
-def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="expert_naive"):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="combined"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     episode_num: Number of episodes to generate expert data for
     replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -761,7 +761,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
                 lift_check = True
             ### END OF READY FOR LIFTING CHECK ###
 
-            # Get action based on the selected PID controller (Naive, Expert_Only, Expert-Naive Interpolation
+            # Get action based on the selected controller (Naive, position-dependent, combined Interpolation
             action = get_action(obs, lift_check, controller, env, pid_mode)
 
             # Take action (Reinforcement Learning step)
@@ -930,7 +930,7 @@ LD_PRELOAD=/usr/lib/x86_64-linux-gnu/libGLEW.so:/usr/lib/nvidia-410/libGL.so pyt
 if __name__ ==  "__main__":
     # testing #
     # Initialize expert replay buffer, then generate expert pid data to fill it
-    pid_mode = "naive_only"
+    pid_mode = "naive"
     replay_size = 10
     with_grasp = False
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4, max_episode=replay_size)
