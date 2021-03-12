@@ -1044,12 +1044,12 @@ if __name__ == "__main__":
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/naive/CubeS/normal/replay_buffer/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_WITH_GRASP/"
         with_grasp_str = "WITH grasp"
     else:
         # All shapes replay buffer
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/naive/CubeS/normal/replay_buffer/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
