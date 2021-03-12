@@ -160,7 +160,8 @@ class DDPGfD(object):
 		#print("current_Q.shape: ",current_Q.shape)
 		#print("current_Q: ", current_Q)
 
-		current_Q_n = self.critic(state[:(ep_timesteps - (self.n - 1))], action[:(ep_timesteps - (self.n - 1))])
+		# Yi's old implementation - not needed for loss calculation
+		#current_Q_n = self.critic(state[:(ep_timesteps - (self.n - 1))], action[:(ep_timesteps - (self.n - 1))])
 
 		#print("current_Q_n")
 		#print("current_Q_n.shape: ",current_Q_n.shape)
@@ -174,7 +175,7 @@ class DDPGfD(object):
 		#print("critic_L1loss: ", critic_L1loss)
 
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
-		critic_LNloss = F.mse_loss(current_Q_n, target_QN)
+		critic_LNloss = F.mse_loss(current_Q, target_QN)
 
 		#print("critic_LNloss")
 		#print("critic_LNloss.shape: ",critic_LNloss.shape)
