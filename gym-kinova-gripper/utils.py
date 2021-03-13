@@ -165,10 +165,7 @@ class ReplayBuffer_Queue(object):
 		"""
 
 		# Get the beginning timestep index and the ending timestep index within an episode
-		ind = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
-
-		# Randomly select 30 time steps from the episode
-		selected_indexes = random.choices(ind, k=30)
+		selected_indexes = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
 
 		return (
 			torch.FloatTensor([self.state[episode_idx][x] for x in selected_indexes]).to(self.device),
