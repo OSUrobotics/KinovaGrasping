@@ -3,7 +3,24 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 from matplotlib.patches import Rectangle
 import utils
-from expert_data import GenerateExpertPID_JointVel
+import os, sys
+expert_path = os.getcwd()
+sys.path.insert(1, expert_path)
+#from expert_data import GenerateExpertPID_JointVel
+
+
+def plot_finger(ax, finger_x, finger_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color, marker_type, marker_color, label):
+    """ Plot a particular finger trajectory """
+    # Plot the course of the trajectory through a thin line
+    plt.plot(finger_x[-1], finger_y[-1], marker="X", ms=4, linewidth=1, color='r')
+    im = plt.scatter(finger_x, finger_y, c=ts_spacing, marker=marker_type, cmap=scatter_color, label=label)
+    # Plot the final position
+    plt.plot(finger_x, finger_y, ms=4, linewidth=1, color=marker_color, markevery=markers_on)
+    bbox_props = dict(boxstyle='square,pad=1', fc='none', ec='none')
+    for i, action_txt in enumerate(actions):
+        if action_label_freq is not None:
+            if i % action_label_freq == 0:
+                ax.annotate("TS {}) F1: {} F2: {} F3: {}".format(i,action_txt[0],action_txt[1],action_txt[2]), (finger_x[i], finger_y[i]), bbox=bbox_props)
 
 def plot_trajectory(states, actions, episode_num, saving_dir):
     """ Plot the trajectory of the fingers and object over an episode
@@ -59,31 +76,28 @@ def plot_trajectory(states, actions, episode_num, saving_dir):
     ax.yaxis.set_minor_locator(MultipleLocator(0.001))
 
     # Plot labels
-    plot_title = "Object coordinates and finger velocities over episode set"
+    plot_title = "Naive Controller: Small Cube, Normal Orienation\nObject coordinates and finger velocities over episode set"
     plt.title(plot_title)
     plt.xlabel('X-axis coordinate position (meters)')
     plt.ylabel('Y-axis coordinate position (meters)')
 
     markers_on = [0, 5, 10, 15, 20]
+    action_label_freq = 5 # Frequency to label action output
 
     # Plot FINGER 1 (x,y) position over the course of the episode
-    plt.plot(f1_x[-1], f1_y[-1], marker="X", ms=4, linewidth=1, color='r')
-    im = plt.scatter(f1_x, f1_y, c=ts_spacing, cmap='Purples')
-    plt.plot(f1_x, f1_y, ms=4, linewidth=1, color='#8a5ab8', markevery=markers_on)
-
+    plot_finger(ax, f1_x, f1_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color='Purples', marker_type=">", marker_color='#8a5ab8', label="Finger 1")
     # Plot FINGER 2 (x,y) position over the course of the episode
-    plt.plot(f2_x[-1], f2_y[-1], marker="X", ms=4, linewidth=1, color='r')
-    im = plt.scatter(f2_x, f2_y, c=ts_spacing, cmap='Blues')
-    plt.plot(f2_x, f2_y, ms=4, linewidth=1, color='#8a5ab8', markevery=markers_on)
-
+    plot_finger(ax, f2_x, f2_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color='Blues', marker_type="<", marker_color='#8a5ab8', label="Finger 2")
     # Plot FINGER 3 (x,y) position over the course of the episode
-    plt.plot(f3_x[-1], f3_y[-1], marker="X", ms=4, linewidth=1, color='r')
-    im = plt.scatter(f3_x, f3_y, c=ts_spacing, cmap='Oranges')
-    plt.plot(f3_x, f3_y, ms=4, linewidth=1, color='#8a5ab8', markevery=markers_on)
+    plot_finger(ax, f3_x, f3_y, actions, markers_on, ts_spacing, action_label_freq=None, scatter_color='Oranges', marker_type='D', marker_color='#8a5ab8', label="Finger 3")
 
     # Plot object (x,y) position over the course of the episode
     plt.plot(object_x[-1], object_y[-1], marker="X", ms=4, linewidth=1, color='r')
-    im = plt.scatter(object_x, object_y, c=ts_spacing, cmap='viridis')
+    im = plt.scatter(object_x, object_y, c=ts_spacing, cmap='viridis', label="Object")
+    ax.annotate("Object Initial Coord (x,y): {:.2f},{:.2f}".format(object_x[0], object_x[0]), (object_x[0], object_y[0]))
+
+    # Set legend based on plotted trajectories
+    # plt.legend(loc="upper left")
 
     # Create color bar showing the time step within an episode
     cb = plt.colorbar(cmap='viridis', shrink=0.6, ticks=[0, 5, 10, 15, 20, 25, 30])
@@ -92,6 +106,7 @@ def plot_trajectory(states, actions, episode_num, saving_dir):
     cb_label = "Time step within episode"
     cb.set_label(cb_label)
 
+    """
     # Add box around the final object location to show the height/width
     for a_x, a_y in zip(*([object_x[-1]], [object_y[-1]])):
         ax.add_patch(Rectangle(
@@ -105,6 +120,7 @@ def plot_trajectory(states, actions, episode_num, saving_dir):
         ax.add_patch(Rectangle(
             xy=(a_x - f_dist_width / 2, a_y - f_dist_height / 2), width=f_dist_width, height=f_dist_height,
             linewidth=1, color='red', fill=False))
+    """
 
     if saving_dir is None:
         plt.show()
@@ -126,7 +142,7 @@ if __name__ == "__main__":
 
     # Generate temporary replay buffer to test trajectory plotting with
     replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4)
-    replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=replay_size, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
+    #replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=replay_size, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
 
     # Plot finger and object trajectory over the course of the desired episode(s)
     plot_trajectory(replay_buffer.state[test_ep_num], replay_buffer.actions[test_ep_num], fig_filename, saving_dir)
