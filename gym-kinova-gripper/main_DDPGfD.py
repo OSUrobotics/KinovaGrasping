@@ -329,7 +329,7 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     return writer
 
 
-def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob,
+def update_policy(evaluations, episode_num, num_episodes, prob,
                   type_of_training, saving_dir, max_num_timesteps=30):
     """ Update policy network based on expert or agent step, evaluate every eval_freq episodes
     evaluations: Output average reward list for plotting
@@ -480,7 +480,7 @@ def update_policy(evaluations, episode_num, num_episodes, num_trajectories, prob
                     # Batch training using n-steps
                     actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
                                                                                          expert_replay_buffer,
-                                                                                         replay_buffer, num_trajectories, prob)
+                                                                                         replay_buffer, prob)
 
         # Evaluation and recording data for tensorboard
         if episode_num+1 == num_episodes or (episode_num > args.update_after and (episode_num) % args.eval_freq == 0):
@@ -593,7 +593,7 @@ def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agen
     return all_saving_dirs
 
 
-def train_policy(tot_episodes, num_trajectories, tr_prob, all_saving_dirs):
+def train_policy(tot_episodes, tr_prob, all_saving_dirs):
     """ Train the policy over a number of episodes, sampling from experience
     tot_episodes: Total number of episodes to update policy over
     tr_prob: Probability of sampling from expert replay buffer within training
@@ -604,7 +604,7 @@ def train_policy(tot_episodes, num_trajectories, tr_prob, all_saving_dirs):
 
     # Begin training updates
     evals, curr_episode, eval_num_success, eval_num_fail = \
-        update_policy(evals, curr_episode, tot_episodes, num_trajectories, tr_prob,"TRAIN", all_saving_dirs["saving_dir"])
+        update_policy(evals, curr_episode, tot_episodes, tr_prob,"TRAIN", all_saving_dirs["saving_dir"])
     tr_prob = tr_prob - red_expert_prob
     eval_num_total = eval_num_success + eval_num_fail
 
@@ -782,7 +782,7 @@ def rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_o
     policy.load(pol_dir+policy_filename)
 
     # *** Train policy ****
-    train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.num_traj, args.expert_prob, all_saving_dirs)
+    train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob, all_saving_dirs)
     print("Experiment ", exp_num, ", ", exp_name, " policy saved at: ", train_model_save_path)
 
     # Save train agent replay data
@@ -902,7 +902,6 @@ def setup_args(args=None):
     parser.add_argument("--update_freq", default=1, type=int)   # Update the policy every # of episodes
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
-    parser.add_argument("--num_traj", default=5, type=int)  # Number of trajectories to sample per episode in train_batch sampling
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
 
     args = parser.parse_args()
@@ -1012,7 +1011,6 @@ if __name__ == "__main__":
         param_text += "Requested Hand orientation: "+ str(requested_orientation) + "\n"
         param_text += "Batch Size: "+ str(args.batch_size) + "\n"
         param_text += "Expert Sampling Probability: "+ str(args.expert_prob) + "\n"
-        param_text += "Number of Sampling Trajectories: " + str(args.num_traj) + "\n"
         param_text += "Grasp Reward: "+ str(args.with_grasp_reward) + "\n"
         param_text += "Save frequency: "+ str(args.save_freq) + "\n"
         param_text += "Policy update after: "+ str(args.update_after) + "\n"
@@ -1144,7 +1142,7 @@ if __name__ == "__main__":
         train_time = Timer()
         train_time.start()
         # Pre-train policy based on expert data
-        pretrain_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.num_traj,args.expert_prob,all_saving_dirs)
+        pretrain_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete! Now saving...")
@@ -1192,7 +1190,7 @@ if __name__ == "__main__":
         # Initialize timer to analyze run times
         train_time = Timer()
         train_time.start()
-        train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.num_traj, args.expert_prob,all_saving_dirs)
+        train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete! Now saving...")
@@ -1232,7 +1230,7 @@ if __name__ == "__main__":
         all_saving_dirs = setup_directories(saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
-        train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.num_traj, args.expert_prob,all_saving_dirs)
+        train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
 
         # Save train agent replay data
         agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
