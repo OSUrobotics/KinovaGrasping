@@ -219,15 +219,19 @@ class DDPGfD(object):
 	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
+		agent_batch_size = 0
+		expert_batch_size = 0
 
 		# Sample replay buffer
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			#print("AGENT")
 			expert_or_random = "agent"
+			agent_batch_size = self.batch_size
 			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			#print("EXPERT")
 			expert_or_random = "expert"
+			expert_batch_size = self.batch_size
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
@@ -346,8 +350,16 @@ class DDPGfD(object):
 		critic_loss.backward()
 		self.critic_optimizer.step()
 
+		# Compute Behavior Cloning loss - state and action are from the expert
+		Lbc = 0
+		# Compute loss based on Mean Squared Error between the actor network's action and the expert's action
+		if expert_batch_size > 0:
+			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
+			Lbc = F.mse_loss(self.actor(expert_state), expert_action)
+		#print("Lbc: ", Lbc)
+
 		# Compute actor loss
-		actor_loss = -self.critic(state, self.actor(state)).mean()
+		actor_loss = -self.critic(state, self.actor(state)).mean() + Lbc
 		#print("Actor loss: ")
 		#print(actor_loss.shape)
 		#print("actor_loss: ",actor_loss)
