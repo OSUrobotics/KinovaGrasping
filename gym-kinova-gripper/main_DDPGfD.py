@@ -483,7 +483,7 @@ def update_policy(evaluations, episode_num, num_episodes, prob,
                                                                                          replay_buffer, prob)
 
         # Evaluation and recording data for tensorboard
-        if episode_num+1 == num_episodes or (episode_num > args.update_after and (episode_num) % args.eval_freq == 0):
+        if episode_num+1 == num_episodes or (episode_num >= args.update_after and (episode_num) % args.eval_freq == 0):
             print("EVALUATING EPISODE AT: ",episode_num)
             print("Evaluating with "+str(args.eval_num)+" grasping trials")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
@@ -510,7 +510,7 @@ def update_policy(evaluations, episode_num, num_episodes, prob,
             total_reward[-1].append(all_ep_reward_values["total_reward"])
 
         # Save coordinates every 1000 episodes
-        if episode_num > args.update_after and (episode_num) % args.save_freq == 0:
+        if episode_num >= args.update_after and (episode_num) % args.save_freq == 0:
             print("Saving heatmap data at: ", heatmap_eval_dir)
             # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
             filter_heatmap_coords(eval_success_coords, eval_fail_coords, episode_num, heatmap_eval_dir)
