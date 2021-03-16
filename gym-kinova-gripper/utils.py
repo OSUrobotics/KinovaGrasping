@@ -107,7 +107,7 @@ class ReplayBuffer_Queue(object):
 		self.orientation_indexes.append(idx)
 
 	def sample(self):
-		""" Sample one episode from replay buffer, learn from full trajectory """
+		""" Sample one random episode from replay buffer, learn from full trajectory """
 		# Choose one random episode between [0,episode_count)
 		episode_idx = random.choice(np.arange(0, self.replay_ep_num))
 
@@ -237,7 +237,7 @@ class ReplayBuffer_Queue(object):
 
 
 	# WORKING VERSION
-	def sample_batch_nstep(self,batch_size,num_ts_from_ep=5):
+	def sample_batch_nstep(self,batch_size):
 		# Samples batch size of replay buffer trajectories for learning using n-step returns
 		# Initialize arrays
 		state_arr = []
@@ -275,8 +275,7 @@ class ReplayBuffer_Queue(object):
 			# Get the trajectory from starting index to n_steps later
 			trajectory_arr_idx = []
 
-			num_ts_from_ep = ceiling
-			for num in range(num_ts_from_ep-1):
+			for num in range(ceiling-1):
 				start_idx = np.random.randint(ceiling)
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
