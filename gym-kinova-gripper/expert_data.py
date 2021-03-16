@@ -666,7 +666,7 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
     else:
         action[0] = 0
 
-    print("**** action: ",action)
+    #print("**** action: ",action)
 
     return action
 
@@ -696,6 +696,9 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid = True
 
+    # Use to test plotting the episode trajectory
+    plot_ep_trajectory = None
+
     success_coords = {"x": [], "y": [], "orientation": []}
     fail_coords = {"x": [], "y": [], "orientation": []}
     # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
@@ -714,7 +717,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv") or episode_num is 0:
             env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
-        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation, obj_coord_region="target"), False
+        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation), False
 
         prev_obs = None         # State observation of the previous state
         num_good_grasps = 0      # Counts the number of good grasps (Number of times check_grasp() has returned True)
@@ -829,8 +832,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             episode_length = replay_buffer.episodes[i][1] # Ending index of the final episode time step
 
             # If the episode contains time step experience, plot the trajectory
-            if episode_length > 0:
-                plot_trajectory(replay_buffer.state[i], replay_buffer.action[i], i, None)
+            if episode_length > 0 and plot_ep_trajectory is not None:
+                plot_trajectory(replay_buffer.state[i], replay_buffer.action[i], i, plot_ep_trajectory)
 
     num_success = len(success_coords["x"])
     num_fail = len(fail_coords["x"])
