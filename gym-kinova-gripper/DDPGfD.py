@@ -85,6 +85,7 @@ class DDPGfD(object):
 		else:
 			expert_or_random = np.random.choice(np.array(["expert", "agent"]), p=[prob, round(1. - prob, 2)])
 
+		# Sample one episode from replay buffer
 		if expert_or_random == "expert":
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample()
 		else:
@@ -110,32 +111,45 @@ class DDPGfD(object):
 		print("IN OG TRAIN: lift_reward_count: ", lift_reward_count)
 		"""
 
-		# Target Q network
-		#print("Target Q")
-		target_Q = self.critic_target(next_state, self.actor_target(next_state))
-		#print(target_Q.shape)
-		#print("target_Q: ",target_Q)
-		target_Q = reward + (self.discount * target_Q).detach()  # bellman equation
-		#print(target_Q.shape)
-		#print("target_Q: ",target_Q)
+		reward = reward.unsqueeze(-1)
+		not_done = not_done.unsqueeze(-1)
 
-		#print("Target_QN")
+		# Target Q network
+		print("1 Target Q")
+		target_Q = self.critic_target(next_state, self.actor_target(next_state))
+		print(target_Q.shape)
+		print("target_Q: ",target_Q)
+
+		print("Reward:")
+		print(reward.shape)
+		print("reward: ",target_Q)
+
+		print("(self.discount * target_Q).detach(): ")
+		print((self.discount * target_Q).detach().shape)
+		target_Q = reward + (self.discount * target_Q).detach()  # bellman equation
+		print("2 Target Q")
+		print(target_Q.shape)
+		print("target_Q: ",target_Q)
+
+		print("Target_QN")
 		# Compute the target Q_N value
 		rollreward = []
 		target_QN = self.critic_target(next_state[(self.n - 1):], self.actor_target(next_state[(self.n - 1):]))
-		#print(target_QN.shape)
+		print(target_QN.shape)
 		#print("target_QN: ",target_Q)
 
+		# episode_step is the maximum number of times steps in an episode possible (ie. 30 time steps)
 		ep_timesteps = episode_step
 		if state.shape[0] < episode_step:
 			ep_timesteps = state.shape[0]
 
+		# For every time step up until the final time step in the episode (since our sample is the full episode trajectories)
 		for i in range(ep_timesteps):
 			if i >= (self.n - 1):
 				roll_reward = (self.discount**(self.n - 1)) * reward[i].item() + (self.discount**(self.n - 2)) * reward[i - (self.n - 2)].item() + (self.discount ** 0) * reward[i-(self.n - 1)].item()
 				rollreward.append(roll_reward)
 
-		#print("After Calc len(rollreward): ",len(rollreward))
+		print("After Calc len(rollreward): ",len(rollreward))
 		#print("After Calc rollreward: ", rollreward)
 
 		if len(rollreward) != ep_timesteps - (self.n - 1):
@@ -143,22 +157,22 @@ class DDPGfD(object):
 
 		rollreward = torch.FloatTensor(np.array(rollreward).reshape(-1,1)).to(device)
 
-		#print("After reshape len(rollreward): ",len(rollreward))
+		print("After reshape len(rollreward): ",len(rollreward))
 		#print("After reshape rollreward: ", rollreward)
 
 		# Calculate target network
 		target_QN = rollreward + (self.discount ** self.n) * target_QN #bellman equation <= this is the final N step return
 
-		#print("Target QN")
-		#print("Target_QN.shape: ",target_QN.shape)
+		print("Target QN")
+		print("Target_QN.shape: ",target_QN.shape)
 		#print("Target_QN: ", target_QN)
 
 		# Get current Q estimate
 		current_Q = self.critic(state, action)
 
-		#print("current_Q")
-		#print("current_Q.shape: ",current_Q.shape)
-		#print("current_Q: ", current_Q)
+		print("current_Q")
+		print("current_Q.shape: ",current_Q.shape)
+		print("current_Q: ", current_Q)
 
 		# Yi's old implementation - not needed for loss calculation
 		#current_Q_n = self.critic(state[:(ep_timesteps - (self.n - 1))], action[:(ep_timesteps - (self.n - 1))])
@@ -170,23 +184,23 @@ class DDPGfD(object):
 		# L_1 loss (Loss between current state, action and reward, next state, action)
 		critic_L1loss = F.mse_loss(current_Q, target_Q)
 
-		#print("critic_L1loss")
-		#print("critic_L1loss.shape: ",critic_L1loss.shape)
+		print("critic_L1loss")
+		print("critic_L1loss.shape: ",critic_L1loss.shape)
 		#print("critic_L1loss: ", critic_L1loss)
 
 		# L_2 loss (Loss between current state, action and reward, n state, n action)
 		critic_LNloss = F.mse_loss(current_Q, target_QN)
 
-		#print("critic_LNloss")
-		#print("critic_LNloss.shape: ",critic_LNloss.shape)
+		print("critic_LNloss")
+		print("critic_LNloss.shape: ",critic_LNloss.shape)
 		#print("critic_LNloss: ", critic_LNloss)
 
 		# Total critic loss
 		lambda_1 = 0.5 # hyperparameter to control n loss
 		critic_loss = critic_L1loss + lambda_1 * critic_LNloss
 
-		#print("critic_loss")
-		#print("critic_loss.shape: ", critic_loss.shape)
+		print("critic_loss")
+		print("critic_loss.shape: ", critic_loss.shape)
 		#print("critic_loss: ", critic_loss)
 
 		# Optimize the critic
@@ -197,8 +211,8 @@ class DDPGfD(object):
 		# Compute actor loss
 		actor_loss = -self.critic(state, self.actor(state)).mean()
 
-		#print("actor_loss")
-		#print("actor_loss.shape: ", actor_loss.shape)
+		print("actor_loss")
+		print("actor_loss.shape: ", actor_loss.shape)
 		#print("actor_loss: ", actor_loss)
 
 		# Optimize the actor
@@ -216,7 +230,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
+	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, prob=0.3):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 
@@ -224,11 +238,11 @@ class DDPGfD(object):
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			#print("AGENT")
 			expert_or_random = "agent"
-			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
+			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size)
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			#print("EXPERT")
 			expert_or_random = "expert"
-			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
 			# Get prob % of batch from expert and (1-prob) from agent
@@ -236,9 +250,9 @@ class DDPGfD(object):
 			expert_batch_size = self.batch_size - agent_batch_size
 			# Get batches from respective replay buffers
 			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
-			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,num_trajectories)
+			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size)
 			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
-			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,num_trajectories)
+			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size)
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
 			state = torch.cat((torch.squeeze(agent_state), torch.squeeze(expert_state)), 0)
@@ -257,7 +271,7 @@ class DDPGfD(object):
 		not_done = not_done.unsqueeze(-1)
 
 		### FOR TESTING:
-		#assert_batch_size = self.batch_size * num_trajectories
+		#assert_batch_size = self.batch_size
 		num_timesteps_sampled = len(reward)
 
 		#assert_n_steps = 5
