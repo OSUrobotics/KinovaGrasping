@@ -141,6 +141,9 @@ class KinovaGripper_Env(gym.Env):
         # Default index for orientation data files (coords and noise) based on hand pose
         self.orientation_idx = 0
 
+        # Region to sample initial object coordinates from within the hand (left, center, right, target, origin)
+        self.obj_coord_region = None
+
         # Dictionary containing all possible objects and their xml file
         self.all_objects = {}
         # Cube
@@ -429,8 +432,6 @@ class KinovaGripper_Env(gym.Env):
             print(finger_joints[i], 'pose:',tests_passed[i+1])
 
 
-
-
     # Function to return global or local transformation matrix
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         '''
@@ -471,9 +472,9 @@ class KinovaGripper_Env(gym.Env):
         obj_pose = np.copy(obj_pose)
         self._get_trans_mat_wrist_pose()
         x_angle,z_angle = self._get_angles()
-        joint_states = self._get_joint_states()
-        obj_size = self._get_obj_size()
-        finger_obj_dist = self._get_finger_obj_dist()
+        joint_states = self._get_joint_states() # Sensor reading (state) of a joint
+        obj_size = self._get_obj_size() # Returns size of object (length, width, height)
+        finger_obj_dist = self._get_finger_obj_dist()   # Distance from finger joint to object center
         range_data=self._get_rangefinder_data()
         finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
         gravity=[0,0,-1]
@@ -493,25 +494,36 @@ class KinovaGripper_Env(gym.Env):
         elif state_rep == "local":
             finger_dot_prod=[]
             for joint in finger_joints:
+                # Get the Cartesian coordinates (x,y,z) of the finger joint geom center
                 trans = np.copy(self._sim.data.get_geom_xpos(joint))
                 dot_prod_coords=list(trans)
+                # Append 1 to allow for rotation transformation
                 trans_for_roation=np.append(trans,1)
+                # Rotate finger joint geom coords using the current hand pose transformation matrix (Tfw)
                 trans_for_roation=np.matmul(self.Tfw,trans_for_roation)
                 trans = trans_for_roation[0:3]
                 trans = list(trans)
+                # Get dot product between finger joint wrt palm
                 temp_dot_prod=self._get_dot_product(dot_prod_coords)
                 finger_dot_prod.append(temp_dot_prod)
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
+
+            # Get wrist rotation matrix
             wrist_for_rotation=np.append(self.wrist_pose,1)
             wrist_for_rotation=np.matmul(self.Tfw,wrist_for_rotation)
-
             wrist_pose = wrist_for_rotation[0:3]
+
+            # Get object rotation matrix
             obj_for_roation=np.append(obj_pose,1)
             obj_for_roation=np.matmul(self.Tfw,obj_for_roation)
             obj_pose = obj_for_roation[0:3]
+
+            # Gravity and sensor location transformations
             gravity=np.matmul(self.Tfw[0:3,0:3],gravity)
             sensor_pos,front_thing,top_thing=self.experimental_sensor(range_data,fingers_6D_pose,gravity)
+
+            # Set full 6D pose, wrist and object coord positions, joint_states (sensor readings), object length, width, height, finger-object distance, x and z angle, rangefinder data, gravity data, sensor position coord data
             fingers_6D_pose = fingers_6D_pose + list(wrist_pose) + list(obj_pose) + joint_states + [obj_size[0], obj_size[1], obj_size[2]*2] + finger_obj_dist + [x_angle, z_angle] + range_data + [gravity[0],gravity[1],gravity[2]] + [sensor_pos[0],sensor_pos[1],sensor_pos[2]] + [front_thing, top_thing] + finger_dot_prod + [dot_prod]#+ [self.obj_shape]
             if self.pid:
                 fingers_6D_pose = fingers_6D_pose+ [self._get_dot_product()]
@@ -753,6 +765,16 @@ class KinovaGripper_Env(gym.Env):
         """ Get hand orientation and rotation file index"""
         return self.orientation_idx
 
+    def set_obj_coord_region(self, region):
+        """ Set the region within the hand (left, center, right, target, origin) from where the initial object x,y
+        starting coordinate is being sampled from """
+        self.obj_coord_region = region
+
+    def get_obj_coord_region(self):
+        """ Get the region within the hand (left, center, right, target, origin) from where the initial object x,y
+        starting coordinate is being sampled from """
+        return self.obj_coord_region
+
     # Returns hand orientation (normal, rotated, top)
     def get_orientation(self):
         return self.orientation
@@ -969,7 +991,8 @@ class KinovaGripper_Env(gym.Env):
         return random_shape, self.objects[random_shape]
 
     # Get the initial object position
-    def sample_initial_valid_object_pos(self,shapeName,coords_filename,orient_idx=None):
+    def sample_initial_valid_object_pos(self,shapeName,coords_filename,orient_idx=None,region=None):
+        """ Sample the initial object x,y,z coordinate position from the desired coordinate file (determined by shape, size, orientation, and noise) """
         data = []
         with open(coords_filename) as csvfile:
             checker=csvfile.readline()
@@ -981,8 +1004,26 @@ class KinovaGripper_Env(gym.Env):
             for i in reader:
                 data.append([float(i[0]), float(i[1]), float(i[2])])
 
+        # Orientation index cooresponds to the hand orientation and object position noise coordinate file indexes
         if orient_idx is None:
-            orient_idx = np.random.randint(0, len(data))
+            # Get coordinate from within the desired region within the hand to sample the x,y coordinate for the object
+            if region is not None:
+                all_regions = {"left": [-.09, -.03], "center": [-.03, .03], "target": [-.01, .01], "right": [.03, .09], "origin": [0, 0]}
+                if region == "origin":
+                    x = 0
+                    y = 0
+                    z = data[0][2] # Get the z value based on the height of the object
+                    orient_idx = None
+                    return x, y, z, orient_idx
+                else:
+                    sampling_range = all_regions[region]
+                    # Get all points from data file that lie within the sampling range (x-coordinate range boundary)
+                    region_data = [data[i] for i in range(len(data)) if sampling_range[0] <= data[i][0] <= sampling_range[1]]
+                    orient_idx = np.random.randint(0, len(region_data))
+            else:
+                # If no specific region is selected, randomly select from file
+                orient_idx = np.random.randint(0, len(data))
+
         rand_coord = data[orient_idx]
         x = rand_coord[0]
         y = rand_coord[1]
@@ -1078,7 +1119,9 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+
+    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None, obj_coord_region=None):
+        """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values """
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
@@ -1087,6 +1130,9 @@ class KinovaGripper_Env(gym.Env):
 
         # If True, use Grasp Reward from grasp classifier in reward calculation
         self.set_with_grasp_reward(with_grasp)
+
+        # Set the region from where the initial x,y object coordinate will be sampled from
+        self.set_obj_coord_region(obj_coord_region)
 
         # Expert data generation, pretraining and training will have the same coordinate files
         if mode != "test":
@@ -1229,7 +1275,7 @@ class KinovaGripper_Env(gym.Env):
 
         # Orientation noise filename
         orient_noise_filename = "gym_kinova_gripper/envs/kinova_description/rotated_hands/"+str(mode)+"_orientation_noise/" + str(orient_text) + "/" + random_shape + "_" + orient_file_text + "_rotation.txt"
-        rot_x, rot_y, rot_z, orient_idx = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename, orient_idx=None)
+        rot_x, rot_y, rot_z, orient_idx = self.sample_initial_valid_object_pos(random_shape, orient_noise_filename, orient_idx=None, region=self.obj_coord_region)
         ## STEPH TEST NO NOISE
         # Add noise
         # new_rotation += [rot_x, rot_y, rot_z]
@@ -1262,12 +1308,12 @@ class KinovaGripper_Env(gym.Env):
                 if orientation_type >0.667:
                   # Check for coords text file
                   if self.check_obj_file_empty(coords_filename) == False:
-                      x, y, z, _ = self.sample_initial_valid_object_pos(random_shape,coords_filename,orient_idx=self.orientation_idx)
+                      x, y, z, _ = self.sample_initial_valid_object_pos(random_shape,coords_filename,orient_idx=self.orientation_idx, region=self.obj_coord_region)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection(orientation='top')
                 else:
                   if self.check_obj_file_empty(coords_filename) == False:
-                      x, y, z, _ = self.sample_initial_valid_object_pos(random_shape,coords_filename,orient_idx=self.orientation_idx)
+                      x, y, z, _ = self.sample_initial_valid_object_pos(random_shape,coords_filename,orient_idx=self.orientation_idx, region=self.obj_coord_region)
                   else:
                       x, y, z = self.randomize_initial_pos_data_collection()
             elif len(start_pos)==3:
@@ -1344,7 +1390,6 @@ class KinovaGripper_Env(gym.Env):
                 print("Reset function is not working Properly Check the render")
                 self.render()
         '''
-
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
