@@ -431,6 +431,9 @@ class KinovaGripper_Env(gym.Env):
         for i in range(6):
             print(finger_joints[i], 'pose:',tests_passed[i+1])
 
+    def get_state_rep(self):
+        """ Returns the state representation (local or global) """
+        return self.state_rep
 
     # Function to return global or local transformation matrix
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
@@ -509,12 +512,12 @@ class KinovaGripper_Env(gym.Env):
                 for i in range(3):
                     fingers_6D_pose.append(trans[i])
 
-            # Get wrist rotation matrix
+            # Get wrist x, y, z coordinate position in local coordinates
             wrist_for_rotation=np.append(self.wrist_pose,1)
             wrist_for_rotation=np.matmul(self.Tfw,wrist_for_rotation)
             wrist_pose = wrist_for_rotation[0:3]
 
-            # Get object rotation matrix
+            # Get object x, y, z coordinate position in local coordinates
             obj_for_roation=np.append(obj_pose,1)
             obj_for_roation=np.matmul(self.Tfw,obj_for_roation)
             obj_pose = obj_for_roation[0:3]
@@ -1004,6 +1007,8 @@ class KinovaGripper_Env(gym.Env):
             for i in reader:
                 data.append([float(i[0]), float(i[1]), float(i[2])])
 
+        #print("**In sample_initial_valid_object_pos, region: ",region)
+
         # Orientation index cooresponds to the hand orientation and object position noise coordinate file indexes
         if orient_idx is None:
             # Get coordinate from within the desired region within the hand to sample the x,y coordinate for the object
@@ -1014,6 +1019,7 @@ class KinovaGripper_Env(gym.Env):
                     y = 0
                     z = data[0][2] # Get the z value based on the height of the object
                     orient_idx = None
+                    #print("In origin: x,y,z: (",x,", ",y,", ",z,")" )
                     return x, y, z, orient_idx
                 else:
                     sampling_range = all_regions[region]
@@ -1028,6 +1034,8 @@ class KinovaGripper_Env(gym.Env):
         x = rand_coord[0]
         y = rand_coord[1]
         z = rand_coord[2]
+
+        #print("region: ",region," x,y,z: (", x, ", ", y, ", ", z, ")")
 
         return x, y, z, orient_idx
 
@@ -1353,6 +1361,8 @@ class KinovaGripper_Env(gym.Env):
             self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
             self.all_states = [self.all_states_1 , self.all_states_2]
 
+            #print("In RESET, right before the state is set: ",x,", ",y,", ",z)
+
             self._set_state(self.all_states[0])
         else:
             self.set_sim_state(qpos,start_pos)
@@ -1375,6 +1385,9 @@ class KinovaGripper_Env(gym.Env):
         # Sets the object coordinates for heatmap tracking and plotting
         self.set_obj_coords(x,y,z)
         self._get_trans_mat_wrist_pose()
+
+        #print("IN RESET, set_obj_coords: x,y,z: ",x,", ",y," ",z)
+        #print("IN RESET, state[21], state[22], state[23]: x,y,z: ", states[21], ", ", states[22], " ", states[23])
 
         # Set the random shape so it can be retrieved in trainign to get the correct expert replay data
         self.set_random_shape(random_shape)

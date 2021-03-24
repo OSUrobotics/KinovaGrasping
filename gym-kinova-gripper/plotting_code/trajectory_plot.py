@@ -94,7 +94,7 @@ def plot_trajectory(states, actions, episode_num, saving_dir):
     # Plot object (x,y) position over the course of the episode
     plt.plot(object_x[-1], object_y[-1], marker="X", ms=4, linewidth=1, color='r')
     im = plt.scatter(object_x, object_y, c=ts_spacing, cmap='viridis', label="Object")
-    ax.annotate("Object Initial Coord (x,y): {:.2f},{:.2f}".format(object_x[0], object_x[0]), (object_x[0], object_y[0]))
+    ax.annotate("Object Initial Coord (x,y): {:.2f},{:.2f}".format(object_x[0], object_y[0]), (object_x[0], object_y[0]))
 
     # Set legend based on plotted trajectories
     # plt.legend(loc="upper left")
@@ -134,7 +134,7 @@ if __name__ == "__main__":
     print("--- Plot the finger and object trajectory over a set of episodes ---")
 
     pid_mode = "naive_only"
-    replay_size = 10    # Number of episodes to generate in replay buffer
+    replay_size = 1    # Number of episodes to generate in replay buffer
     with_grasp = False
     test_ep_num = 0     # Episode number to test plotting with from replay buffer
     fig_filename = "Trajectory Plot Test"

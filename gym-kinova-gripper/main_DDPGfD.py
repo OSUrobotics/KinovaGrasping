@@ -163,10 +163,15 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
         # Keep track of object coordinates
         obj_coords = eval_env.get_obj_coords()
-        # Local coordinate conversion
-        obj_local = np.append(obj_coords,1)
-        obj_local = np.matmul(eval_env.Tfw,obj_local)
-        obj_local_pos = obj_local[0:3]
+
+        # Transform object center coords to local coordinate frame if environment is set to global, used for plotting
+        if env.get_state_rep() == "global":
+            # Local coordinate conversion
+            obj_local = np.append(obj_coords,1)
+            obj_local = np.matmul(env.Tfw,obj_local)
+            obj_local_pos = obj_local[0:3]
+        else:
+            obj_local_pos = obj_coords  # Local coordinate frame representation
 
         timestep_count = 0
         prev_state_lift_check = None

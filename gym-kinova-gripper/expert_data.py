@@ -666,8 +666,6 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
     else:
         action[0] = 0
 
-    #print("**** action: ",action)
-
     return action
 
 
@@ -696,7 +694,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     env = gym.make('gym_kinova_gripper:kinovagripper-v0')
     env.env.pid = True
 
-    # Use to test plotting the episode trajectory
+    # Use to test plotting the episode trajectory (left, center, right, target, origin)
     plot_ep_trajectory = None
 
     success_coords = {"x": [], "y": [], "orientation": []}
@@ -717,7 +715,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv") or episode_num is 0:
             env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
-        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation,obj_coord_region=plot_ep_trajectory), False
 
         prev_obs = None         # State observation of the previous state
         num_good_grasps = 0      # Counts the number of good grasps (Number of times check_grasp() has returned True)
@@ -726,10 +724,15 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         action_str = "Initial time step" # Set the initial render output string
         env._max_episode_steps = 30 # Sets number of timesteps per episode (counted from each step() call)
         obj_coords = env.get_obj_coords()
-        # Local coordinate conversion
-        obj_local = np.append(obj_coords,1)
-        obj_local = np.matmul(env.Tfw,obj_local)
-        obj_local_pos = obj_local[0:3]
+
+        # Transform object center coords to local coordinate frame if environment is set to global, used for plotting
+        if env.get_state_rep() == "global":
+            # Local coordinate conversion
+            obj_local = np.append(obj_coords,1)
+            obj_local = np.matmul(env.Tfw,obj_local)
+            obj_local_pos = obj_local[0:3]
+        else:
+            obj_local_pos = obj_coords  # Local coordinate frame representation
 
         controller = ExpertPIDController(obs)   # Initiate expert PID controller
 
@@ -833,7 +836,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
             # If the episode contains time step experience, plot the trajectory
             if episode_length > 0 and plot_ep_trajectory is not None:
-                plot_trajectory(replay_buffer.state[i], replay_buffer.action[i], i, plot_ep_trajectory)
+                plot_trajectory(replay_buffer.state[i], replay_buffer.action[i], i, None)
 
     num_success = len(success_coords["x"])
     num_fail = len(fail_coords["x"])
@@ -934,10 +937,10 @@ if __name__ ==  "__main__":
     # testing #
     # Initialize expert replay buffer, then generate expert pid data to fill it
     pid_mode = "naive"
-    replay_size = 10
+    replay_size = 1
     with_grasp = False
     expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4, max_episode=replay_size)
-    replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=expert_replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
+    replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=expert_replay_buffer, save=False, render_imgs=False, pid_mode=pid_mode)
 
     #print (replay_buffer, save_filepath)
     # plot_timestep_distribution(success_timesteps=None, fail_timesteps=None, all_timesteps=None, expert_saving_dir="12_8_expert_test_3x_100ts")
