@@ -1307,7 +1307,7 @@ class KinovaGripper_Env(gym.Env):
         obj_params: Specific shape and size of object for testing purposes [shape_name, size] (Ex: [Cube, S]) - default to None
         qpos: Specific initial starting qpos value for hand joint values for testing purposes - default to None
         obj_coord_region: Specific region to sample initial object coordinate location from for testing purposes - default to None
-        with_noise: Determines
+        with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
         returns the state (current state representation after reset of the environment)
         """
         # All possible shape keys - default shape keys will be used for expert data generation
