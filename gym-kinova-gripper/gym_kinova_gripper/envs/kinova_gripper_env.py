@@ -102,6 +102,8 @@ class KinovaGripper_Env(gym.Env):
         self._sim = MjSim(self._model)   # The simulator. This holds all the information about object locations and orientations
         self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
         self.with_grasp_reward=False   # Set to True to use grasp reward from grasp classifier, otherwise grasp reward is 0
+        self.coords_filename=None   # Name of the file used to sample initial object and hand pose coordinates from (Ex: noisy coordinates text file)
+                                    # coords_filename is default to None to randomly generate coordinate values
         self.orientation='normal' # Stores string of exact hand orientation type (normal, rotated, top)
         self._viewer = None   # The render window
         self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
@@ -789,6 +791,14 @@ class KinovaGripper_Env(gym.Env):
     def set_with_grasp_reward(self,with_grasp):
         self.with_grasp_reward=with_grasp
 
+    def get_coords_filename(self):
+        """ Returns the initial object and hand pose coordinate file name sampled from in the current environment """
+        return self.coords_filename
+
+    def set_coords_filename(self, coords_filename):
+        """ Sets the initial object and hand pose coordinate file name sampled from in the current environment (Default is None) """
+        self.coords_filename = coords_filename
+
     # Dictionary of all possible objects (not just ones currently used)
     def get_all_objects(self):
         return self.all_objects
@@ -1238,6 +1248,7 @@ class KinovaGripper_Env(gym.Env):
         else:
             # If coordinate file is empty or does not exist, randomly generate coordinates
             obj_x, obj_y, obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
+            coords_filename = None
 
         # Use the exact hand orientation from the coordinate file
         if with_noise:
@@ -1269,7 +1280,7 @@ class KinovaGripper_Env(gym.Env):
         # Writes the new hand orientation to the xml file to be simulated in the environment
         self.write_xml(new_rotation)
 
-        return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx
+        return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename
 
 
     def determine_hand_location(self):
@@ -1331,8 +1342,9 @@ class KinovaGripper_Env(gym.Env):
         if qpos is None:
             if start_pos is None:
                 # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
-                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.determine_obj_hand_coords(random_shape, mode, with_noise=with_noise)
+                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, with_noise=with_noise)
                 self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
+                self.set_coords_filename(coords_filename)
 
             elif len(start_pos)==3:
                 ######################################
