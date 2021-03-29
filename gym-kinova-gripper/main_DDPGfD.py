@@ -157,6 +157,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         success=0
         state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env"), False
 
+        # Record initial coordinate file path once shapes are generated
+        all_saving_dirs["eval_init_coord_file_path"] = eval_env.get_coords_filename()
         cumulative_reward = 0
         # Sets number of timesteps per episode (counted from each step() call)
         eval_env._max_episode_steps = max_num_timesteps
@@ -315,7 +317,6 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     """
     
     writer.add_scalar("Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_reward, episode_num)
-    writer.add_scalar("NEW Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["total_reward"], episode_num)
     writer.add_scalar("Episode finger reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["finger_reward"],
                       episode_num)
     writer.add_scalar("Episode grasp reward, Avg. " + str(args.eval_freq) + " episodes",
@@ -390,6 +391,8 @@ def update_policy(evaluations, episode_num, num_episodes, prob,
 
         # Set whether or not to use grasp reward
         env.set_with_grasp_reward(args.with_grasp_reward)
+        # Record initial coordinate file path once shapes are generated
+        all_saving_dirs["train_init_coord_file_path"] = env.get_coords_filename()
 
         prev_state_lift_check = None
         curr_state_lift_check = state
@@ -542,8 +545,9 @@ def create_paths(dir_list):
             new_path.mkdir(parents=True, exist_ok=True)
 
 
-def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, create_dirs=True):
+def setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, create_dirs=True):
     """ Setup directories where information will be saved
+    env: Pass in current environment to have access to getting environment variables for recording purposes
     saving_dir: main name for all related files (ex: train_DDPGfD_CubeS)
     expert_replay_file_path: Expert replay buffer file path
     agent_replay_file_path: Agent replay buffer file path
@@ -569,8 +573,7 @@ def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agen
         print("---------- STARTING: ", args.mode, " ---------")
         # Original saving directory locations for model and tensorboard
         model_save_path = "./policies/" + saving_dir + "/{}_{}".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
-        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}_{}_{}/".format(args.mode, args.policy_name,
-                                                                                          args.tensorboardindex)
+        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}/".format(args.tensorboardindex)
         output_dir = "./output/" + saving_dir
         heatmap_train_dir = output_dir + "/heatmap" + "/" + args.mode
         results_saving_dir = output_dir + "/results" + "/" + args.mode
@@ -589,6 +592,9 @@ def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agen
     all_saving_dirs["expert_replay_file_path"] = expert_replay_file_path
     all_saving_dirs["agent_replay_file_path"] = agent_replay_file_path
     all_saving_dirs["pretrain_model_save_path"] = pretrain_model_save_path
+    all_saving_dirs["train_init_coord_file_path"] = env.get_coords_filename()
+    all_saving_dirs["eval_init_coord_file_path"] = env.get_coords_filename()
+    all_saving_dirs["controller_init_coord_file_path"] = env.get_coords_filename()
 
     return all_saving_dirs
 
@@ -840,7 +846,8 @@ def create_info_file(num_success,num_total,all_saving_dirs,extra_text=""):
     # Policy Initialization: None (Random init) or pre-train filepath
     # Expert Replay Buffer: None or filepath
     # Agent Replay Buffer: None or filepath
-    input_text = "\n\nINPUT:\nPolicy dir: {}\nExpert Replay Buffer: {}\nAgent Replay Buffer: {}".format(all_saving_dirs["pretrain_model_save_path"], all_saving_dirs["expert_replay_file_path"], all_saving_dirs["agent_replay_file_path"])
+    # Object/hand pose initial coordinate text file path
+    input_text = "\n\nINPUT:\nPolicy dir: {}\nExpert Replay Buffer: {}\nAgent Replay Buffer: {}\nInitial Object/Hand Pose Coord. File (Controller): {}\nInitial Object/Hand Pose Coord. File (Train): {}\nInitial Object/Hand Pose Coord. File (Evaluation): {}".format(all_saving_dirs["pretrain_model_save_path"], all_saving_dirs["expert_replay_file_path"], all_saving_dirs["agent_replay_file_path"], all_saving_dirs["controller_init_coord_file_path"], all_saving_dirs["train_init_coord_file_path"], all_saving_dirs["eval_init_coord_file_path"])
 
     # OUTPUT:
     # Policy: None or model_save_path
@@ -997,6 +1004,7 @@ if __name__ == "__main__":
 
     if args.tensorboardindex is None:
         args.tensorboardindex = "%s_%s" % (args.policy_name, args.mode)
+    args.tensorboardindex = args.tensorboardindex[:30]  # Keep the tensorboard name at a max size of 30 characters
 
     # Print variables set based on command line input
     param_text = ""
@@ -1071,13 +1079,14 @@ if __name__ == "__main__":
         print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="position-dependent")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="position-dependent")
         print("Expert ONLY expert_data_dir: ", expert_data_dir)
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(expert_data_dir, expert_replay_file_path, "None",
+        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path, "None",
                                             "None", "None",create_dirs=False)
+        all_saving_dirs["controller_init_coord_file_path"] = coord_filepath
 
         generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
@@ -1086,13 +1095,14 @@ if __name__ == "__main__":
         print("MODE: Naive ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="naive")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="naive")
         print("Naive ONLY expert_data_dir: ", expert_data_dir)
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(expert_data_dir, expert_replay_file_path, "None",
+        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path, "None",
                                             "None", "None",create_dirs=False)
+        all_saving_dirs["controller_init_coord_file_path"] = coord_filepath
 
         generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
@@ -1102,13 +1112,15 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
 
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="combined")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="combined")
         print("Expert (Interpolation) expert_data_dir: ", expert_data_dir)
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(expert_data_dir, expert_replay_file_path, "None",
+        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path, "None",
                                             "None", "None",create_dirs=False)
+        all_saving_dirs["controller_init_coord_file_path"] = coord_filepath
+
         # Generate plots and info file
         generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
 
@@ -1136,7 +1148,7 @@ if __name__ == "__main__":
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Initialize timer to analyze run times
         train_time = Timer()
@@ -1184,7 +1196,7 @@ if __name__ == "__main__":
             policy.load(pretrain_model_save_path)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
         # Initialize timer to analyze run times
@@ -1221,13 +1233,13 @@ if __name__ == "__main__":
         else:
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="combined")
+            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="combined")
 
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
         train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
@@ -1320,7 +1332,7 @@ if __name__ == "__main__":
             quit()
 
         # Save directory info for info file
-        all_saving_dirs = setup_directories(exp_dir, exp_dir, expert_replay_file_path,
+        all_saving_dirs = setup_directories(env, exp_dir, exp_dir, expert_replay_file_path,
                                             agent_replay_file_path,
                                             prev_exp_dir, create_dirs=False)
 
