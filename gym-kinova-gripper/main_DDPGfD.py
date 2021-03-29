@@ -317,7 +317,6 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     """
     
     writer.add_scalar("Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_reward, episode_num)
-    writer.add_scalar("NEW Episode total reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["total_reward"], episode_num)
     writer.add_scalar("Episode finger reward, Avg. " + str(args.eval_freq) + " episodes", avg_rewards["finger_reward"],
                       episode_num)
     writer.add_scalar("Episode grasp reward, Avg. " + str(args.eval_freq) + " episodes",
@@ -574,8 +573,7 @@ def setup_directories(env, saving_dir, replay_filename, expert_replay_file_path,
         print("---------- STARTING: ", args.mode, " ---------")
         # Original saving directory locations for model and tensorboard
         model_save_path = "./policies/" + saving_dir + "/{}_{}".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
-        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}_{}_{}/".format(args.mode, args.policy_name,
-                                                                                          args.tensorboardindex)
+        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}/".format(args.tensorboardindex)
         output_dir = "./output/" + saving_dir
         heatmap_train_dir = output_dir + "/heatmap" + "/" + args.mode
         results_saving_dir = output_dir + "/results" + "/" + args.mode
@@ -1006,6 +1004,7 @@ if __name__ == "__main__":
 
     if args.tensorboardindex is None:
         args.tensorboardindex = "%s_%s" % (args.policy_name, args.mode)
+    args.tensorboardindex = args.tensorboardindex[:30]  # Keep the tensorboard name at a max size of 30 characters
 
     # Print variables set based on command line input
     param_text = ""
