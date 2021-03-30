@@ -1322,18 +1322,16 @@ class KinovaGripper_Env(gym.Env):
     ###################################################
     #Function to step the simulator forward in time
     def step(self, action, graspnetwork = True): #TODO: fix this so that we can rotate the hand
+        #actions: [slidex, slidey, slidez, f1_vel, f2_vel, f3_vel, wristyaw, wristpitch] 
+        #ctrl: [slidex, motorx, slidey, motery, slidez, motorz, 
+        #      f1_vel, f2_vel, f3_vel, wristyaw, wristpitch]
+
         total_reward = 0
         self._get_trans_mat_wrist_pose()
+        
 
         if len(action)==4:
-            action=[0,0,action[0],action[1],action[2],action[3],0]
-        
-        if action[0]==0:
-            self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
-        if action[1]==0:
-            self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
-        if action[2]==0:
-            self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
+            action=[0,0,action[0],action[1],action[2],action[3],0,0]
 
         if self.arm_or_hand=="hand":
             mass=0.733
@@ -1341,7 +1339,23 @@ class KinovaGripper_Env(gym.Env):
             stuff=np.matmul(self.Tfw[0:3,0:3],[0,0,mass*10/gear])
             stuff[0]=-stuff[0]
             stuff[1]=-stuff[1]
-            for _ in range(self.frame_skip):
+            for _ in range(self.frame_skip):                
+                if action[0]==0:
+                    self._sim.data.set_joint_qpos('j2s7s300_slide_x',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
+                if action[1]==0:
+                    self._sim.data.set_joint_qpos('j2s7s300_slide_y',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
+                if action[2]==0:
+                    self._sim.data.set_joint_qpos('j2s7s300_slide_z',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
+                if action[6]==0:
+                    #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_yaw',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_joint_wrist_yaw',0)
+                if action[7]==0:
+                    #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_pitch',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_joint_wrist_pitch',0)
+
                 if self.step_coords=='global':
                     slide_vector=np.matmul(self.Tfw[0:3,0:3],action[0:3])
                     if (self.orientation == 'rotated') & (action[2]<=0):
@@ -1353,18 +1367,41 @@ class KinovaGripper_Env(gym.Env):
                         slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
                     else:
                         slide_vector=[-action[0],-action[1],action[2]]
+
                 for i in range(3):
+                    #Sets slide velocity
                     self._sim.data.ctrl[(i)*2] = slide_vector[i]
+                    #Set finger velocity
                     if self.step_coords=='rotated':
                         self._sim.data.ctrl[i+6] = action[i+3]+0.05
                     else:
                         self._sim.data.ctrl[i+6] = action[i+3]
-                    self._sim.data.ctrl[i*2+1]=stuff[i]
+                    #Set motor
+                    self._sim.data.ctrl[(i*2)+1] = stuff[i]
                 
-                #Rotate wrist
+                #print(len(self._sim.data.subtree_com))
+                #print(np.matmul(self.Tfw[0:3,0:3], np.array(self._sim.data.subtree_com[3]).T))
+
+                #Rotate wrist y and z
+                #Velocity and motor
+                #print(self._sim._get_joint_states())
+
+                #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_yaw', action[6])
+                #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_pitch', action[7])
+                self._sim.forward()
+                
                 self._sim.data.ctrl[9] = action[6]
-                
+                self._sim.data.ctrl[10] = action[7]
+
+
+                #print(self._sim.data.ctrl)
+                #print('slidex:',self._sim.data.get_joint_qvel('j2s7s300_slide_x'))
+                #print('slidey:',self._sim.data.get_joint_qvel('j2s7s300_slide_y'))
+                #print('slidez:',self._sim.data.get_joint_qvel('j2s7s300_slide_z'))
                 self._sim.step()
+                #print('slidex after:',self._sim.data.get_joint_qvel('j2s7s300_slide_x'))
+                #print('slidey after:',self._sim.data.get_joint_qvel('j2s7s300_slide_y'))
+                #print('slidez after:',self._sim.data.get_joint_qvel('j2s7s300_slide_z'))
         else:
             for _ in range(self.frame_skip):
                 joint_velocities = action[0:7]
@@ -1414,7 +1451,6 @@ class KinovaGripper_Env(gym.Env):
         roll = np.arctan2(rot[2][1], rot[2][2])
         pitch = np.arctan2(-rot[2][0], np.sqrt(np.square(rot[2][1]) + np.square(rot[2][2])))
         yaw = np.arctan2(rot[1][0], rot[0][0])
-
         #XML text to be input
         vec_size_text = "0.001 " + str(VEC_SIZE) #thickness, half height in meters
         site_text=f'            <site name="obj_vec" type="cylinder" size="{vec_size_text}" rgba="1 0.5 0.5 1"'
