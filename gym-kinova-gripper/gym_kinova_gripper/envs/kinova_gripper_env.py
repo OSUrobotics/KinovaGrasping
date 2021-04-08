@@ -202,32 +202,81 @@ class KinovaGripper_Env(gym.Env):
         self.all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
         self.all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
+        '''
+                Local obs, all in local coordinates (from the center of the palm)
+                (18,) Finger Pos                                        0-17: (0: x, 1: y, 2: z) "f1_prox", (3-5) "f2_prox", (6-8) "f3_prox", (9-11) "f1_dist", (12-14) "f2_dist", (15-17) "f3_dist"
+                (3,) Wrist Pos                                          18-20 (18: x, 19: y, 20: z)
+                (3,) Obj Pos                                            21-23 (21: x, 22: y, 23: z)
+                (9,) Joint States                                       24-32
+                (3,) Obj Size                                           33-35
+                (12,) Finger Object Distance                            36-47
+                (2,) X and Z angle                                      48-49
+                (17,) Rangefinder data                                  50-66
+                (3,) Gravity vector in local coordinates                67-69
+                (3,) Object location based on rangefinder data          70-72
+                (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
+                (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
+                (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
+                (1, ) Dot product (wrist) 81
+                '''
+
         # Originally used for defining min/max ranges of state input (currently not being used)
-        min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0]
-        min_obj_xyz = [-0.1, -0.01, 0.0]
-        min_joint_states = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, -0.1,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, -0.1, -0.1, -0.1, -0.1]
+        min_obj_xyz = [-0.1, -0.01, -0.01]
+        min_joint_states = [-0.01, -0.01, -0.01, -0.01, -0.01, -0.01, -0.01]
         min_obj_size = [0.0, 0.0, 0.0]
-        min_finger_obj_dist = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        min_obj_dot_prod = [0.0]
+        min_finger_obj_dist = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]  # 13 elements...
+        min_obj_dot_prod = [0.0] # why does this exist.
         min_f_dot_prod = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+
+        min_x_y = [-np.pi, -np.pi]
+        min_rangefinder_data = 17*[0.0]
+        min_gravity_vector_local = 3*[-1.0]
+        min_obj_location = [-0.1, 0.0, -0.1]
+        min_ratio_area_side = [0.0]
+        min_ratio_area_top = [0.0]
+        min_finger_dot_prod = 6*[-1.0]
+        min_wrist_dot_prod = [-1.0]
 
         max_hand_xyz = [0.1, 0.1, 0.5, 0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5]
         max_obj_xyz = [0.1, 0.7, 0.5]
         max_joint_states = [0.2, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
         max_obj_size = [0.5, 0.5, 0.5]
-        max_finger_obj_dist = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
+        max_finger_obj_dist = [0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2, 0.2]
         max_obj_dot_prod = [1.0]
         max_f_dot_prod = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+
+        max_x_y = [np.pi, np.pi]
+        max_rangefinder_data = 17*[6.0]
+        max_gravity_vector_local = 3*[1.0]
+        max_obj_location = [0.2, 0.2, 0.2]
+        max_ratio_area_side = [1.0]
+        max_ratio_area_top = [1.0]
+        max_finger_dot_prod = 6*[1.0]
+        max_wrist_dot_prod = [1.0]
+
+
         # print()
         if self.state_rep == "global" or self.state_rep == "local":
 
-            obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod #+ min_f_dot_prod
-            obs_min = np.array(obs_min)
-            # print(len(obs_min))
+            # by default: state rep is "local"
+            print("DEBUGGING GLOBAL / LOCAL STATE_REP FOR KINOVA GRIPPER ENV")
 
-            obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod #+ max_f_dot_prod
+            # obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod #+ min_f_dot_prod
+            obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod + \
+                      min_x_y + min_rangefinder_data + min_gravity_vector_local + min_obj_location + min_ratio_area_side +\
+                      min_ratio_area_top + min_finger_dot_prod + min_wrist_dot_prod
+
+            obs_min = np.array(obs_min)
+            print(len(obs_min))
+
+            # obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod #+ max_f_dot_prod
+            obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist \
+                      + max_obj_dot_prod + max_x_y + max_rangefinder_data + max_gravity_vector_local + \
+                      max_obj_location + max_ratio_area_side + max_ratio_area_top + max_finger_dot_prod\
+                      + max_wrist_dot_prod
             obs_max = np.array(obs_max)
-            # print(len(obs_max))
+            print(len(obs_max))
 
             self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
         elif self.state_rep == "metric":
@@ -1078,7 +1127,7 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
+    def reset(self,shape_keys=['CubeS'],hand_orientation='normal',with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None,coords='global',qpos=None):
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
@@ -1345,6 +1394,15 @@ class KinovaGripper_Env(gym.Env):
                 self.render()
         '''
 
+        # note: turn states into a numpy array...
+        states = np.array(states)
+
+        # TODO: STOP FOOLING AROUND LOL
+        # states = states[:48]
+
+
+
+
         return states
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
@@ -1486,6 +1544,13 @@ class KinovaGripper_Env(gym.Env):
         else:
             ### Get this reward for grasp classifier collection ###
             total_reward, info, done = self._get_reward_DataCollection()
+
+        # turn into numpy array
+        obs = np.array(obs)
+
+        # TODO: STOP FOOLING AROUND LOL
+        # obs = obs[:48]
+
         return obs, total_reward, done, info
 
     def add_site(self,world_site_coords,keep_sites=False):
