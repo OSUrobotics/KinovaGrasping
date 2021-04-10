@@ -9,19 +9,21 @@
 #   https://docs.google.com/document/d/1n8lx0HtgjiIuXMuVhB-bQtbvZuE114Cetnb8XVvn0yM/edit?usp=sharing
 #
 
+
 class StatsTrackerBase:
     def __init__(self, allowable_min, allowable_max):
         """ Dimension sizes will be found in allowable min/max - they should match
-        @param allowable_min - np array or single number
-        @param allowable_max - np array or single number"""
+        @param allowable_min - single number
+        @param allowable_max - single number"""
         self.allowable_min = allowable_min
         self.allowable_max = allowable_max
-        #
-        self.min_found = allowable_max * 1e6
-        self.max_found = allowable_min * 1e-6
-        self.avg_found = allowable_max * 0.9
+        # Do it this way because we'll override in reset
+        self.min_found = None
+        self.max_found = None
+        self.avg_found = None
         self.count = 0
 
+        # override reset for the different data types
         self.reset()
 
     def __str__(self):
@@ -35,6 +37,9 @@ class StatsTrackerBase:
         return self.__str__()
 
     def reset(self):
+        """ Reset for floats. Should probably be NaN, but avoids having to check for min/max being set"""
+        if self.allowable_max < self.allowable_min:
+            raise ValueError("{0} max less than min".format(self))
         self.min_found = self.allowable_max * 1e6
         self.max_found = self.allowable_min * 1e-6
         self.avg_found = self.allowable_min * 0.0
@@ -42,7 +47,7 @@ class StatsTrackerBase:
 
     def get_name(self):
         """ This should be over-written by whatever class is inheriting from this one"""
-        return "Unnamed"
+        return "{0}: ".format(self.__class__.__name__)
 
     def set_value(self, val):
         """Wherever there's an equal/data, use this. It will check for allowable values and update the stats"""
@@ -50,6 +55,7 @@ class StatsTrackerBase:
             raise ValueError("{0}, {1} less than min value {2}".format(self.get_name(), val, self.min_found))
         if val > self.allowable_max:
             raise ValueError("{0}, {1} greater than max value {2}".format(self.get_name(), val, self.max_found))
+
         self.min_found = min(self.min_found, val)
         self.max_found = max(self.max_found, val)
         n = self.count+1
@@ -57,35 +63,55 @@ class StatsTrackerBase:
         self.count = n
 
 
+class StatsTrackerArray(StatsTrackerBase):
+    """ Overrides just the methods that need to do array accesses"""
+    def __init__(self, allowable_min, allowable_max):
+        """ Dimension sizes will be found in allowable min/max - they should match
+        @param allowable_min - array
+        @param allowable_max - array"""
+        # Will call reset() and set the _found variables to be the right size
+        super(StatsTrackerArray, self).__init__(allowable_min, allowable_max)
+
+    def __str__(self):
+        return self.get_name() + \
+               " Min: [" + ",".join(["{0:0.2f}".format(v) for v in self.min_found]) + "]" + \
+               " Max: [" + ",".join(["{0:0.2f}".format(v) for v in self.max_found]) + "]" + \
+               " Avg: [" + ",".join(["{0:0.2f}".format(v) for v in self.avg_found]) + "]" + \
+               " N: {}".format(self.count)
+
+    def reset(self):
+        """ Have to set all of the elements in the array - indirectly checks that the arrays are same size"""
+        for min_v, max_v in zip(self.allowable_min, self.allowable_max):
+            if max_v < min_v:
+                raise ValueError("{0} max less than min".format(self))
+
+        self.min_found = [v * 1e6 for v in self.allowable_max]
+        self.max_found = [v * 1e-6 for v in self.allowable_min]
+        self.avg_found = [0 for _ in self.allowable_max]
+        self.count = 0
+
+    def set_value(self, val):
+        """Wherever there's an equal/data, use this. It will check for allowable values and update the stats"""
+        for i, v in enumerate(val):
+            if v < self.allowable_min[i]:
+                raise ValueError("{0}, {1} less than min value {2}, index {3}".format(self.get_name(), val, self.min_found, i))
+            if v > self.allowable_max[i]:
+                raise ValueError("{0}, {1} greater than max value {2}, index {3}".format(self.get_name(), val, self.max_found, i))
+
+            self.min_found[i] = min(self.min_found[i], v)
+            self.max_found[i] = max(self.max_found[i], v)
+
+            n = self.count+1
+            self.avg_found[i] = self.avg_found[i] * (self.count / n) + v * (1.0 / n)
+
+        self.count += 1
+
+
 if __name__ == "__main__":
-    from numpy import array as nparray
-    foo = nparray([0.3, 0.2, 0.1])
-    bar = nparray([0.7, 0.1, 0.1])
-    blah = min(foo, 1)
+    my_test_float = StatsTrackerBase(3, 4)
+    my_test_array = StatsTrackerArray([3, 4, 5], [4, 10, 12])
 
-    my_test = StatsTrackerBase(3, 4)
-    print("Before any set: {0}".format(my_test))
-
-    my_test.set_value(3.25)
-    my_test.set_value(3.75)
-    print("After set: {0}".format(my_test))
-    if my_test.min_found != 3.25:
-        raise ValueError("Min: Expected 3.25, got {0}".format(my_test.min_found))
-    if my_test.max_found != 3.75:
-        raise ValueError("Max: Expected 3.75, got {0}".format(my_test.max_found))
-    if my_test.avg_found != 3.5:
-        raise ValueError("Avg: Expected 3.5, got {0}".format(my_test.avg_found))
-
-    try:
-        my_test.set_value(5)
-        print("{0}, failed check, past max: given {1}, max was {2}".format(my_test.get_name(), 5, my_test.allowable_max))
-    except ValueError:
-        pass
-
-    try:
-        my_test.set_value(3)
-        print("{0}, failed check, past min: given {1}, min was {2}".format(my_test.get_name(), 5, my_test.allowable_min))
-    except ValueError:
-        pass
+    print("{0}".format(my_test_float))
+    print("{0}".format(my_test_array))
 
 
