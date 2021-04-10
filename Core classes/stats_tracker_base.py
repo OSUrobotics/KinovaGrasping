@@ -3,7 +3,10 @@
 # Automate the following for floating point values:
 #   Checking that the values are within the specified range (ValueError)
 #   Track the minimum, maximum, and average values found
-#      Optionally: What index they were found at
+# Usage as a tracker, store value elsewhere:
+#   my_stats_tracker_variable_x = StatsTrackerBase.create_instance(min_bds, max_bds)
+#   my_stats_tracker_variable_x.set_value( ... ) for setting the value
+#   my_stats_tracker_variable_x.value for getting the value back
 #
 # See Code Design: Core functionality of simulator
 #   https://docs.google.com/document/d/1n8lx0HtgjiIuXMuVhB-bQtbvZuE114Cetnb8XVvn0yM/edit?usp=sharing
@@ -17,6 +20,7 @@ class StatsTrackerBase:
         @param allowable_max - single number"""
         self.allowable_min = allowable_min
         self.allowable_max = allowable_max
+        self.value = None
         # Do it this way because we'll override in reset
         self.min_found = None
         self.max_found = None
@@ -37,13 +41,15 @@ class StatsTrackerBase:
         return self.__str__()
 
     def reset(self):
-        """ Reset for floats. Should probably be NaN, but avoids having to check for min/max being set"""
+        """ Reset for floats/arrays. Should probably be NaN, but avoids having to check for min/max being set
+        @param can optionally set the value"""
         if self.allowable_max < self.allowable_min:
             raise ValueError("{0} max less than min".format(self))
         self.min_found = self.allowable_max * 1e6
         self.max_found = self.allowable_min * 1e-6
         self.avg_found = self.allowable_min * 0.0
         self.count = 0
+        self.value = None
 
     def get_name(self):
         """ This should be over-written by whatever class is inheriting from this one"""
@@ -62,6 +68,21 @@ class StatsTrackerBase:
         self.avg_found = self.avg_found * (self.count / n) + val * (1.0 / n)
         self.count = n
 
+        self.value = val
+
+    @staticmethod
+    def create_instance(min_bds, max_bds, debug=True):
+        """ Create an instance based on the type (float/int or array)
+        @param min_bds is either a number or an array
+        @param max_bds should match dimensionality of min_bds
+        @returns An instance of StatsTrackerBase (floats/ints) or StatsTrackerArray(array, numpy array) or DoNothing (debug = false"""
+        if not debug:
+            return StatsTrackerDoNothing()
+
+        try:
+            return StatsTrackerBase(min_bds, max_bds)
+        except:
+            return StatsTrackerArray(min_bds, max_bds)
 
 class StatsTrackerArray(StatsTrackerBase):
     """ Overrides just the methods that need to do array accesses"""
@@ -105,10 +126,12 @@ class StatsTrackerArray(StatsTrackerBase):
             self.avg_found[i] = self.avg_found[i] * (self.count / n) + v * (1.0 / n)
 
         self.count += 1
+        self.value = val
 
 
 class StatsTrackerDoNothing(StatsTrackerBase):
     def __init__(self, *args):
+        self.value = None
         pass
 
     def reset(self):
@@ -118,7 +141,8 @@ class StatsTrackerDoNothing(StatsTrackerBase):
         return self.get_name()
 
     def set_value(self, val):
-        pass
+        """Just keep the value"""
+        self.value = val
 
 
 if __name__ == "__main__":

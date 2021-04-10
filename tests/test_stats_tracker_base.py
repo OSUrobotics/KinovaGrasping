@@ -95,6 +95,25 @@ class TestStatsTracker(unittest.TestCase):
 
         print("My numpy stats {0}".format(my_stats))
 
+    def test_create_method(self):
+        """ Check that the appropriate instances are created """
+        my_do_nothing_tests = StatsTrackerBase.create_instance(3, 5, False)
+        self.assertEqual(my_do_nothing_tests.__class__, StatsTrackerDoNothing)
+
+        my_int_tests = StatsTrackerBase.create_instance(3, 5)
+        self.assertEqual(my_int_tests.__class__, StatsTrackerBase)
+
+        my_float_tests = StatsTrackerBase.create_instance(3.25, 5.7)
+        self.assertEqual(my_float_tests.__class__, StatsTrackerBase)
+
+        my_array_tests = StatsTrackerBase.create_instance([3, 4], [5, 7])
+        self.assertEqual(my_array_tests.__class__, StatsTrackerArray)
+
+        from numpy import array as nparray
+        min_array = nparray([3, 4, 5])
+        max_array = nparray([5, 6, 10])
+        my_nparray_tests = StatsTrackerBase.create_instance(min_array, max_array)
+        self.assertEqual(my_nparray_tests.__class__, StatsTrackerArray)
 
 if __name__ == '__main__':
     unittest.main()
