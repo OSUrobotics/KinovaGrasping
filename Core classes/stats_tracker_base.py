@@ -107,6 +107,20 @@ class StatsTrackerArray(StatsTrackerBase):
         self.count += 1
 
 
+class StatsTrackerDoNothing(StatsTrackerBase):
+    def __init__(self, *args):
+        pass
+
+    def reset(self):
+        pass
+
+    def __str__(self):
+        return self.get_name()
+
+    def set_value(self, val):
+        pass
+
+
 if __name__ == "__main__":
     my_test_float = StatsTrackerBase(3, 4)
     my_test_array = StatsTrackerArray([3, 4, 5], [4, 10, 12])

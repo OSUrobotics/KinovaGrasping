@@ -2,16 +2,18 @@
 
 
 import unittest
-from stats_tracker_base import StatsTrackerBase, StatsTrackerArray
+from stats_tracker_base import StatsTrackerBase, StatsTrackerArray, StatsTrackerDoNothing
 
 
 class TestStatsTracker(unittest.TestCase):
     def test_check_print(self):
         my_test_float = StatsTrackerBase(3, 4)
         my_test_array = StatsTrackerArray([3, 4, 5], [4, 10, 12])
+        my_test_do_nothing = StatsTrackerDoNothing([3], [4, 10, 12])
 
         print("{0}".format(my_test_float))
         print("{0}".format(my_test_array))
+        print("{0}".format(my_test_do_nothing))
 
     def test_min_max_set_float(self):
         """ Test the set_value method by manually setting to 3 values and checking the result
@@ -73,6 +75,25 @@ class TestStatsTracker(unittest.TestCase):
 
         with self.assertRaises(IndexError):
             StatsTrackerArray([3, 5, 6], [4, 12])
+
+    def test_do_nothing(self):
+        """ Check that all the methods for the do nothing class work, even if, well, they do nothing"""
+        my_stats = StatsTrackerDoNothing([3, 5], 4)
+        my_stats.reset()
+        my_stats.set_value(3.6)
+        print("My stats {0}".format(my_stats))
+
+    def test_numpy_array(self):
+        """ Check that all the methods work for numpy arrays"""
+        from numpy import array as nparray
+        min_array = nparray([3, 4, 5])
+        max_array = nparray([5, 6, 10])
+        my_stats = StatsTrackerArray(min_array, max_array)
+        my_stats.reset()
+        my_stats.set_value(min_array * 0.25 + 0.75 * max_array)
+        my_stats.set_value(min_array * 0.75 + 0.25 * max_array)
+
+        print("My numpy stats {0}".format(my_stats))
 
 
 if __name__ == '__main__':
