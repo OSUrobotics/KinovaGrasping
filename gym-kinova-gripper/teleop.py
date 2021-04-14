@@ -71,7 +71,7 @@ poses=[[0.0,-0.03],[0.02,-0.03],[-0.02,-0.03],[-0.05,0],[-0.01,-0.035],[0.01,-0.
 for f in range(3):
     for k in range(10):
         thing=np.append([0,0,0],act)
-        env.reset(obj_params=['Cube','M'],hand_orientation="random",start_pos=[1,1])
+        env.reset(hand_orientation="random",shape_keys=['CubeM','CubeS'])
         x_move = np.random.rand()/10
         y_move = np.random.rand()/10
         action=np.array(thing)
@@ -88,7 +88,7 @@ for f in range(3):
             obs, reward, done, _ = env.step(action)
             env.render()
             network_feed=obs[21:24]
-            print('local obs',obs[21:24])
+            #print('local obs',obs[21:24])
             network_feed=np.append(network_feed,obs[27:36])
             network_feed=np.append(network_feed,obs[49:51])
             states=torch.zeros(1,14, dtype=torch.float)
