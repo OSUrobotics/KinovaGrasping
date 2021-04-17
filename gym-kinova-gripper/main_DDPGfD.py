@@ -569,7 +569,7 @@ def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agen
         print("---------- STARTING: ", args.mode, " ---------")
         # Original saving directory locations for model and tensorboard
         model_save_path = "./policies/" + saving_dir + "/{}_{}".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
-        tensorboard_dir = "/kinova_gripper_strategy/{}".format(args.tensorboardindex)
+        tensorboard_dir = "./kinova_gripper_strategy/{}".format(args.tensorboardindex)
         output_dir = "./output/" + saving_dir
         heatmap_train_dir = output_dir + "/heatmap" + "/" + args.mode
         results_saving_dir = output_dir + "/results" + "/" + args.mode
