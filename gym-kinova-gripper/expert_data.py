@@ -719,6 +719,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
         obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation), False
 
+        # Record initial coordinate file path once shapes are generated
+        coord_filepath = env.get_coords_filename()
         prev_obs = None         # State observation of the previous state
         num_good_grasps = 0      # Counts the number of good grasps (Number of times check_grasp() has returned True)
         num_consistent_grasps = 1   # Number of RL steps needed
@@ -916,7 +918,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         print("# Episodes: ", replay_buffer.replay_ep_num)
         print("# Trajectories: ", replay_buffer.size)
 
-    return replay_buffer, save_filepath, expert_saving_dir, text, num_success, (num_success+num_fail)
+    return replay_buffer, save_filepath, expert_saving_dir, text, num_success, (num_success+num_fail), coord_filepath
 
 
 # Command line
