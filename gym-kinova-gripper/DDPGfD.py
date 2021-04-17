@@ -51,20 +51,26 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64):
+	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), weight_decay=1e-4)
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4, weight_decay=1e-4)
 
 		self.discount = discount
 		self.tau = tau
 		self.n = n
 		self.network_repl_freq = 10
 		self.total_it = 0
+
+		# Sample from the expert replay buffer, decaying the proportion expert-agent experience over time
+		self.initial_expert_proportion = expert_sampling_proportion
+		self.current_expert_proportion = expert_sampling_proportion
+		self.sampling_decay_rate = 0.08
+		self.sampling_decay_freq = 2 #400
 
 		self.batch_size = batch_size
 
@@ -216,7 +222,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
+	def train_batch(self, max_episode_num, episode_num, expert_replay_buffer, replay_buffer, num_trajectories):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 		agent_batch_size = 0
@@ -235,9 +241,15 @@ class DDPGfD(object):
 			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
-			# Get prob % of batch from expert and (1-prob) from agent
-			agent_batch_size = int(self.batch_size * (1 - prob))
-			expert_batch_size = self.batch_size - agent_batch_size
+
+			# Calculate proportion of expert sampling based on decay rate
+			if episode_num + 1 % self.sampling_decay_freq == 0:
+				self.current_expert_proportion = max(0.30, self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), self.sampling_decay_freq))
+			print("episode_num: {} | self.sampling_decay_freq: {} | self.current_expert_proportion: {}".format(episode_num,self.sampling_decay_freq,self.current_expert_proportion))
+
+			# Sample from the expert and agent replay buffers
+			expert_batch_size = int(self.batch_size * self.current_expert_proportion)
+			agent_batch_size = self.batch_size - expert_batch_size
 			# Get batches from respective replay buffers
 			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
 			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,num_trajectories)
@@ -352,7 +364,7 @@ class DDPGfD(object):
 
 		# Compute Behavior Cloning loss - state and action are from the expert
 		Lbc = 0
-		lambda_Lbc = 0.5
+		lambda_Lbc = 1
 		# Compute loss based on Mean Squared Error between the actor network's action and the expert's action
 		if expert_batch_size > 0:
 			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
