@@ -478,9 +478,9 @@ def update_policy(evaluations, episode_num, num_episodes, prob,
                                                                                      replay_buffer, prob)
                 else:
                     # Batch training using n-steps
-                    actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps,
+                    actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps, episode_num,
                                                                                          expert_replay_buffer,
-                                                                                         replay_buffer, prob)
+                                                                                         replay_buffer)
 
         # Evaluation and recording data for tensorboard
         if episode_num+1 == num_episodes or (episode_num >= args.update_after and (episode_num) % args.eval_freq == 0):
@@ -569,8 +569,7 @@ def setup_directories(saving_dir, replay_filename, expert_replay_file_path, agen
         print("---------- STARTING: ", args.mode, " ---------")
         # Original saving directory locations for model and tensorboard
         model_save_path = "./policies/" + saving_dir + "/{}_{}".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
-        tensorboard_dir = "./kinova_gripper_strategy/" + saving_dir + "/{}_{}_{}/".format(args.mode, args.policy_name,
-                                                                                          args.tensorboardindex)
+        tensorboard_dir = "/kinova_gripper_strategy/{}".format(args.tensorboardindex)
         output_dir = "./output/" + saving_dir
         heatmap_train_dir = output_dir + "/heatmap" + "/" + args.mode
         results_saving_dir = output_dir + "/results" + "/" + args.mode
@@ -895,7 +894,7 @@ def setup_args(args=None):
     parser.add_argument("--hand_orientation", action='store', type=str)         # Requested shapes to use (in format of object keys)
     parser.add_argument("--mode", action='store', type=str, default="train")    # Mode to run experiments with: (naive, position-dependent, expert, pre-train, train, rand_train, test, experiment)
     parser.add_argument("--agent_replay_size", default=10000, type=int)         # Maximum size of agent's replay buffer
-    parser.add_argument("--expert_prob", default=0.3, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
+    parser.add_argument("--expert_prob", default=0.7, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
     parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
     parser.add_argument("--update_after", default=100, type=int) # Start to update the policy after # episodes have occured
@@ -967,7 +966,8 @@ if __name__ == "__main__":
         "n": n,
         "discount": args.discount,
         "tau": args.tau,
-        "batch_size": args.batch_size
+        "batch_size": args.batch_size,
+        "expert_sampling_proportion": args.expert_prob
     }
 
     ''' Initialize policy '''
@@ -1047,7 +1047,8 @@ if __name__ == "__main__":
         with_grasp_str = "WITH grasp"
     else:
         # All shapes replay buffer
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
+        expert_replay_file_path = "./expert_replay_data_NO_NOISE/Naive_CubeS_norm/replay_buffer/"
+        #"./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
