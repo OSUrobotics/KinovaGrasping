@@ -365,7 +365,7 @@ class DDPGfD(object):
 
 		# Compute Behavior Cloning loss - state and action are from the expert
 		Lbc = 0
-		lambda_Lbc = 1
+		lambda_Lbc = 0
 		# Compute loss based on Mean Squared Error between the actor network's action and the expert's action
 		if expert_batch_size > 0:
 			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
