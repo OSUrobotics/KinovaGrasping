@@ -70,7 +70,7 @@ class DDPGfD(object):
 		self.initial_expert_proportion = expert_sampling_proportion
 		self.current_expert_proportion = expert_sampling_proportion
 		self.sampling_decay_rate = 0.08
-		self.sampling_decay_freq = 2 #400
+		self.sampling_decay_freq = 400
 
 		self.batch_size = batch_size
 
@@ -222,7 +222,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, max_episode_num, episode_num, expert_replay_buffer, replay_buffer):
+	def train_batch(self, max_episode_num, episode_num, update_count, expert_replay_buffer, replay_buffer):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 		agent_batch_size = 0
@@ -242,10 +242,11 @@ class DDPGfD(object):
 		else:
 			#print("MIX OF AGENT AND EXPERT")
 
-			# Calculate proportion of expert sampling based on decay rate
-			if episode_num + 1 % self.sampling_decay_freq == 0:
-				self.current_expert_proportion = max(0.30, self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), self.sampling_decay_freq))
-			print("episode_num: {} | self.sampling_decay_freq: {} | self.current_expert_proportion: {}".format(episode_num,self.sampling_decay_freq,self.current_expert_proportion))
+			# Calculate proportion of expert sampling based on decay rate -- only calculate on the first update (to avoid repeats)
+			if (episode_num + 1) % self.sampling_decay_freq == 0 and update_count == 0:
+				prop_w_decay = self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), int(episode_num/self.sampling_decay_freq)-1)
+				self.current_expert_proportion = max(0.30, prop_w_decay)
+				print("In proportion calculation, episode_num + 1: {}, prop_w_decay: {}, self.current_expert_proportion: {}".format(episode_num + 1, prop_w_decay, self.current_expert_proportion))
 
 			# Sample from the expert and agent replay buffers
 			expert_batch_size = int(self.batch_size * self.current_expert_proportion)
