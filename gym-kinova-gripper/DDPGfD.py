@@ -244,7 +244,7 @@ class DDPGfD(object):
 
 			# Calculate proportion of expert sampling based on decay rate -- only calculate on the first update (to avoid repeats)
 			if (episode_num + 1) % self.sampling_decay_freq == 0 and update_count == 0:
-				prop_w_decay = self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), int(episode_num/self.sampling_decay_freq)-1)
+				prop_w_decay = self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), int((episode_num + 1)/self.sampling_decay_freq))
 				self.current_expert_proportion = max(0.30, prop_w_decay)
 				print("In proportion calculation, episode_num + 1: {}, prop_w_decay: {}, self.current_expert_proportion: {}".format(episode_num + 1, prop_w_decay, self.current_expert_proportion))
 
