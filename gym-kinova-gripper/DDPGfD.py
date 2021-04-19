@@ -69,7 +69,7 @@ class DDPGfD(object):
 		# Sample from the expert replay buffer, decaying the proportion expert-agent experience over time
 		self.initial_expert_proportion = expert_sampling_proportion
 		self.current_expert_proportion = expert_sampling_proportion
-		self.sampling_decay_rate = 0.08
+		self.sampling_decay_rate = 0.2
 		self.sampling_decay_freq = 400
 
 		self.batch_size = batch_size
@@ -245,7 +245,7 @@ class DDPGfD(object):
 			# Calculate proportion of expert sampling based on decay rate -- only calculate on the first update (to avoid repeats)
 			if (episode_num + 1) % self.sampling_decay_freq == 0 and update_count == 0:
 				prop_w_decay = self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), int((episode_num + 1)/self.sampling_decay_freq))
-				self.current_expert_proportion = max(0.30, prop_w_decay)
+				self.current_expert_proportion = max(0, prop_w_decay)
 				print("In proportion calculation, episode_num + 1: {}, prop_w_decay: {}, self.current_expert_proportion: {}".format(episode_num + 1, prop_w_decay, self.current_expert_proportion))
 
 			# Sample from the expert and agent replay buffers
@@ -365,7 +365,7 @@ class DDPGfD(object):
 
 		# Compute Behavior Cloning loss - state and action are from the expert
 		Lbc = 0
-		lambda_Lbc = 0
+		lambda_Lbc = self.current_expert_proportion
 		# Compute loss based on Mean Squared Error between the actor network's action and the expert's action
 		if expert_batch_size > 0:
 			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
