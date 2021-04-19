@@ -25,6 +25,11 @@ class DataDirectoryBase:
     # Environmental objects
     enviroments = {"Table", "Reset_mechanism", "Door", "Drawer", "Apple"}
 
+    # Types of files
+    file_types = {"JSon", "xml", "csv", "urdf", "stl"}
+
+    # Extensions
+
     def __init__(self, cls=None, instance_name=None):
         self.path_name = Path(self.construct_path_name(cls, instance_name))
 
@@ -57,11 +62,14 @@ class DataDirectoryBase:
             raise FileNotFoundError("Path name {0} does not exist".format(self.path_name))
 
         if self.path_name.parent().exists():
-            mkdir(self.path_name)
+            self.path_name.mkdir()
 
-
+    def construct_json(self):
+        """Construct a dictionary/array structure that can be written to a json file
+          - By default this just takes and makes pairs of all the self variable names and their values"""
+        raise NotImplementedError
 
 
 if __name__ == "__main__":
-
+    check_dirs = DataDirectoryBase()
 
