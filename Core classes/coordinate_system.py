@@ -41,6 +41,19 @@ class BoundingBox:
         @returns as tuple"""
         return (self.lower_left[i] - self.bbox[0][i] for i in range(0, 3))
 
+    def is_inside_box(self, pt):
+        """ See if the point is inside the bounding box
+        @returns true or false"""
+        b_inside = [self.lower_left[i] <= pt[i] <= self.upper_right[i] for i in range(0, 3)]
+        if b_inside == (True, True, True):
+            return True
+        return False
+
+    def project_on_box(self, pt):
+        """ Project onto the outside of the box
+        @returns pt on box boundary"""
+        raise NotImplementedError
+
     def render(self):
         """ Render the bounding box in OpenGL"""
         raise NotImplementedError
@@ -128,6 +141,25 @@ class CoordinateSystemTransformBase:
         self.scaling = (1, 1, 1)
 
         # Last but not least, apply the translation/scale to the bbox
+
+    def set_from_concatenation(self, seq_of_transforms):
+        """Given a sequence of transforms, multiply them together to make one
+        @param seq_of_transforms: Any iterable over CoordinateSystemTransformBase objects"""
+        raise NotImplementedError
+
+    def transform(self, pt):
+        """Transform the point from the From coord sys to the To one
+        @param pt: 3 numbers, nparray, list, tuple
+        @returns 3 numbers in ??"""
+        # Manually transform and scale
+        raise NotImplementedError
+
+    def transform_back(self, pt):
+        """Transform the point from the To coord sys to the From one
+        @param pt: 3 numbers, nparray, list, tuple
+        @returns 3 numbers in ??"""
+        # Manually transform and scale
+        raise NotImplementedError
 
     def get_matrix(self) -> nparray:
         """ Scale * rotation * translation

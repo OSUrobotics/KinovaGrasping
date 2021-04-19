@@ -2,10 +2,14 @@
 
 #  Given a simulation environment, can also grab the current matrix transform
 #   for a model/mesh/object in the global coordinate system
+#  Coordinate system transforms all objects should have
+#   from_mesh: The transform that is in the xml/urdf file etc
+#   to_world: The transform that positions the object in the world (after applying from_mesh
 
 from coordinate_system import CoordinateSystemTransformBase, BoundingBox
 from scipy.spatial.transform import Rotation
 from numpy import array as nparray
+from signed_distance_fc import SignedDistanceFc
 
 class ObjectBase():
     # If eg PyBullet or Mujoco or RViz is up and running
@@ -15,6 +19,10 @@ class ObjectBase():
         """Created from an stl file, urdf, xml, etc
              Actual geometry can be stored here or in the simulation (if running)"""
         self.name = name
+        # Set once you actually have geometry
+        self.from_mesh = CoordinateSystemTransformBase("mesh", "object_base")
+        self.to_world = CoordinateSystemTransformBase("object_base", "world")
+        self.sdf = SignedDistanceFc()
 
     def get_vertices(self):
         """ Generator function that returns all vertices in the form of a 1x4 numpy array [x,y,z,1]
