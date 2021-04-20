@@ -97,7 +97,7 @@ def evaluate_replay_buffer(replay_buffer):
             where each episode is a list of numpy arrays containing the action values per transition
     """
     start_episode_idx = 0
-    end_episode_idx = 19998
+    end_episode_idx = 1998
     range_of_episodes = np.arange(start_episode_idx, end_episode_idx + 1) # +1 to include the ending index
     #sample_size = 100
     #random_sample = np.random.choice(range_of_episodes, sample_size)
@@ -113,27 +113,28 @@ def evaluate_replay_buffer(replay_buffer):
         episode_action = np.stack(episode_action, axis=0)
 
         # Plot values over from episode
-        actual_values_plot(episode_action[:, 1])
-        episode_distribution_plot(episode_action[:, 1])
+        #actual_values_plot(episode_action[:, 1])
+        #episode_distribution_plot(episode_action[:, 1])
 
         # Finger 1 velocities
-        selected_episodes.append(episode_action[:, 1]) # APPEND ALL ACTIONS FROM ONE EPISODE, APPEND TO FULL LIST
+        selected_episodes.append(episode_action[:, 3]) # APPEND ALL ACTIONS FROM ONE EPISODE, APPEND TO FULL LIST
 
     # PLOT OVER ALL EPISODES IN SELECTED RANGE (AVG, DISTRIBUTION, BOXPLOT)
     # Plotting finger 1 velocities over all episodes
     metric_name = "Finger 3 Velocity"
     all_episodes_average_plot(range_of_episodes, selected_episodes, metric_name)
-    all_episodes_distribution_plot(range_of_episodes, selected_episodes, metric_name)
-    all_episodes_boxplot(range_of_episodes, selected_episodes, metric_name, freq=1000, min_val=0, max_val=0.9)
+    #all_episodes_distribution_plot(range_of_episodes, selected_episodes, metric_name)
+    all_episodes_boxplot(range_of_episodes, selected_episodes, metric_name, freq=200, min_val=0, max_val=0.9)
 
 if __name__ == "__main__":
     # Replay buffer initialization values for loading new buffer
     state_dim = 82
     action_dim = 4
-    replay_size = 10000
+    replay_size = 20000
 
     # Naive replay buffer
-    replay_filepath = "../expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
+    replay_filepath = "../replay_buffer/expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
+    # "../replay_buffer/BC_4keps/replay_buffer_04_15/"
 
     # Load the replay buffer (expert replay buffer)
     replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, replay_size)
