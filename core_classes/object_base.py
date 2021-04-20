@@ -10,8 +10,9 @@ from coordinate_system import CoordinateSystemTransformBase, BoundingBox
 from scipy.spatial.transform import Rotation
 from numpy import array as nparray
 from signed_distance_fc import SignedDistanceFc
+from data_directories_base import DataDirectoryBase
 
-class ObjectBase():
+class ObjectBase(DataDirectoryBase):
     # If eg PyBullet or Mujoco or RViz is up and running
     sym_environment = None
 
@@ -33,7 +34,7 @@ class ObjectBase():
         for d in fake_data:
             yield nparray([d[0], d[1], d[2], 1])
 
-    def calc_bbox(self, orientation: Rotation = None) -> tuple:
+    def calc_bbox(self, apply_matrix = None) -> tuple:
         """Bounding box of mesh geometry in the current coordiante system
         @ returns bounding box as [ [lower left] [ upper right ] ]"""
         bbox_min = nparray([1e30, 1e30, 1e30])
