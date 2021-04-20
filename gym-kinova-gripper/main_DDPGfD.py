@@ -332,9 +332,10 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     return writer
 
 
-def update_policy(evaluations, episode_num, num_episodes, prob,
+def update_policy(policy, evaluations, episode_num, num_episodes, prob,
                   type_of_training, saving_dir, max_num_timesteps=30):
     """ Update policy network based on expert or agent step, evaluate every eval_freq episodes
+    policy: policy to be updated
     evaluations: Output average reward list for plotting
     episode_num: Current episode
     num_episodes: Max number of episodes to update over
@@ -536,7 +537,7 @@ def update_policy(evaluations, episode_num, num_episodes, prob,
 
         episode_num += 1
 
-    return evaluations, episode_num, eval_num_success, eval_num_fail
+    return policy, evaluations, episode_num, eval_num_success, eval_num_fail
 
 
 def create_paths(dir_list):
@@ -601,7 +602,7 @@ def setup_directories(env, saving_dir, replay_filename, expert_replay_file_path,
     return all_saving_dirs
 
 
-def train_policy(tot_episodes, tr_prob, all_saving_dirs):
+def train_policy(policy, tot_episodes, tr_prob, all_saving_dirs):
     """ Train the policy over a number of episodes, sampling from experience
     tot_episodes: Total number of episodes to update policy over
     tr_prob: Probability of sampling from expert replay buffer within training
@@ -611,8 +612,8 @@ def train_policy(tot_episodes, tr_prob, all_saving_dirs):
     red_expert_prob= 0.1
 
     # Begin training updates
-    evals, curr_episode, eval_num_success, eval_num_fail = \
-        update_policy(evals, curr_episode, tot_episodes, tr_prob,"TRAIN", all_saving_dirs["saving_dir"])
+    policy, evals, curr_episode, eval_num_success, eval_num_fail = \
+        update_policy(policy, evals, curr_episode, tot_episodes, tr_prob,"TRAIN", all_saving_dirs["saving_dir"])
     tr_prob = tr_prob - red_expert_prob
     eval_num_total = eval_num_success + eval_num_fail
 
@@ -620,7 +621,7 @@ def train_policy(tot_episodes, tr_prob, all_saving_dirs):
     print("Saving policy...")
     policy.save(all_saving_dirs["model_save_path"])
 
-    return all_saving_dirs["model_save_path"], eval_num_success, eval_num_total
+    return policy, all_saving_dirs["model_save_path"], eval_num_success, eval_num_total
 
 
 def get_experiment_info(exp_num):
@@ -775,7 +776,7 @@ def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_
         create_info_file(num_success, num_total, all_saving_dirs, text)
 
 
-def rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs):
+def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs):
     """ Train policy according to RL experiment shape, size, orientation combo + stage """
     # Fill object list using latin square method
     env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
@@ -790,7 +791,7 @@ def rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_o
     policy.load(pol_dir+policy_filename)
 
     # *** Train policy ****
-    train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob, all_saving_dirs)
+    policy, train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, args.max_episode, args.expert_prob, all_saving_dirs)
     print("Experiment ", exp_num, ", ", exp_name, " policy saved at: ", train_model_save_path)
 
     # Save train agent replay data
@@ -915,6 +916,57 @@ def setup_args(args=None):
 
     args = parser.parse_args()
     return args
+
+
+def test_policy_models_match(current_model, compare_model=None, compare_model_filepath=None):
+    """ Check that the input models match. This can check that we have loaded in the trained model correctly. """
+
+    # Set dimensions for state and action spaces - policy initialization
+    state_dim = 82  # State dimension dependent on the length of the state space
+    action_dim = env.action_space.shape[0]
+    max_action = float(env.action_space.high[0])
+    n = 5   # n step look ahead for the policy
+
+    kwargs = {
+        "state_dim": state_dim,
+        "action_dim": action_dim,
+        "max_action": max_action,
+        "n": n,
+        "discount": args.discount,
+        "tau": args.tau,
+        "batch_size": args.batch_size,
+        "expert_sampling_proportion": args.expert_prob
+    }
+
+    # Get the comparison policy from a saved location
+    if compare_model_filepath is not None:
+        ''' Initialize policy '''
+        compare_model = DDPGfD.DDPGfD(**kwargs)
+
+        print("In test_policy_models_match! loading saved model: ", compare_model_filepath)
+        compare_model.load(compare_model_filepath)
+
+    current_networks = {"actor": current_model.actor, "critic": current_model.critic}
+    saved_networks = {"actor": compare_model.actor, "critic": compare_model.critic}
+
+    # Check the current and saved models (torch nn) match
+    for (current_model_key, current_model_value), (compare_model_key, compare_model_value) in zip(current_networks.items(), saved_networks.items()):
+        print("Models being evaluated: {}, {}".format(current_model_key, compare_model_key))
+        # Check that the models match
+        models_differ = 0
+        for key_item_1, key_item_2 in zip(current_model_value.state_dict().items(), compare_model_value.state_dict().items()):
+            if torch.equal(key_item_1[1], key_item_2[1]):
+                pass
+            else:
+                models_differ += 1
+                if (key_item_1[0] == key_item_2[0]):
+                    print('Mismtach found at', key_item_1[0])
+                    return False
+                else:
+                    raise Exception
+        if models_differ == 0:
+            print('Models match perfectly!')
+            return True
 
 
 if __name__ == "__main__":
@@ -1156,7 +1208,7 @@ if __name__ == "__main__":
         train_time = Timer()
         train_time.start()
         # Pre-train policy based on expert data
-        pretrain_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
+        policy, pretrain_model_save_path, eval_num_success, eval_num_total = train_policy(policy, args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete! Now saving...")
@@ -1199,6 +1251,13 @@ if __name__ == "__main__":
         else:
             policy.load(pretrain_model_save_path)
 
+        # Test model saving is correct
+        print("Checking LOADED pre-trained policy and SAVED training model match!!")
+        match_check = test_policy_models_match(policy, compare_model_filepath=pretrain_model_save_path)
+        if match_check is False:
+            print("Policies do NOT match! Quitting!")
+            quit()
+
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
@@ -1206,7 +1265,7 @@ if __name__ == "__main__":
         # Initialize timer to analyze run times
         train_time = Timer()
         train_time.start()
-        train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
+        policy, train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete! Now saving...")
@@ -1246,7 +1305,7 @@ if __name__ == "__main__":
         all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
-        train_model_save_path, eval_num_success, eval_num_total = train_policy(args.max_episode, args.expert_prob,all_saving_dirs)
+        policy, train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, args.max_episode, args.expert_prob,all_saving_dirs)
 
         # Save train agent replay data
         agent_replay_save_path = replay_buffer.save_replay_buffer(replay_filename)
@@ -1341,7 +1400,7 @@ if __name__ == "__main__":
                                             prev_exp_dir, create_dirs=False)
 
         # Run experiment
-        rl_experiment(exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs)
+        rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs)
     else:
         print("Invalid mode input")
 
