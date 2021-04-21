@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 #import optimizer
 import csv
 import time
+from state_space import *
 env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
 #print('action space',env.action_space.low, env.action_space.high)
 #env.reset()
@@ -21,6 +22,10 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm"
 # prev_action = [0.0,0.0,0.0,0.0]
 action = np.array([0.0, 0.0, 0.0, 0.1, 0.0, 0.0])
 t = 0
+
+
+test=State_Space()
+
 '''
 size=[0.0175,0.02125,0.025]
 xs=np.zeros([300,3])
@@ -72,11 +77,16 @@ for f in range(3):
     for k in range(10):
         thing=np.append([0,0,0],act)
         env.reset(hand_orientation="random",shape_keys=['CubeM','CubeS'])
+        State_Space._sim=env.get_sim()
+        State_Metric._sim=env.get_sim()
         x_move = np.random.rand()/10
         y_move = np.random.rand()/10
         action=np.array(thing)
         print('reset')
         for i in range(200):
+            print(State_Space._sim)
+            print(env.env._sim)
+            input('is this the sim?')
             if i == 150:
                 print('move in z')
                 action=np.array([0.15,0.05, 0.05, 0.05])
@@ -86,6 +96,10 @@ for f in range(3):
                 temp=np.array([action[0],action[1],action[2],1])
                 action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
             obs, reward, done, _ = env.step(action)
+            print('original obs',len(obs),obs)
+            test.update()
+            obs2=test.get_full_arr()
+            print('new class obs',len(obs2),obs2)
             env.render()
             network_feed=obs[21:24]
             #print('local obs',obs[21:24])

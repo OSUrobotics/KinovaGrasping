@@ -203,7 +203,8 @@ class KinovaGripper_Env(gym.Env):
 
 
     ##### METHODS: SPLIT INTO MUJOCO, OPENAI GYM, STATE, ACTION, REWARD, ENVIRONMENT SETUP
-
+    def get_sim(self):
+        return self._sim
     ########## ENVIRONMENT CLASS: METHODS ###########
     # Other Environment setup methods
     def seed(self, seed=None):
