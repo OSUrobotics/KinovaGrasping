@@ -930,12 +930,14 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
     action_dim = env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
     n = 5   # n step look ahead for the policy
+    max_q_value = 50 # Should match the maximum reward value
 
     kwargs = {
         "state_dim": state_dim,
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
+        "max_q_value": max_q_value,
         "discount": args.discount,
         "tau": args.tau,
         "batch_size": args.batch_size,
@@ -1000,6 +1002,7 @@ if __name__ == "__main__":
     max_action = float(env.action_space.high[0])
     max_action_trained = env.action_space.high  # a vector of max actions
     n = 5   # n step look ahead for the policy
+    max_q_value = 50  # Should match the maximum reward value
     wrist_lift_velocity = 0.6
     min_velocity = 0.5  # Minimum velocity value for fingers or wrist
     finger_lift_velocity = min_velocity
@@ -1030,6 +1033,7 @@ if __name__ == "__main__":
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
+        "max_q_value": max_q_value,
         "discount": args.discount,
         "tau": args.tau,
         "batch_size": args.batch_size,

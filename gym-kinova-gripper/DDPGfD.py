@@ -33,7 +33,7 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-	def __init__(self, state_dim, action_dim):
+	def __init__(self, state_dim, action_dim, max_q_value):
 		super(Critic, self).__init__()
 
 		self.l1 = nn.Linear(state_dim + action_dim, 400)
@@ -43,20 +43,23 @@ class Critic(nn.Module):
 		self.l3 = nn.Linear(300, 1)
 		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
+		self.max_q_value = max_q_value
+
 
 	def forward(self, state, action):
 		q = F.relu(self.l1(torch.cat([state, action], -1)))
 		q = F.relu(self.l2(q))
-		return self.l3(q)
+		return self.max_q_value * torch.sigmoid(self.l3(q))
+		#return self.l3(q)
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
+	def __init__(self, state_dim, action_dim, max_action, n, max_q_value=50, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
-		self.critic = Critic(state_dim, action_dim).to(device)
+		self.critic = Critic(state_dim, action_dim, max_q_value).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4, weight_decay=1e-4)
 
