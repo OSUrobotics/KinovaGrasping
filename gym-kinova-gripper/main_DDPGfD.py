@@ -1215,6 +1215,7 @@ if __name__ == "__main__":
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete! Now saving...")
+        agent_replay_file_path = all_saving_dirs["replay_buffer"] + "/"
 
         # Create plots and info file
         generate_output(text="\nPARAMS: \n"+param_text+train_time_text+"\n"+replay_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=eval_num_success, num_total=eval_num_total, all_saving_dirs=all_saving_dirs)
@@ -1244,19 +1245,19 @@ if __name__ == "__main__":
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
 
-        # Load Pre-Trained policy
-        if pretrain_model_save_path is None:
-            print("pretrain_model_save_path is None!! Using random init policy...")
-            pretrain_model_save_path = "None (Using random init policy)"
-        else:
-            policy.load(pretrain_model_save_path)
-
         # Test model saving is correct
         print("Checking LOADED pre-trained policy and SAVED training model match!!")
         match_check = test_policy_models_match(policy, compare_model_filepath=pretrain_model_save_path)
         if match_check is False:
             print("Policies do NOT match! Quitting!")
             quit()
+
+        # Load Pre-Trained policy
+        if pretrain_model_save_path is None:
+            print("pretrain_model_save_path is None!! Using random init policy...")
+            pretrain_model_save_path = "None (Using random init policy)"
+        else:
+            policy.load(pretrain_model_save_path)
 
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
