@@ -541,12 +541,17 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
 
         episode_num += 1
 
-    # Training is complete, now save replay buffer
+    # Training is complete, now save policy and replay buffer
+    # Save policy
+    print("Saving policy...")
+    policy.save(all_saving_dirs["model_save_path"])
+    print("Saved policy at: ", all_saving_dirs["model_save_path"])
+
     print("Saving Agent replay buffer experience...")
     agent_replay_save_path = replay_buffer.save_replay_buffer(replay_dir)
     print("Saved agent replay buffer at: ",agent_replay_save_path)
 
-    return policy, evaluations, episode_num, eval_num_success, eval_num_fail
+    return evaluations, episode_num, eval_num_success, eval_num_fail
 
 
 def create_paths(dir_list):
@@ -618,19 +623,14 @@ def train_policy(policy, expert_replay_buffer, replay_buffer, tot_episodes, tr_p
     """
     evals = []
     curr_episode = 0         # Counts number of episodes done within training
-    red_expert_prob= 0.1
 
     # Begin training updates
-    policy, evals, curr_episode, eval_num_success, eval_num_fail = \
+    evals, curr_episode, eval_num_success, eval_num_fail = \
         update_policy(policy, evals, curr_episode, tot_episodes, tr_prob,"TRAIN", all_saving_dirs)
-    tr_prob = tr_prob - red_expert_prob
+
     eval_num_total = eval_num_success + eval_num_fail
 
-    # Save policy
-    print("Saving policy...")
-    policy.save(all_saving_dirs["model_save_path"])
-
-    return policy, all_saving_dirs["model_save_path"], eval_num_success, eval_num_total
+    return all_saving_dirs["model_save_path"], eval_num_success, eval_num_total
 
 
 def get_experiment_info(exp_num):
@@ -937,7 +937,6 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
-        "max_q_value": max_q_value,
         "discount": args.discount,
         "tau": args.tau,
         "batch_size": args.batch_size,
@@ -1033,7 +1032,6 @@ if __name__ == "__main__":
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
-        "max_q_value": max_q_value,
         "discount": args.discount,
         "tau": args.tau,
         "batch_size": args.batch_size,
@@ -1198,11 +1196,6 @@ if __name__ == "__main__":
 
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        #for shapes_to_load in requested_shapes:
-        #    shape_replay_file_path = expert_replay_file_path + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-        #    # Load expert data from saved expert pid controller replay buffer
-        #    print("Loading expert replay buffer: ",shape_replay_file_path)
-        #    expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
 
         print("Loading expert replay buffer: ", expert_replay_file_path)
         replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
@@ -1217,7 +1210,8 @@ if __name__ == "__main__":
         train_time = Timer()
         train_time.start()
         # Pre-train policy based on expert data
-        policy, pretrain_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
+        policy.sampling_decay_rate = 0
+        pretrain_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete! Now saving...")
@@ -1225,8 +1219,12 @@ if __name__ == "__main__":
         # Create plots and info file
         generate_output(text="\nPARAMS: \n"+param_text+train_time_text+"\n"+replay_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=eval_num_success, num_total=eval_num_total, all_saving_dirs=all_saving_dirs)
 
+    # Pre-train, then immediately go into train
+    print("pretrain_model_save_path from PRETRAINING: ",pretrain_model_save_path)
+    print("NOW GOING ON TO TRAINING")
+    args.mode = "train"
     # Train policy starting with pre-trained policy and sampling from experience
-    elif args.mode == "train":
+    if args.mode == "train":
         print("MODE: Train (w/ pre-trained policy")
         print("Expert replay Buffer: ", expert_replay_file_path)
         print("Agent replay Buffer: ", agent_replay_file_path)
@@ -1242,10 +1240,6 @@ if __name__ == "__main__":
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         print("Loading expert replay buffer: ", expert_replay_file_path)
         replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
-        #for shapes_to_load in requested_shapes:
-        #    shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-        #    # Load expert data from saved expert pid controller replay buffer
-        #    expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
 
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1271,7 +1265,8 @@ if __name__ == "__main__":
         # Initialize timer to analyze run times
         train_time = Timer()
         train_time.start()
-        policy, train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
+        policy.sampling_decay_rate = 0.2
+        train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete!")
@@ -1308,7 +1303,7 @@ if __name__ == "__main__":
         all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
-        policy, train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
+        train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
 
         # Create plots and info file
         generate_output(text="\nPARAMS: \n"+param_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=eval_num_success, num_total=eval_num_total, all_saving_dirs=all_saving_dirs)

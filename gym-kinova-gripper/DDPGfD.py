@@ -33,7 +33,7 @@ class Actor(nn.Module):
 
 
 class Critic(nn.Module):
-	def __init__(self, state_dim, action_dim, max_q_value):
+	def __init__(self, state_dim, action_dim):
 		super(Critic, self).__init__()
 
 		self.l1 = nn.Linear(state_dim + action_dim, 400)
@@ -43,23 +43,23 @@ class Critic(nn.Module):
 		self.l3 = nn.Linear(300, 1)
 		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
-		self.max_q_value = max_q_value
+		#self.max_q_value = max_q_value
 
 
 	def forward(self, state, action):
 		q = F.relu(self.l1(torch.cat([state, action], -1)))
 		q = F.relu(self.l2(q))
-		return self.max_q_value * torch.sigmoid(self.l3(q))
-		#return self.l3(q)
+		#return self.max_q_value * torch.sigmoid(self.l3(q))
+		return self.l3(q)
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n, max_q_value=50, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
+	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
-		self.critic = Critic(state_dim, action_dim, max_q_value).to(device)
+		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4, weight_decay=1e-4)
 
@@ -68,6 +68,7 @@ class DDPGfD(object):
 		self.n = n
 		self.network_repl_freq = 10
 		self.total_it = 0
+		self.lambda_Lbc = 1
 
 		# Sample from the expert replay buffer, decaying the proportion expert-agent experience over time
 		self.initial_expert_proportion = expert_sampling_proportion
@@ -368,15 +369,17 @@ class DDPGfD(object):
 
 		# Compute Behavior Cloning loss - state and action are from the expert
 		Lbc = 0
-		lambda_Lbc = self.current_expert_proportion
+		# If we are decaying the amount of expert experience, then decay the BC loss as well
+		if self.sampling_decay_rate != 0:
+			self.lambda_Lbc = self.current_expert_proportion
 		# Compute loss based on Mean Squared Error between the actor network's action and the expert's action
 		if expert_batch_size > 0:
 			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
 			Lbc = F.mse_loss(self.actor(expert_state), expert_action)
-		#print("Lbc: ", Lbc)
+		#print("self.lambda_Lbc: ", self.lambda_Lbc)
 
 		# Compute actor loss
-		actor_loss = -self.critic(state, self.actor(state)).mean() + lambda_Lbc * Lbc
+		actor_loss = -self.critic(state, self.actor(state)).mean() + self.lambda_Lbc * Lbc
 		#print("Actor loss: ")
 		#print(actor_loss.shape)
 		#print("actor_loss: ",actor_loss)
