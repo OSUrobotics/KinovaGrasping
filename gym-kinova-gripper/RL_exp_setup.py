@@ -32,7 +32,7 @@ class RLExpSetup:
 
 
 if __name__ == '__main__':
-    f_name = "train_trial.txt"
+    f_name = "/Users/asar/Desktop/Grimm's Lab/Grasping/Codes/KinovaGrasping/gym-kinova-gripper/train_trial.txt"
     gui_param = {"Noise": True}
     exp1 = RLExpSetup(f_name, gui_param)
     meta_data = exp1.generate_metadata_for_episode(3)
