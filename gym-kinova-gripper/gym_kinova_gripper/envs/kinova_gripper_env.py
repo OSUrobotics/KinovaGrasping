@@ -1222,7 +1222,7 @@ class KinovaGripper_Env(gym.Env):
         return orientation
 
 
-    def determine_obj_hand_coords(self, random_shape, mode, with_noise=True):
+    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
         with_noise: Set to True if coordinates to be used are selected from the object/hand coordinate files with positional noise added
@@ -1253,7 +1253,6 @@ class KinovaGripper_Env(gym.Env):
         # Use the exact hand orientation from the coordinate file
         if with_noise:
             new_rotation = np.array([hand_x, hand_y, hand_z])
-
         # Otherwise generate hand coordinate value based on desired orientation
         elif self.filename=="/kinova_description/j2s7s300_end_effector.xml": # Default xml file
             if self.orientation == 'normal':
@@ -1262,6 +1261,9 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation=np.array([0,0,0]) # Top
             else:
                 new_rotation=np.array([1.2,0,0]) # Rotated
+            hand_x = new_rotation[0]
+            hand_y = new_rotation[1]
+            hand_z = new_rotation[2]
         else:
             # All other xml simulation files
             if self.orientation == 'normal':
@@ -1271,6 +1273,9 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation=np.array([0,0,0]) # Top
             else:
                 new_rotation=np.array([-1.2,0,0]) # Rotated
+            hand_x = new_rotation[0]
+            hand_y = new_rotation[1]
+            hand_z = new_rotation[2]
 
         # Hand orientation values, for reference:
         # -1.57,0,-1.57 is side normal
@@ -1307,7 +1312,7 @@ class KinovaGripper_Env(gym.Env):
         return xloc,yloc,zloc,f1prox,f2prox,f3prox
 
 
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None, qpos=None, obj_coord_region=None, with_noise=True):
+    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None, qpos=None, obj_coord_region=None, with_noise=False):
         """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
         shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
         hand_orientation: Orientation of the hand relative to the object
@@ -1449,7 +1454,7 @@ class KinovaGripper_Env(gym.Env):
 
         source = episode_dir
         if final_episode_type != None:
-            if final_episode_type == 'success':
+            if final_episode_type == 1: # If lift success
                 destination = os.path.join(success_dir,episode_coords)
             else:
                 destination = os.path.join(fail_dir,episode_coords)

@@ -127,7 +127,7 @@ def compare_test():
 
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=100, compare=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=100, compare=False, render_imgs=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Heatmap plot success/fail object coordinates
@@ -232,6 +232,23 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                     ep_grasp_reward += info["grasp_reward"]
                     ep_lift_reward += info["lift_reward"]
                 check_for_lift = False
+
+            if render_imgs is True:
+                # Record an episode every 10 episodes
+                if ready_for_lift:
+                    action_str = "Constant lift action by controller"
+                else:
+                    action_str = str(action)
+                if done:
+                    final_success = reward
+                else:
+                    final_success = None
+                if i % 10 == 0:
+                    # Set the info to be displayed in episode rendering based on current hand/object status
+                    action_str = "action: " + action_str + "\nobj_local_pos: " + str(obj_local_pos)
+                    eval_env.render_img(dir_name="eval" + "_" + datestr, text_overlay=action_str, episode_num=i,
+                                               timestep_num=timestep_count,
+                                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]),final_episode_type=final_success)
 
             #####
             if reward > 25:
@@ -896,7 +913,7 @@ def setup_args(args=None):
     parser.add_argument("--max_episode", default=20000, type=int)       # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
-    parser.add_argument("--batch_size", default=0, type=int)            # Batch size for both actor and critic - Change to be 64 for batch train, 0 for single ep sample
+    parser.add_argument("--batch_size", default=64, type=int)            # Batch size for both actor and critic - Change to be 64 for batch train, 0 for single ep sample
     parser.add_argument("--discount", default=0.995, type=float)            # Discount factor
     parser.add_argument("--tau", default=0.0005, type=float)                # Target network update rate
     parser.add_argument("--policy_noise", default=0.01, type=float)     # Noise added to target policy during critic update
@@ -1220,12 +1237,8 @@ if __name__ == "__main__":
         # Create plots and info file
         generate_output(text="\nPARAMS: \n"+param_text+train_time_text+"\n"+replay_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=eval_num_success, num_total=eval_num_total, all_saving_dirs=all_saving_dirs)
 
-    # Pre-train, then immediately go into train
-    print("pretrain_model_save_path from PRETRAINING: ",pretrain_model_save_path)
-    print("NOW GOING ON TO TRAINING")
-    args.mode = "train"
     # Train policy starting with pre-trained policy and sampling from experience
-    if args.mode == "train":
+    elif args.mode == "train":
         print("MODE: Train (w/ pre-trained policy")
         print("Expert replay Buffer: ", expert_replay_file_path)
         print("Agent replay Buffer: ", agent_replay_file_path)
@@ -1313,14 +1326,24 @@ if __name__ == "__main__":
     elif args.mode == "test":
         print("MODE: Test")
         print("Policy: ", pretrain_model_save_path)
+        replay_filename = "None"
+
+        # Create directories where information will be saved
+        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+
+        # Tensorboard writer
+        writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
 
         # Load policy
         policy.load(pretrain_model_save_path)   # Change to be complete, trained policy
 
-        # Evaluate policy over certain number of episodes
-        eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                               mode=args.mode, eval_episodes=args.max_episode)
-        # Add further evaluation here
+        for eval_num in range(10):
+            # Evaluate policy over certain number of episodes
+            eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
+                                   mode=args.mode, eval_episodes=args.max_episode, render_imgs=True)
+            # Add further evaluation here
+            writer = write_tensor_plot(writer, eval_num, eval_ret["avg_reward"], eval_ret["avg_rewards"], 0, 0, 0, 0, 0)
+
 
     # Experiments for RL paper
     elif args.mode == "experiment":

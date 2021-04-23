@@ -821,7 +821,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
             if total_steps % 1 == 0:
                 image = env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=lift_success)
+                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=success)
 
         # Add heatmap coordinates
         orientation = env.get_orientation()
