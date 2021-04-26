@@ -20,18 +20,16 @@ class State_Metric():
                 flag=False
         if flag:
             temp= [i for i in subdict.values()]
-            print(temp)
             self.mins,self.maxes=temp[0][0],temp[0][1]
         else:
             self.maxes,self.mins=[],[]
-        #print('initialized a general state metric')
           
     def get_value(self):
         return self.data
     
     def get_xml_geom_name(self,keys):
-        name=re.search('F.',keys)
-        name2=re.search('((Prox)|(Dist)).?',keys)
+        name=re.search('F\d',keys)
+        name2=re.search('((Prox)|(Dist))\d',keys)
         if name2 is None:
             if 'Obj' in keys:
                 name='object'
@@ -96,7 +94,6 @@ class Position(State_Metric):
         temp=np.matmul(local_to_world,temp)
         arr.append(temp[0:3])
         self.data=list(arr[0])
-        print(self.data)
         return self.data
 
 class Vector(State_Metric):
@@ -108,16 +105,23 @@ class Vector(State_Metric):
 
 class Ratio(State_Metric):
     def update(self,keylist):
-        self.data=[0.5]
-        return self.data
-        '''
+        local_to_world=self.get_rotation()
+        gravity=[0,0,-1]
+        gravity=np.matmul(local_to_world[0:3,0:3],gravity)
+        
+        finger_pose=[]
+        local_to_world=self.get_rotation()
+        for name in ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]:
+            temp=list(State_Metric._sim.data.get_geom_xpos(name))
+            temp.append(1)
+            temp=np.matmul(local_to_world,temp)
+            finger_pose.extend(temp[0:3])
+        
         finger_pose=np.array(finger_pose)
 
         s1=finger_pose[0:3]-finger_pose[6:9]
         s2=finger_pose[0:3]-finger_pose[3:6]
-        #print(finger_pose)
         front_area=np.linalg.norm(np.cross(s1,s2))/2
-        #print('front area',front_area)
         top1=np.linalg.norm(np.cross(finger_pose[0:3],finger_pose[9:12]))/2
         top2=np.linalg.norm(np.cross(finger_pose[9:12],finger_pose[12:15]))/2
         top3=np.linalg.norm(np.cross(finger_pose[3:6],finger_pose[12:15]))/2
@@ -126,31 +130,15 @@ class Ratio(State_Metric):
         total1=top1+top2+top3
         total2=top1+top4+top5
         top_area=max(total1,total2)
-        #print('front',front_area,'top',top_area)
 
         sites=["palm","palm_1","palm_2","palm_3","palm_4"]
-        obj_pose=[]#np.zeros([5,3])
-        xs=[]
-        ys=[]
-        zs=[]
         for i in range(len(sites)):
             temp=self._sim.data.get_site_xpos(sites[i])
             temp=np.append(temp,1)
-            temp=np.matmul(self.local_to_world,temp)
+            temp=np.matmul(local_to_world,temp)
             temp=temp[0:3]
-            if rangedata[i] < 0.06:
-                temp[1]+=rangedata[i]
-                obj_pose=np.append(obj_pose,temp)
-            #obj_pose[i,:]=temp
-        for i in range(int(len(obj_pose)/3)):
-            xs=np.append(xs,obj_pose[i*3])
-            ys=np.append(ys,obj_pose[i*3+1])
-            zs=np.append(zs,obj_pose[i*3+2])
-        if xs ==[]:
-            sensor_pose=[0.2,0.2,0.2]
-        else:
-            sensor_pose=[np.average(xs),np.average(ys),np.average(zs)]
-        obj_size=np.copy(self._get_obj_size())
+
+        obj_size=[0.05,0.05,0.05] #THIS NEEDS TO BE FIXED
         if np.argmax(np.abs(gravity))==2:
             front_part=np.abs(obj_size[0]*obj_size[2])/front_area
             top_part=np.abs(obj_size[0]*obj_size[1])/top_area
@@ -160,12 +148,14 @@ class Ratio(State_Metric):
         else:
             front_part=np.abs(obj_size[0]*obj_size[1])/front_area
             top_part=np.abs(obj_size[0]*obj_size[2])/top_area
-        '''
+        self.data=[front_part,top_part]
+        return self.data
         
 class Distance(State_Metric):
     def update(self,keys):
         if 'Rangefinder' in keys:
             range_data = []
+            #names=["palm","palm_top","palm_bottom","palm_left","palm_right","f1_prox","f1_prox_1","f1_dist","f1_dist_1","f2_prox","f2_prox_1","f2_dist","f2_dist_1","f3_prox","f3_prox_1","f3_dist","f3_dist_1"]
             for i in range(17):
                 if State_Metric._sim.data.sensordata[i+len(State_Metric._sim.data.sensordata)-17]==-1:
                     a=6
@@ -173,19 +163,61 @@ class Distance(State_Metric):
                     a=State_Metric._sim.data.sensordata[i+len(State_Metric._sim.data.sensordata)-17]
                 range_data.append(a)
                 self.data=range_data
-        elif 'FingerObject' in keys:
+        elif 'FingerObj' in keys:
             obj = State_Metric._sim.data.get_geom_xpos("object")
             dists = []
+            print('finger object keys',keys)
             name=self.get_xml_geom_name(keys)
+            print('finger object name',name)
             pos = State_Metric._sim.data.get_site_xpos(name)
             dist = np.absolute(pos[0:3] - obj[0:3])
             temp = np.linalg.norm(dist)
             dists.append(temp)
             self.data=list(dists)
+            
+        elif 'Size' in keys:
+            self.data=[0,0,0]
         return self.data
 
+class Dot_Product(State_Metric):
+    def update(self,keys):
+        finger_6D_pose=[]
+        local_to_world=self.get_rotation()
+        for name in ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]:
+            temp=list(State_Metric._sim.data.get_geom_xpos(name))
+            temp.append(1)
+            temp=np.matmul(local_to_world,temp)
+            finger_6D_pose.extend(temp[0:3])
+        
+        fingers_dot_product = []
+        for i in range(6):
+            fingers_dot_product.append(self._get_dot_product(finger_6D_pose[3*i:3*i+3]))
+        fingers_dot_product.append(self._get_dot_product())
+        self.data=fingers_dot_product
+        return self.data
+
+    #function to get the dot product. Only used for the pid controller
+    def _get_dot_product(self,obj_state=None):
+        if obj_state==None:
+            obj_state=State_Metric._sim.data.get_geom_xpos('object')
+        hand_pose = State_Metric._sim.data.get_body_xpos("j2s7s300_link_7")
+        obj_state_x = abs(obj_state[0] - hand_pose[0])
+        obj_state_y = abs(obj_state[1] - hand_pose[1])
+        obj_vec = np.array([obj_state_x, obj_state_y])
+        obj_vec_norm = np.linalg.norm(obj_vec)
+        obj_unit_vec = obj_vec / obj_vec_norm
+
+        center_x = abs(0.0 - hand_pose[0])
+        center_y = abs(0.0 - hand_pose[1])
+        center_vec = np.array([center_x, center_y])
+        center_vec_norm = np.linalg.norm(center_vec)
+        center_unit_vec = center_vec / center_vec_norm
+
+        dot_prod = np.dot(obj_unit_vec, center_unit_vec)
+        return dot_prod**20 # cuspy to get distinct reward
+
 class State_Group(State_Metric):
-    valid_state_names={'Position':Position,'Distance':Distance,'Angle':Angle,'Ratio':Ratio,'Vector':Vector}
+    valid_state_names={'Position':Position,'Distance':Distance,'Angle':Angle,'Ratio':Ratio,'Vector':Vector, 'Dot_Product':Dot_Product}
     def __init__(self,subdict):
         super().__init__(subdict)
         self.data=subdict
@@ -208,26 +240,17 @@ class State_Group(State_Metric):
     
     def update(self,keys):
         arr=[]
-        #print(self.data)
         for name,value in self.data.items():
-            #print('updating ', keys+'_'+name)
             temp=value.update(keys+'_'+name)
-            print('temp leng',len(temp))
-            print('arr len',len(arr))
             arr.append(temp)
             
         return self.data
 
     def search_dict(self,subdict,arr=[]):
-        #print('searching dict', subdict)
         for name,value in subdict.items():
-            #print('current arr',arr)
-            #print('searching the dict at this name,',name)
             if type(value) is dict:
-                #print('type is dict, going deeper')
                 arr=self.search_dict(subdict[name],arr)
             else:
-                #print('type is thing, got this value',value.get_value())
                 arr.extend(value.get_value())
         return arr
     
