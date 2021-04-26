@@ -6,57 +6,12 @@
 #  Bounding box is the mesh/geometry AFTER the transformation
 #  Assumptions for all coordinate systems is that z is up and x is left-right, y is in-out
 
-from scipy.spatial.transform import Rotation
+from scipy.spatial.transform import Rotation as R
 from numpy import array as nparray
 from numpy import pi
 from numpy.linalg import norm
-from object_base import ObjectBase
-
-
-class BoundingBox:
-    # Just a simple bounding box, two tuples
-    def __init__(self, lower_left = (0, 0, 0), upper_right = (1, 1, 1)):
-        """ Default to a unit square"""
-        self.lower_left = lower_left
-        self.upper_right = upper_right
-
-    def __str__(self):
-        return "BBox: {0} {1}".format(self.lower_left, self.upper_right)
-
-    def __repr__(self):
-        return self.__str__()
-
-    def get_bbox_center(self) -> tuple:
-        """ Return the bounding box center
-        @returns Center of bounding box as a tuple"""
-        return (0.5 * (self.lower_left[i] + self.upper_right[i]) for i in range(0, 3))
-
-    def get_bbox_lower_left(self) -> tuple:
-        """ Lower left corner of bounding box
-        @returns as tuple"""
-        return self.lower_left[0]
-
-    def get_bbox_size(self) -> tuple:
-        """ Overall size x, y, z
-        @returns as tuple"""
-        return (self.lower_left[i] - self.bbox[0][i] for i in range(0, 3))
-
-    def is_inside_box(self, pt):
-        """ See if the point is inside the bounding box
-        @returns true or false"""
-        b_inside = [self.lower_left[i] <= pt[i] <= self.upper_right[i] for i in range(0, 3)]
-        if b_inside == (True, True, True):
-            return True
-        return False
-
-    def project_on_box(self, pt):
-        """ Project onto the outside of the box
-        @returns pt on box boundary"""
-        raise NotImplementedError
-
-    def render(self):
-        """ Render the bounding box in OpenGL"""
-        raise NotImplementedError
+from geometry_base import GeometryBase
+from bounding_box import BoundingBox
 
 
 class CoordinateSystemTransformBase:
@@ -68,11 +23,15 @@ class CoordinateSystemTransformBase:
     scale_normalization_type = {"no_scale", "unit_square", "unit_square_plus_pad", "percentage" }
 
     # What kind of coordinate system transform is it? See Miro file and doc for examples/explanations
-    coord_system_type = {"world", "mesh", "xml_urdf", "object_base", "object_center", "hand_attachment", "hand_palm",
-                         "arm_base", "arm_end_effector", "camera", "signed_distance_function"}
+    coord_system_type = {"world", "mesh", "centered",
+                         "xml_urdf",
+                         "signed_distance_function",
+                         "object_base", "object_center", "hand_attachment", "hand_palm",
+                         "arm_base", "arm_end_effector",
+                         "camera"}
 
     def __init__(self, from_coord_sys="mesh", to_coord_sys="world",
-                 translation=(0, 0, 0), scaling=(1, 1, 1), orientation: Rotation=None):
+                 translation=(0, 0, 0), scaling=(1, 1, 1), orientation: R=R.identity()):
         """Essentially a translation followed by a rotation followed by a scaling
            Explicitly name the from and to coordinate systems
            Orientation: How to rotate (1,0,0) (0,1,0) (0,0,1) to be the x, y, z for this coordinate system
@@ -80,20 +39,19 @@ class CoordinateSystemTransformBase:
            @param to_coord_sys: one of coord_system_type
            @param translation: How much to translate the object by
            @param scaling: tupleof scale values. Default is scale by 1
-           @param orientation: Scipy Rotation object. If None, will use identity transform"""
+           @param orientation: Scipy Rotation object. If not given, will use identity transform"""
         if from_coord_sys not in CoordinateSystemTransformBase.coord_system_type:
             raise KeyError("Could not find from coord systemm name {}".format(from_coord_sys))
         if to_coord_sys not in CoordinateSystemTransformBase.coord_system_type:
             raise KeyError("Could not find to coord systemm name {}".format(to_coord_sys))
 
-        # Probably want to put a check in here to make sure relative_to bottoms out in global coordinate
-
+        # In the end, just a translation, rotation, scaling
+        # ... but record the from and to type
         self.from_coord_sys = from_coord_sys
         self.to_coord_sys = to_coord_sys
         self.translation = translation
         self.scaling = scaling
         self.orientation = orientation
-        self.bbox = BoundingBox()
 
     def __str__(self):
         """print out coordinate system information"""
@@ -108,31 +66,58 @@ class CoordinateSystemTransformBase:
         """Calculate how much the transform changes the object TODO
         @param size_normalize - what is considered a 'unit' translation
         @returns orienation distance (as measured by quaternion dot product), and Euclidean distance, and combined"""
-        rot_err = self.orientation.magnitude() / (pi/4)
+        rot_err = norm(self.orientation.as_quat()) / (pi/4)
         trans_err = norm(nparray(self.translation)) / size_normalize
         return 0.5 * (rot_err + trans_err), rot_err, trans_err
-
 
     def set_from_xml(self, im_not_sure):
         """ Not quite sure what this looks like - but get the transform from the xml file"""
         raise NotImplementedError
 
-    def set_from_geometry(self, obj_geom: ObjectBase = None,
-                          origin_location = "center", orientation:Rotation = None, scale_normalization = "no_scale", scl_perc = (1, 1, 1)):
+    @staticmethod
+    def calc_centered_from_geometry(obj_geom: GeometryBase, orientation:R = R.identity()):
+        """Define a transform, based on the object's geometry, that puts the center at the origin
+            and scales it to fit in a unit cube
+           Note: Scaling happens *after* the rotation
+        @param obj_geom - the actual geometry
+        @param orientation - re-orient the object
+        @return Transform to center"""
+
+        bbox_mesh = BoundingBox.calc_mesh_bbox(obj_geom, orientation)
+
+        center_mesh = CoordinateSystemTransformBase("mesh", "centered")
+
+        mesh_center = bbox_mesh.get_bbox_center()
+        center_mesh.translation = (-mesh_center[0], -mesh_center[1], -mesh_center[2])
+        center_mesh.orientation = orientation
+        scl = 1 / max(bbox_mesh.get_bbox_size())
+        center_mesh.scaling = (scl, scl, scl)
+
+        return center_mesh
+
+    def calc_transform_from_centered(self, obj_geom: GeometryBase,
+                                     origin_location = "center", orientation:R = R.identity(), scale_normalization = "no_scale", scl_perc = (1, 1, 1)):
         """Define a transform, based on the object's geometry, that puts the center and scale as given
+           Note: Re-scaling happens *after* the rotation
         @param obj_geom - the actual geometry
         @param origin_location - Which point should be at 0,0,0 after the transform?
-        @param orientation - rotate the object
+        @param orientation - re-orient the object
         @param scale_normalization - set the scale to be unit square OR a percentage of scale
-        @param scl_perc - optional parameter to set the overall scale size in x, y, z as a percentage"""
+        @param scl_perc - optional parameter to set the overall scale size in x, y, z as a percentage
+            if one number given, applys that to all dimensions
+        @return One transform if origin location is center, otherwise, two"""
         if origin_location not in CoordinateSystemTransformBase.base_location_type:
             raise ValueError("Origin location should be one of base_location_type, got {0}".format(origin_location))
         if scale_normalization not in CoordinateSystemTransformBase.scale_normalization_type:
             raise ValueError("Scale normalization should be one of of scale normalization type, got {0}".format(scale_normalization))
 
-        self.bbox = obj_geom.calc_bbox(orientation)
+        bbox_mesh = BoundingBox.calc_mesh_bbox(obj_geom)
+
+        center_mesh = CoordinateSystemTransformBase("Mesh", "")
+
+        # May actually be *two* transforms - one to take the object to the center, one
         # This will be one bbox center, etc TODO
-        self.translation = self.bbox.get_bbox_center()
+        self.translation = self.bbox.get_bbox_center
 
         # Use this orientation
         self.orientation = orientation
@@ -141,6 +126,7 @@ class CoordinateSystemTransformBase:
         self.scaling = (1, 1, 1)
 
         # Last but not least, apply the translation/scale to the bbox
+        return
 
     def set_from_concatenation(self, seq_of_transforms):
         """Given a sequence of transforms, multiply them together to make one

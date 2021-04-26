@@ -6,23 +6,23 @@
 #   from_mesh: The transform that is in the xml/urdf file etc
 #   to_world: The transform that positions the object in the world (after applying from_mesh
 
-from coordinate_system import CoordinateSystemTransformBase, BoundingBox
-from scipy.spatial.transform import Rotation
 from numpy import array as nparray
+from numpy import eye
+from coordinate_system import CoordinateSystemTransformBase, BoundingBox
+from bounding_box import BoundingBox
 from signed_distance_fc import SignedDistanceFc
 from data_directories_base import DataDirectoryBase
 
-class ObjectBase(DataDirectoryBase):
+class GeometryBase(DataDirectoryBase):
     # If eg PyBullet or Mujoco or RViz is up and running
     sym_environment = None
 
     def __init__(self, name=""):
         """Created from an stl file, urdf, xml, etc
+             use set functions to create geometry
              Actual geometry can be stored here or in the simulation (if running)"""
         self.name = name
-        # Set once you actually have geometry
-        self.from_mesh = CoordinateSystemTransformBase("mesh", "object_base")
-        self.to_world = CoordinateSystemTransformBase("object_base", "world")
+        self.mesh_bbox = None
         self.sdf = SignedDistanceFc()
 
     def get_vertices(self):
@@ -34,25 +34,27 @@ class ObjectBase(DataDirectoryBase):
         for d in fake_data:
             yield nparray([d[0], d[1], d[2], 1])
 
-    def calc_bbox(self, apply_matrix = None) -> tuple:
-        """Bounding box of mesh geometry in the current coordiante system
-        @ returns bounding box as [ [lower left] [ upper right ] ]"""
-        bbox_min = nparray([1e30, 1e30, 1e30])
-        bbox_max = nparray([-1e30, -1e30, -1e30])
+    def get_mesh_to_world(self):
+        """ Transformation that takes the mesh to the world as a series of CoordinateSystemTransforms
+        transforms should come out: [ mesh to something, something to something 2, something 2 to world ]
+        Over-ride in derived classes
+        @return CoordinteSystemTransformBase"""
+        # Default is identity transform from mesh to world
+        return [CoordinateSystemTransformBase("Mesh", "World")]
 
-        # Note, under construction - need to set to input rotation or identity if none
-        my_matrix = self.get_matrix()
-        for v in self.get_vertices():
-            v_transformed = my_matrix @ v
-            bbox_min = min(v_transformed, bbox_min)
-            bbox_max = max(v_transformed, bbox_max)
-        return BoundingBox(tuple(bbox_min.tolist()), tuple(bbox_max.to_list()))
+    def get_mesh_to_world_matrix(self):
+        """Multiply the above matrices together
+        @return numpy matrix"""
+        m = eye(4)
+        for c in self.get_mesh_to_world():
+            m = c.get_matrix @ m
 
-    def render(self):
-        """Draw geometry in Open GL"""
+    def render(self, draw_mesh_bbox=True):
+        """Draw geometry in Open GL
+        @param draw_mesh_bbox Draw the mesh bounding box as well"""
         raise NotImplementedError
 
 
 if __name__ == "__main__":
 
-    my_obj = ObjectBase("test")
+    my_obj = GeometryBase("test")

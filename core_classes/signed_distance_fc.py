@@ -5,7 +5,7 @@
 # SDF may be cached. The filename will depend on the object and the grid size (computed automatically)
 
 from coordinate_system import CoordinateSystemTransformBase, BoundingBox
-from object_base import ObjectBase
+from geometry_base import GeometryBase
 
 class SignedDistanceFc:
     def __init__(self):
@@ -19,8 +19,6 @@ class SignedDistanceFc:
 
         # These are for transforming to/from the object
         self.from_mesh_to_sdf = CoordinateSystemTransformBase("mesh", "signed_distance_function")
-
-        self.obj_mesh = None
 
     def __str__(self):
         """ Print out stats about self"""
@@ -97,9 +95,10 @@ class SignedDistanceFc:
         # undo scaling - TODO, fix so it works with whatever type we use
         return res / self.from_mesh_to_sdf.scaling[0]
 
-    def set(self, obj: ObjectBase, padding=0.1, grid_size=10, b_cache=True):
+    def set(self, obj: GeometryBase, padding=0.1, grid_size=10, b_cache=True):
         """ Set up the signed distance function and the transform
-        @param obj: Object base class
+        Requires: geometry from obj that can be used to evaluate the SDF
+        @param obj: Geometry base class
         @param padding: Percentage of overall cube to use as padding
         @param grid_size: Number of grid cells to use in max size direction
         @param b_cache: If the cached file exists, use it"""
@@ -107,6 +106,7 @@ class SignedDistanceFc:
         # Set up the Coordinate System Transform
         # Fill up the bounding box
         # (eventually) see if we've cached this one
+        self.from_mesh_to_sdf.transform = obj.mesh_bbox.lower_left()
         raise NotImplementedError
 
     def file_cache(self):
@@ -117,6 +117,6 @@ class SignedDistanceFc:
 if __name__ == "__main__":
 
     my_sdf = SignedDistanceFc()
-    my_obj = ObjectBase("Test")
+    my_obj = GeometryBase("Test")
 
     my_sdf.set(my_obj)
