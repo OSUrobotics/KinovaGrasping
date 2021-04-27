@@ -36,6 +36,30 @@ def create_boxplot(orientation,saving_dir,data,labels,filename):
     plt.clf()
 
 
+def create_std_dev_bar_plot(x,y,deviation,labels,saving_dir,filename):
+    """ Creates a plot that shows the input data points (x,y) and the deviation (deviation)
+    x: x coordinate value (Episode)
+    y: y coordinate value (Average Reward)
+    deviation: Standard deviation per x,y point
+    labels: Plot labels (Frequency x tick marks)
+    saving_dir: Directory to save plot in
+    filename: File name for the saved plot
+    """
+    plt.errorbar(x, y, deviation, linestyle='None', marker='^')
+
+    plt.locator_params(axis='x', nbins=len(labels["freq_vals"]))
+    locs, labl = plt.xticks()
+    plt.xticks(locs, labels["freq_vals"])
+    plt.title(labels["title"])
+
+    if saving_dir is None:
+        print("Showing standard deviation bar plot...")
+        plt.show()
+    else:
+        plt.savefig(saving_dir+"/"+filename)
+        print("Standard deviation bar plot saved at: ",saving_dir+"/"+filename)
+    plt.show()
+
 def get_boxplot_data(data_dir,filename,tot_episodes,saving_freq):
     """Get boxplot data from saved numpy arrays
     data_dir: Directory location of data file
@@ -72,16 +96,26 @@ def generate_reward_boxplots(orientation, data_dir, saving_dir, file_list=["fing
     plot_save_path = Path(saving_dir)
     plot_save_path.mkdir(parents=True, exist_ok=True)
 
+    # Get each of the reward files
     for file in file_list:
         boxplot_data = get_boxplot_data(data_dir, file, tot_episodes, saving_freq)
 
-        freq_vals = np.arange(0,tot_episodes,2000)
+        freq_vals = np.arange(0,tot_episodes+1,2000)
 
-        boxplot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
+        avgs = []
+        std_devs = []
+        for row in boxplot_data:
+            print("row: ",row)
+            avgs.append(np.average(row))
+            std_devs.append(np.std(row))
+        x = np.arange(0, len(avgs))
+
+        plot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
                           "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials, " + orientation + " Orientation", "freq_vals": freq_vals}
 
         if len(boxplot_data) > 0:
-            create_boxplot(saving_dir, boxplot_data, boxplot_labels, "Eval_Boxplot_"+str(file)+".png")
+            create_boxplot(orientation,saving_dir, boxplot_data, plot_labels, "Eval_Boxplot_"+str(file)+".png")
+            create_std_dev_bar_plot(x, avgs, std_devs, plot_labels, saving_dir, "Eval_Std_Dev_plot_"+str(file)+".png")
 
 
 if __name__ ==  "__main__":
