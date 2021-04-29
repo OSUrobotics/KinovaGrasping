@@ -11,7 +11,7 @@ import numpy as np
 from state_metric import *
 
 class State_Space:
-    valid_state_names={'Position':Position, 'Distance':Distance, 'Angle':Angle, 'Ratio':Ratio, 'Vector':Vector, 'Group':State_Group}
+    valid_state_names={'Position':Position, 'Distance':Distance, 'Angle':Angle, 'Ratio':Ratio, 'Vector':Vector, 'Dot_Product':Dot_Product,'Group':State_Group}
     _sim=None
     def __init__(self,path='state.json'):
         with open(path) as f:
@@ -25,6 +25,7 @@ class State_Space:
         arr=[]
         for name,value in self.data.items():
             temp=value.get_value()
+            print('contents of', name, len(temp),temp)
             arr.extend(temp)
         return arr
         
