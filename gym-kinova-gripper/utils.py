@@ -276,7 +276,7 @@ class ReplayBuffer_Queue(object):
 			trajectory_arr_idx = []
 
 			for num in range(ceiling-1):
-				start_idx = np.random.randint(ceiling)
+				start_idx = num #np.random.randint(ceiling)
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
 			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
@@ -365,6 +365,47 @@ class ReplayBuffer_Queue(object):
 		# replay_ep_num: Number of episodes currently in the replay buffer
 		return save_filepath
 
+	def evaluate_replay_reward(self,reward):
+		""" Check the contents of the reward values stored within the replay buffer
+		replay_buffer: replay buffer to evaluate
+		filepath: filepath where replay buffer is stored (for recording purposes)
+		returns: Text to describe the reward contents (recorded in the info.txt file)
+		"""
+		non_zero_count = 0
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
+		num_rows = 0
+		i = 0
+
+		in_check = 0
+
+		for row in reward:
+			num_rows += 1
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+					if elem < 5:
+						finger_reward_count += 1
+					elif elem < 10:
+						grasp_reward_count += 1
+					elif elem > 49:
+						lift_reward_count += 1
+
+			#print("in_check: ",in_check)
+
+			i += 1
+		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+
+		text = "\nnon_zero_reward: "+str(non_zero_count)
+		text += "\nfinger_reward_count: "+str(finger_reward_count)
+		text += "\ngrasp_reward_count: "+str(grasp_reward_count)
+		text += "\nlift_reward_count: "+str(lift_reward_count)
+		text += "\nnum_rows: "+str(num_rows)
+
+		return text
+
+
 	def store_saved_data_into_replay(self, filepath):
 		""" Restore replay buffer from saved location """
 		if filepath is None or os.path.isdir(filepath) is False:
@@ -416,39 +457,17 @@ class ReplayBuffer_Queue(object):
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
 		# replay_ep_num: Number of episodes currently in the replay buffer
 
-		non_zero_count = 0
-		finger_reward_count = 0
-		grasp_reward_count = 0
-		lift_reward_count = 0
-		test_lift_reward_count = 0
-		num_rows = 0
-		i = 0
-		success_idx = []
-		for row in self.reward:
-			num_rows += 1
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-					if elem < 5:
-						finger_reward_count += 1
-					elif elem < 10:
-						grasp_reward_count += 1
-					elif elem > 49:
-						lift_reward_count += 1
+		print("before evaluate replay reward")
 
-			i += 1
-		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+		reward_text = self.evaluate_replay_reward(self.reward)
+
 		text = ""
 		text += "\nREPLAY BUFFER: "
 		text += "\nfilepath: " + filepath
-		text += "\nnon_zero_reward: "+str(non_zero_count)
-		text += "\nfinger_reward_count: "+str(finger_reward_count)
-		text += "\ngrasp_reward_count: "+str(grasp_reward_count)
-		text += "\nlift_reward_count: "+str(lift_reward_count)
-		text += "\nnum_rows: "+str(num_rows)
 		text += "\nreplay_buffer.replay_ep_num: "+str(self.replay_ep_num)
 		text += "\nreplay_buffer.size: "+str(self.size)
 		text += "\nreplay_buffer.timesteps_count: "+str(self.timesteps_count)
+		text += reward_text
 
 		print(text)
 
