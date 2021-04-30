@@ -1,14 +1,15 @@
 #!/usr/bin/env python3
 
 # Naming of coordinate system transforms and standardized bounding boxes/drawing
-#  Transform is specified by a from and a to (named) coordinat system
-#  Actual transform consist of a translation, rotation, scaling (M = S R T object)
-#  Bounding box is the mesh/geometry AFTER the transformation
+#  Transform is specified by a from and a to (named) coordinate system
+#  Can sepcify transforms as a combination of translation, rotation, scaling (M = S R T object)
+#    - but keep actual matrix, instead, to support complex transforms
+#  Bounding box is the mesh/geometry BEFORE the transformation - can always apply matrix transform to get resulting bbox
 #  Assumptions for all coordinate systems is that z is up and x is left-right, y is in-out
 
 from scipy.spatial.transform import Rotation as R
 from numpy import array as nparray
-from numpy import pi
+from numpy import pi, eye
 from numpy.linalg import norm
 from geometry_base import GeometryBase
 from bounding_box import BoundingBox
@@ -30,8 +31,7 @@ class CoordinateSystemTransformBase:
                          "arm_base", "arm_end_effector",
                          "camera"}
 
-    def __init__(self, from_coord_sys="mesh", to_coord_sys="world",
-                 translation=(0, 0, 0), scaling=(1, 1, 1), orientation: R=R.identity()):
+    def __init__(self, from_coord_sys="mesh", to_coord_sys="world", xform = eye(4)):
         """Essentially a translation followed by a rotation followed by a scaling
            Explicitly name the from and to coordinate systems
            Orientation: How to rotate (1,0,0) (0,1,0) (0,0,1) to be the x, y, z for this coordinate system
@@ -49,17 +49,18 @@ class CoordinateSystemTransformBase:
         # ... but record the from and to type
         self.from_coord_sys = from_coord_sys
         self.to_coord_sys = to_coord_sys
-        self.translation = translation
-        self.scaling = scaling
-        self.orientation = orientation
+        self.xform = xform
+
+        # Keep the from bounding box as a stand-in for the geometry
+        self.bbox_from = BoundingBox()
 
     def __str__(self):
-        """print out coordinate system information"""
+        """TODO print out coordinate system information"""
         raise NotImplementedError
         #return "Coord Sys: {} to {}".format(self.from_coord_sys. self.to_coord_sys)
 
     def __repr__(self):
-        """print out coordiante system information"""
+        """print out coordinate system information"""
         return self.__str__()
 
     def calc_distance(self, size_normalize=1):
@@ -70,10 +71,6 @@ class CoordinateSystemTransformBase:
         trans_err = norm(nparray(self.translation)) / size_normalize
         return 0.5 * (rot_err + trans_err), rot_err, trans_err
 
-    def set_from_xml(self, im_not_sure):
-        """ Not quite sure what this looks like - but get the transform from the xml file"""
-        raise NotImplementedError
-
     @staticmethod
     def calc_centered_from_geometry(obj_geom: GeometryBase, orientation:R = R.identity()):
         """Define a transform, based on the object's geometry, that puts the center at the origin
@@ -83,20 +80,18 @@ class CoordinateSystemTransformBase:
         @param orientation - re-orient the object
         @return Transform to center"""
 
-        bbox_mesh = BoundingBox.calc_mesh_bbox(obj_geom, orientation)
-
         center_mesh = CoordinateSystemTransformBase("mesh", "centered")
+        center_mesh.bbox_from = BoundingBox.calc_mesh_bbox(obj_geom, orientation)
 
-        mesh_center = bbox_mesh.get_bbox_center()
+        mesh_center = center_mesh.bbox_from.get_bbox_center()
         center_mesh.translation = (-mesh_center[0], -mesh_center[1], -mesh_center[2])
         center_mesh.orientation = orientation
-        scl = 1 / max(bbox_mesh.get_bbox_size())
+        scl = 1 / max(center_mesh.bbox_from.get_bbox_size())
         center_mesh.scaling = (scl, scl, scl)
 
         return center_mesh
 
-    def calc_transform_from_centered(self, obj_geom: GeometryBase,
-                                     origin_location = "center", orientation:R = R.identity(), scale_normalization = "no_scale", scl_perc = (1, 1, 1)):
+    def calc_transform_from_centered(self, origin_location = "center", orientation:R = R.identity(), scale_normalization = "no_scale", scl_perc = (1, 1, 1)):
         """Define a transform, based on the object's geometry, that puts the center and scale as given
            Note: Re-scaling happens *after* the rotation
         @param obj_geom - the actual geometry
@@ -128,11 +123,6 @@ class CoordinateSystemTransformBase:
         # Last but not least, apply the translation/scale to the bbox
         return
 
-    def set_from_concatenation(self, seq_of_transforms):
-        """Given a sequence of transforms, multiply them together to make one
-        @param seq_of_transforms: Any iterable over CoordinateSystemTransformBase objects"""
-        raise NotImplementedError
-
     def transform(self, pt):
         """Transform the point from the From coord sys to the To one
         @param pt: 3 numbers, nparray, list, tuple
@@ -147,6 +137,10 @@ class CoordinateSystemTransformBase:
         # Manually transform and scale
         raise NotImplementedError
 
+    def get_to_bbox(self) -> BoundingBox:
+        """ Multiply the from bbox by the matrix
+        @returns Output bounding box"""
+
     def get_matrix(self) -> nparray:
         """ Scale * rotation * translation
         @returns: np array representing a matrix"""
@@ -155,6 +149,27 @@ class CoordinateSystemTransformBase:
         raise NotImplementedError
         #return trans
 
+    @staticmethod
+    def get_matrix_from_transforms(seq_transforms) ->nparray:
+        """ Get the matrix from the sequence of transforms
+        Double checks that the sequence is valid  (froms match tos)
+        @param seq_transforms - iterable of CoordinateSystemBase transforms
+        @returns 4x4 matrix"""
+        m = eye(4)
+
+        source_coord_sys = seq_transforms[0].from_coord_sys
+        prev = None
+        for c in seq_transforms:
+            m = c.get_matrix @ m
+
+            if prev:
+                if prev.to_coord_sys is not c.from_coord_sys:
+                    raise ValueError("Coordinate system transform from-to don't match {0} {1}".format(prev, c) )
+            prev = c
+
+        return m, (source_coord_sys, prev.to_coord_sys)
+
+
     def get_inverse_matrix(self) -> nparray:
         """ -translation * rotation transposed * 1/scaling
         @returns: np array representing a matrix"""
@@ -162,6 +177,10 @@ class CoordinateSystemTransformBase:
         # Set translation and rotation
         raise NotImplementedError
         #return trans
+
+    def set_from_xml(self, im_not_sure):
+        """ Not quite sure what this looks like - but get the transform from the xml file"""
+        raise NotImplementedError
 
     def construct_json(self) -> dict:
         """Construct a dictionary/array structure that can be written to a json file

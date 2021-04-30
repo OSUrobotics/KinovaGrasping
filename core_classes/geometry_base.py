@@ -45,9 +45,7 @@ class GeometryBase(DataDirectoryBase):
     def get_mesh_to_world_matrix(self):
         """Multiply the above matrices together
         @return numpy matrix"""
-        m = eye(4)
-        for c in self.get_mesh_to_world():
-            m = c.get_matrix @ m
+        return CoordinateSystemTransformBase.get_matrix_from_transforms(self.get_mesh_to_world())
 
     def render(self, draw_mesh_bbox=True):
         """Draw geometry in Open GL
