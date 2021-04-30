@@ -64,7 +64,7 @@ class KinovaGripper_Env(gym.Env):
 
         ########## ENVIRONMENT CLASS: VARIABLES ###########
         ## MUJOCO SIMULATOR - ENVIRONMENT
-        self._model, self.obj_size, self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+        self._model, self.obj_size, self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
         self._sim = MjSim(self._model)  # The simulator. This holds all the information about object locations and orientations
         self._viewer = None  # The render window
         self.contacts = self._sim.data.ncon  # The number of contacts in the simulation environment
@@ -389,7 +389,7 @@ class KinovaGripper_Env(gym.Env):
 
         self.set_with_grasp_reward(with_grasp) # If True, use Grasp Reward from grasp classifier in reward calculation
         self.set_obj_coord_region(obj_coord_region) # Set the region from where the initial x,y object coordinate will be sampled from
-
+        shape_keys=['HourS']
         # Determine object to be used within current environment
         random_shape = self.select_object(env_name, shape_keys, obj_params)
         self.set_random_shape(random_shape)
@@ -775,7 +775,7 @@ class KinovaGripper_Env(gym.Env):
         (2,) X and Z angle                                      48-49
         (17,) Rangefinder data                                  50-66
         '''
-
+        print(self._model)
         if state_rep == None:
             state_rep = self.state_rep
         # states rep
@@ -920,6 +920,11 @@ class KinovaGripper_Env(gym.Env):
     def _get_obj_size(self):
         #TODO: fix this shit
         num_of_geoms=np.shape(self._sim.model.geom_size)
+        print(self._sim.data.geom_xpos)
+        print('geom sizes',self._sim.model.geom_size)
+        #print('object top',self._sim.data.get_geom_xpos('object_top'))
+        #print('object middle',self._sim.data.get_geom_xpos('object'))
+        #print('object bottom',self._sim.data.get_geom_xpos('object_bottom'))
         final_size=[0,0,0]
         #print(self._sim.model.geom_size)
         #print(num_of_geoms[0]-8)
@@ -1316,6 +1321,7 @@ class KinovaGripper_Env(gym.Env):
                 writer.writerow(key)
 
         # Load model
+        print('model to be loaded',self.file_dir + self.objects[random_shape])
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 

@@ -65,7 +65,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 					<site name="palm" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.0 0.0 -0.11" quat="0 1 0 0"/>
 					<site name="palm_1" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.02 0.0 -0.11" quat="0 1 0 0"/>
 					<site name="palm_2" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="-0.02 0.0 -0.11" quat="0 1 0 0"/>
-					<site name="palm_3" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.0 -0.015 -0.11" quat="0 1 0 0"/>
+					<site name="palm_3" type="cylinder" size= "0.01 0.01 0.005" rgba="25 0.5 0.7 1" pos="0.0 -0.015 -0.11" quat="0 1 0 0"/>
 					<site name="palm_4" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.0 0.015 -0.11" quat="0 1 0 0"/>
 
 
@@ -98,7 +98,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 					</body>
 
-
+-
 					<body name="j2s7s300_link_finger_2" pos="0.02226 -0.02707 -0.11482" quat="0.659653 -0.37146 0.601679 -0.254671">
 						<inertial pos="0.022 0 0" mass="0.01" diaginertia="7.89997e-07 7.89997e-07 8e-08" />
 						<joint name="j2s7s300_joint_finger_2" pos="0 0 0" axis="0 0 1" limited="true" range="0 2" />
@@ -264,29 +264,29 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 				<!-- Distance data -->
 				<rangefinder name="palm" site='palm'/>
-				<rangefinder name="palm_1" site='palm_1'/>
-				<rangefinder name="palm_2" site='palm_2'/>
-				<rangefinder name="palm_3" site='palm_3'/>
-				<rangefinder name="palm_4" site='palm_4'/>
+				<rangefinder name="palm_top" site='palm_1'/>
+				<rangefinder name="palm_bottom" site='palm_2'/>
+				<rangefinder name="palm_left" site='palm_3'/>
+				<rangefinder name="palm_right" site='palm_4'/>
 
 
-				<rangefinder name="finger_1_proximal" site='f1_prox'/>
-				<rangefinder name="finger_1_proximal_1" site='f1_prox_1'/>
+				<rangefinder name="f1_prox" site='f1_prox'/>
+				<rangefinder name="f1_prox_1" site='f1_prox_1'/>
 
-				<rangefinder name="finger_1_distal" site='f1_dist'/>
-				<rangefinder name="finger_1_distal_1" site='f1_dist_1'/>
+				<rangefinder name="f1_dist" site='f1_dist'/>
+				<rangefinder name="f1_dist_1" site='f1_dist_1'/>
 
-				<rangefinder name="finger_2_proximal" site='f2_prox'/>
-				<rangefinder name="finger_2_proximal_1" site='f2_prox_1'/>
+				<rangefinder name="f2_prox" site='f2_prox'/>
+				<rangefinder name="f2_prox_1" site='f2_prox_1'/>
 
-				<rangefinder name="finger_2_distal" site='f2_dist'/>
-				<rangefinder name="finger_2_distal_1" site='f2_dist_1'/>
+				<rangefinder name="f2_dist" site='f2_dist'/>
+				<rangefinder name="f2_dist_1" site='f2_dist_1'/>
 
-				<rangefinder name="finger_3_proximal" site='f3_prox'/>
-				<rangefinder name="finger_3_proximal_1" site='f3_prox_1'/>
+				<rangefinder name="f3_prox" site='f3_prox'/>
+				<rangefinder name="f3_prox_1" site='f3_prox_1'/>
 
-				<rangefinder name="finger_3_distal" site='f3_dist'/>
-				<rangefinder name="finger_3_distal_1" site='f3_dist_1'/>
+				<rangefinder name="f3_dist" site='f3_dist'/>
+				<rangefinder name="f3_dist_1" site='f3_dist_1'/>
 
 		</sensor>
 </mujoco>

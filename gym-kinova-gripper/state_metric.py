@@ -5,7 +5,6 @@ Created on Mon Apr  5 14:57:24 2021
 
 @author: orochi
 """
-import json
 import time
 import numpy as np
 import re
@@ -166,9 +165,7 @@ class Distance(State_Metric):
         elif 'FingerObj' in keys:
             obj = State_Metric._sim.data.get_geom_xpos("object")
             dists = []
-            print('finger object keys',keys)
             name=self.get_xml_geom_name(keys)
-            print('finger object name',name)
             pos = State_Metric._sim.data.get_site_xpos(name)
             dist = np.absolute(pos[0:3] - obj[0:3])
             temp = np.linalg.norm(dist)
@@ -176,7 +173,19 @@ class Distance(State_Metric):
             self.data=list(dists)
             
         elif 'Size' in keys:
-            self.data=[0,0,0]
+            geom_sizes=np.array(State_Metric._sim.model.geom_size)
+            num_of_geoms=np.shape(geom_sizes)
+            geom_poses=np.array(State_Metric._sim.data.geom_xpos)
+            geom_sizes=geom_sizes[8:]
+            geom_poses=geom_poses[8:]
+            temp=np.copy(geom_sizes[1:,0])
+            geom_sizes[1:,0]=np.copy(geom_sizes[1:,2])
+            geom_sizes[1:,2]=temp
+            maxes=geom_poses + geom_sizes
+            mins=geom_poses - geom_sizes
+            maxlist=np.max(maxes,axis=0)
+            minlist=np.min(mins,axis=0)
+            self.data=maxlist-minlist
         return self.data
 
 class Dot_Product(State_Metric):

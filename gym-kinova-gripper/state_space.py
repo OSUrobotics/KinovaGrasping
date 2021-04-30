@@ -25,7 +25,6 @@ class State_Space:
         arr=[]
         for name,value in self.data.items():
             temp=value.get_value()
-            print('contents of', name, len(temp),temp)
             arr.extend(temp)
         return arr
         
@@ -40,7 +39,6 @@ class State_Space:
 
     def update(self):
         for name,value in self.data.items():
-            #print('updating ',name)
             self.data[name].update(name)
 
 a=State_Space()
