@@ -294,7 +294,15 @@ class DDPGfD(object):
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
 		#assert target_Q.shape == (assert_batch_size, 1)
 
-		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
+		#print("Target Q: ",target_Q)
+		# If we're randomly sampling trajectories, we need to index based on the done signal
+		num_trajectories = len(not_done[:, 0])
+		for n in range(num_trajectories):
+			if not_done[n,0]: # NOT done
+				target_Q[n, 0] = reward[n, 0] + (self.discount * target_Q[n, 0]).detach() #bellman equation
+			else: # Final episode trajectory reward value
+				target_Q[n, 0] = reward[n, 0]
+
 		#print(target_Q.shape)
 		#print("target_Q: ",target_Q)
 		#assert target_Q.shape == (assert_batch_size, 1)
