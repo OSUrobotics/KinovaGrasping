@@ -151,6 +151,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     avg_reward = 0.0
     # Reward data over each evaluation episode for boxplot
     all_ep_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
+    all_action_values = {"policy_actions":[],"actions_with_noise":[]}
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
@@ -183,6 +184,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         ep_finger_reward = 0
         ep_grasp_reward = 0
         ep_lift_reward = 0
+
+        # Actions taken by the policy over an episode
+        episode_actions = []
+        episode_actions_with_noise = []
 
         # Beginning of episode time steps, done is max timesteps or lift reward achieved
         while not done:
@@ -217,6 +222,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 ep_finger_reward += info["finger_reward"]
                 ep_grasp_reward += info["grasp_reward"]
                 ep_lift_reward += info["lift_reward"]
+
+                # Tracking actions with and without noise
+                episode_actions.append(action)
+                action_with_noise = (action + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(0, max_action)
+                episode_actions_with_noise.append(action_with_noise)
 
             else:  # Make it happen in one time step
                 next_state, reward, done, info,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
@@ -264,6 +274,13 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         all_ep_reward_values["grasp_reward"].append(ep_grasp_reward)
         all_ep_reward_values["lift_reward"].append(ep_lift_reward)
 
+        # Record all actions taken by the policy (with and without noise)
+        episode_actions = np.stack(episode_actions, axis=0)
+        episode_actions_with_noise = np.stack(episode_actions_with_noise, axis=0)
+
+        all_action_values["policy_actions"].append(episode_actions)
+        all_action_values["actions_with_noise"].append(episode_actions_with_noise)
+
         num_success+=success
 
         # Add heatmap coordinates
@@ -273,6 +290,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         fail_coords = copy.deepcopy(ret["fail_coords"])
 
     avg_reward /= eval_episodes
+
+    # Save the finger velocities for plotting and evaluation
+    np.save(all_saving_dirs["results_saving_dir"] + "/policy_actions.npy", all_action_values["policy_actions"])
+    np.save(all_saving_dirs["results_saving_dir"] + "/actions_with_noise.npy", all_action_values["actions_with_noise"])
 
     # Final average reward values over all episodes
     avg_rewards = {}
@@ -1340,7 +1361,7 @@ if __name__ == "__main__":
         for eval_num in range(10):
             # Evaluate policy over certain number of episodes
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=args.max_episode, render_imgs=True)
+                                   mode=args.mode, eval_episodes=args.max_episode, render_imgs=args.render_imgs)
             # Add further evaluation here
             writer = write_tensor_plot(writer, eval_num, eval_ret["avg_reward"], eval_ret["avg_rewards"], 0, 0, 0, 0, 0)
 
