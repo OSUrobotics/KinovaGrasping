@@ -687,7 +687,7 @@ def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_re
     return action_str
 
 
-def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="combined"):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, replay_buffer=None, with_grasp=False, with_noise=False, save=True, render_imgs=False, pid_mode="combined"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     episode_num: Number of episodes to generate expert data for
     replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -717,7 +717,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv") or episode_num is 0:
             env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
-        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation, with_noise=with_noise), False
 
         # Record initial coordinate file path once shapes are generated
         coord_filepath = env.get_coords_filename()

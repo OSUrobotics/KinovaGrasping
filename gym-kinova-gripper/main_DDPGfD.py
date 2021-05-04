@@ -127,7 +127,7 @@ def compare_test():
 
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, eval_episodes=100, compare=False, render_imgs=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, with_noise, eval_episodes=100, compare=False, render_imgs=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Heatmap plot success/fail object coordinates
@@ -156,7 +156,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
         success=0
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env"), False
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env",with_noise=with_noise), False
 
         # Record initial coordinate file path once shapes are generated
         all_saving_dirs["eval_init_coord_file_path"] = eval_env.get_coords_filename()
@@ -432,7 +432,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
         if env.check_obj_file_empty("objects.csv"):
             env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
         state, done = env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,env_name="env", hand_orientation=requested_orientation,
-                                mode=args.mode), False
+                                mode=args.mode, with_noise=with_orientation_noise), False
 
         # Set whether or not to use grasp reward
         env.set_with_grasp_reward(args.with_grasp_reward)
@@ -535,7 +535,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             print("EVALUATING EPISODE AT: ",episode_num)
             print("Evaluating with "+str(args.eval_num)+" grasping trials")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=args.eval_num)  # , compare=True)
+                                   mode=args.mode, eval_episodes=args.eval_num, with_noise=with_orientation_noise)  # , compare=True)
             # Heatmap data - object starting coordinates for evaluation
             eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
             eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
@@ -956,6 +956,7 @@ def setup_args(args=None):
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
     parser.add_argument("--pretrain_policy_path", type=str, action='store', default="./policies/pre-train_policies/BC_4keps/") # Path to the pre-trained policy to be loaded
+    parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
 
     args = parser.parse_args()
     return args
@@ -1093,6 +1094,15 @@ if __name__ == "__main__":
         print("with_grasp_reward must be True or False")
         raise ValueError
 
+    # Set with orientation noise based on command line input
+    if args.with_orientation_noise == "True" or args.with_orientation_noise == "true":
+        with_orientation_noise = True
+    elif args.with_orientation_noise == "False" or args.with_orientation_noise == "false":
+        with_orientation_noise = False
+    else:
+        print("with_orientation_noise must be True or False")
+        raise ValueError
+
     if args.render_imgs == "True" or args.render_imgs == "true":
         args.render_imgs = True
     else:
@@ -1118,6 +1128,7 @@ if __name__ == "__main__":
         param_text += "Policy: "+ str(args.policy_name) + "\n"
         param_text += "Requested_shapes: "+str(requested_shapes) + "\n"
         param_text += "Requested Hand orientation: "+ str(requested_orientation) + "\n"
+        param_text += "With Orientation Noise: " + str(args.with_orientation_noise) + "\n"
         param_text += "Batch Size: "+ str(args.batch_size) + "\n"
         param_text += "Expert Sampling Probability: "+ str(args.expert_prob) + "\n"
         param_text += "Grasp Reward: "+ str(args.with_grasp_reward) + "\n"
@@ -1179,7 +1190,7 @@ if __name__ == "__main__":
         print("MODE: Expert ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="position-dependent")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, replay_buffer=expert_replay_buffer, with_grasp=args.with_grasp_reward, with_noise=with_orientation_noise, save=True, render_imgs=args.render_imgs, pid_mode="position-dependent")
         print("Expert ONLY expert_data_dir: ", expert_data_dir)
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1195,7 +1206,7 @@ if __name__ == "__main__":
         print("MODE: Naive ONLY")
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="naive")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, replay_buffer=expert_replay_buffer, with_grasp=args.with_grasp_reward, with_noise=with_orientation_noise, save=True, render_imgs=args.render_imgs, pid_mode="naive")
         print("Naive ONLY expert_data_dir: ", expert_data_dir)
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1212,7 +1223,7 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
 
-        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="combined")
+        expert_replay_buffer, expert_replay_file_path, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, replay_buffer=expert_replay_buffer, with_grasp=args.with_grasp_reward, with_noise=with_orientation_noise, save=True, render_imgs=args.render_imgs, pid_mode="combined")
         print("Expert (Interpolation) expert_data_dir: ", expert_data_dir)
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
@@ -1331,7 +1342,7 @@ if __name__ == "__main__":
         else:
             # Initialize expert replay buffer, then generate expert pid data to fill it
             expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, args.with_grasp_reward, expert_replay_buffer, render_imgs=args.render_imgs, pid_mode="combined")
+            expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, replay_buffer=expert_replay_buffer, with_grasp=args.with_grasp_reward, with_noise=with_orientation_noise, save=True, render_imgs=args.render_imgs, pid_mode="combined")
 
         # Model replay buffer saving file name
         replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
@@ -1363,7 +1374,7 @@ if __name__ == "__main__":
         for eval_num in range(10):
             # Evaluate policy over certain number of episodes
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=args.max_episode, render_imgs=args.render_imgs)
+                                   mode=args.mode, eval_episodes=args.max_episode, render_imgs=args.render_imgs, with_noise=with_orientation_noise)
             # Add further evaluation here
             writer = write_tensor_plot(writer, eval_num, eval_ret["avg_reward"], eval_ret["avg_rewards"], 0, 0, 0, 0, 0)
 
