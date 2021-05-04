@@ -926,7 +926,7 @@ def setup_args(args=None):
     parser = argparse.ArgumentParser()
     parser.add_argument("--policy_name", default="DDPGfD")              # Policy name
     parser.add_argument("--env_name", default="gym_kinova_gripper:kinovagripper-v0") # OpenAI gym environment name
-    parser.add_argument("--seed", default=2, type=int)                  # Sets Gym, PyTorch and Numpy seeds
+    parser.add_argument("--seed", default=20, type=int)                  # Sets Gym, PyTorch and Numpy seeds
     parser.add_argument("--start_timesteps", default=100, type=int)     # How many time steps purely random policy is run for
     parser.add_argument("--eval_freq", default=200, type=float)         # How often (time steps) we evaluate
     parser.add_argument("--eval_num", default=100, type=int)          # Number of grasp trials to evaluate over
@@ -1113,7 +1113,8 @@ if __name__ == "__main__":
         param_text += "Running EXPERIMENT: "+str(args.exp_num) + "\n"
     else:
         param_text += "Saving dir: "+ str(saving_dir) + "\n"
-        param_text += "Tensorboard index: "+str(args.tensorboardindex)  + "\n"
+        param_text += "Seed: " + str(args.seed) + "\n"
+        param_text += "Tensorboard index: "+str(args.tensorboardindex) + "\n"
         param_text += "Policy: "+ str(args.policy_name) + "\n"
         param_text += "Requested_shapes: "+str(requested_shapes) + "\n"
         param_text += "Requested Hand orientation: "+ str(requested_orientation) + "\n"
