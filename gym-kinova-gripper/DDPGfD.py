@@ -43,14 +43,14 @@ class Critic(nn.Module):
 		self.l3 = nn.Linear(300, 1)
 		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
-		#self.max_q_value = max_q_value
+		self.max_q_value = 50
 
 
 	def forward(self, state, action):
 		q = F.relu(self.l1(torch.cat([state, action], -1)))
 		q = F.relu(self.l2(q))
-		#return self.max_q_value * torch.sigmoid(self.l3(q))
-		return self.l3(q)
+		return self.max_q_value * torch.sigmoid(self.l3(q))
+		#return self.l3(q)
 
 
 class DDPGfD(object):
