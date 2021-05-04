@@ -11,11 +11,11 @@ def split_coords(all_data_filepath,with_noise):
     all_data_filepath: Filepath to full dataset to be split (Ex: all_shapes/)
     """
     # Create train and test output files
-    train_coords_dir = "./train_noise"
+    train_coords_dir = "./train_coords"
     if not os.path.isdir(train_coords_dir):
         os.mkdir(train_coords_dir)
 
-    test_coords_dir = "./test_noise"
+    test_coords_dir = "./test_coords"
     if not os.path.isdir(test_coords_dir):
         os.mkdir(test_coords_dir)
 
