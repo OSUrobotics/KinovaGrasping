@@ -12,7 +12,7 @@ class DataDirectoryBase:
     # By default, all data will go in the source code folder in a folder called "data"
     data_location = Path("./Data/")
 
-    # These objects can be built from code
+    # These objects can be built from code and/or are pre-defined
     defined_object_names = {"Cone", "Cube", "Hour_glass", "Cylinder", "Bowl"}
     # These are the ycb objects
     ycb_object_names = {} # Read this one from a file
@@ -32,6 +32,12 @@ class DataDirectoryBase:
 
     def __init__(self, cls=None, instance_name=None):
         self.path_name = Path(self.construct_path_name(cls, instance_name))
+
+    def __str__(self):
+        return "Data path: {0}".format(self.path_name)
+
+    def __repr__(self):
+        return self.__str__()
 
     @staticmethod
     def construct_path_name(cls, instance_name=None):

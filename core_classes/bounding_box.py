@@ -9,8 +9,10 @@ from geometry_base import GeometryBase
 
 class BoundingBox:
     # Just a simple bounding box, two tuples
-    def __init__(self, lower_left = (0, 0, 0), upper_right = (1, 1, 1)):
-        """ Default to a unit square"""
+    def __init__(self, lower_left=(0, 0, 0), upper_right=(1, 1, 1)):
+        """ Default to a unit square
+        @param lower_left: a tuple or iterable with 3 numbers
+        @param upper_right: a tupoe or iterable with 3 numbers"""
         self.lower_left = lower_left
         self.upper_right = upper_right
 
@@ -40,7 +42,7 @@ class BoundingBox:
         return True
 
     @staticmethod
-    def calc_mesh_bbox(obj: GeometryBase, apply_matrix = eye(4)) -> BoundingBox:
+    def calc_mesh_bbox(obj: GeometryBase, apply_matrix=eye(4)) -> BoundingBox:
         """Bounding box of mesh geometry in the current coordinate system
         @ returns bounding box as [ [lower left] [ upper right ] ]"""
         bbox_min = [1e30, 1e30, 1e30]
@@ -57,10 +59,20 @@ class BoundingBox:
 
     def project_on_box(self, pt):
         """ Project onto the outside of the box
+        @param pt - 3D or 4D in homogenous points
         @returns pt on box boundary"""
         raise NotImplementedError
 
+    def calc_transformed_bbox(self, mat: eye(4)) -> BoundingBox:
+        """ Multiply the from bbox by the matrix
+        @returns Output bounding box"""
+        # TODO transform the bounding box by the matrix and calculate the new bounding box
+        # Note that this will be a poor approximation if there's a non 90-rotation involved
+
+        raise NotImplementedError
+
+
     def render(self):
-        """ Render the bounding box in OpenGL"""
+        """ TODO Render the bounding box in OpenGL"""
         raise NotImplementedError
 

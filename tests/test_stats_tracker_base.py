@@ -115,5 +115,6 @@ class TestStatsTracker(unittest.TestCase):
         my_nparray_tests = StatsTrackerBase.create_instance(min_array, max_array)
         self.assertEqual(my_nparray_tests.__class__, StatsTrackerArray)
 
+
 if __name__ == '__main__':
     unittest.main()
