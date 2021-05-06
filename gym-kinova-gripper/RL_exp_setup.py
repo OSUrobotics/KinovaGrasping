@@ -100,17 +100,16 @@ class RLExpSetup:
 if __name__ == '__main__':
 
     # f_name = "/Users/asar/Desktop/Grimm's Lab/Grasping/Codes/KinovaGrasping/gym-kinova-gripper/train_trial.txt"
-    f_name = "train_trial_new.txt"
+    f_name_train = "gym-kinova-gripper/cor_train_trial_new.txt"
+    f_name_test = "gym-kinova-gripper/cor_test_trial_new.txt"
 
-    exp1 = RLExpSetup(f_name)
+    train = RLExpSetup(f_name_train)
+    test = RLExpSetup(f_name_test)
     # meta_data = exp1.get_data_requested_episode(3)
     # print("Meta data 1: {}".format(meta_data))
 
-    # for i in range (0, 15):
-    meta_data = exp1.get_data_next_episode()
-    print("Meta data {}".format(meta_data))
-
-    ####------->#####
-
-
-
+    for i in range (0, 15):
+        meta_data = train.get_data_next_episode()
+        print("Meta data Train{}".format(meta_data))
+        meta_data = test.get_data_next_episode()
+        print("Meta data Test{}".format(meta_data))
