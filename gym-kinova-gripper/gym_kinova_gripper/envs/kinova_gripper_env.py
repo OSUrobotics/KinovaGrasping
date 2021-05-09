@@ -1221,6 +1221,33 @@ class KinovaGripper_Env(gym.Env):
 
         return orientation
 
+    def convert_local_obj_coord_to_global(self,local_obj_x,local_obj_y,local_obj_z=None):
+        """ Convert a specific local x,y,(z is optional) object coordinate to the global representation. This allows
+        for local coordinates saved for plotting purposes to be re-represented in the simulation.
+        local_obj_x,local_obj_y,local_obj_z: Object x, y, z coordinate values in their local representation
+        return global_obj_x, global_obj_y, global_obj_z in their global coordinate representation
+        """
+
+        if local_obj_z is None:
+            # Obj_z is already in the global coordinate frame, so put 0 as the placeholder
+            obj_local = [local_obj_x,local_obj_y,0]
+        else:
+            obj_local = [local_obj_x, local_obj_y, local_obj_z]
+
+        # Convert local coordinate x,y values (saved for heatmap plotting) to their global representation
+        obj_coords = np.append(obj_local,1)
+        obj_coords = np.linalg.solve(self.Tfw,obj_coords)
+        global_obj_coords = obj_coords[0:3]
+
+        global_obj_x = global_obj_coords[0]
+        global_obj_y = global_obj_coords[1]
+        global_obj_z = global_obj_coords[2]
+
+        if local_obj_z is None:
+            # Get global object z coordinate value based on the orientation (no noise)
+            _, _, global_obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
+
+        return global_obj_x, global_obj_y, global_obj_z
 
     def determine_obj_hand_coords(self, random_shape, mode, with_noise=False):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
