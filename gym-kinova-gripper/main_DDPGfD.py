@@ -291,10 +291,6 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     avg_reward /= eval_episodes
 
-    # Save the finger velocities for plotting and evaluation
-    np.save(all_saving_dirs["results_saving_dir"] + "/policy_actions.npy", all_action_values["policy_actions"])
-    np.save(all_saving_dirs["results_saving_dir"] + "/actions_with_noise.npy", all_action_values["actions_with_noise"])
-
     # Final average reward values over all episodes
     avg_rewards = {}
     avg_rewards["total_reward"] = np.average(all_ep_reward_values["total_reward"])
@@ -306,7 +302,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords}
+    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "all_action_values" : all_action_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords}
     return ret
 
 
@@ -407,17 +403,8 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
     grasp_reward = [[]]
     lift_reward = [[]]
     total_reward = [[]]
-
-    # Setup plotting output directories
-    if args.mode == "experiment":
-        heatmap_eval_dir = saving_dir + "/output/heatmap/eval"  # Heatmap plot saving directory
-        boxplot_eval_dir = saving_dir + "/output/boxplot/eval"  # Boxplot saving directory
-        create_paths([heatmap_eval_dir, boxplot_eval_dir])      # Create paths if they do not exist
-    else:
-        output_dir = "./output/" + saving_dir         # Different output directory than experiments
-        heatmap_eval_dir = output_dir + "/heatmap/eval"
-        boxplot_eval_dir = output_dir + "/boxplot/eval"
-        create_paths([output_dir, heatmap_eval_dir, boxplot_eval_dir])
+    eval_action = [[]]
+    eval_action_with_noise = [[]]
 
     # Tensorboard writer
     writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
@@ -516,7 +503,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             replay_buffer.remove_episode(-1)  # If episode is invalid length (less that n-steps), remove it
 
         # Train agent after collecting sufficient data:
-        if episode_num > args.update_after: # Update policy after 100 episodes (have enough experience in agent replay buffer)
+        if episode_num >= args.update_after: # Update policy after 100 episodes (have enough experience in agent replay buffer)
             #if episode_num % args.update_freq: # Update every 4 episodes
             for update_count in range(args.update_num): # Number of times to update the policy
                 if args.batch_size == 0:
@@ -531,7 +518,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
                                                                                          replay_buffer)
 
         # Evaluation and recording data for tensorboard
-        if episode_num+1 == num_episodes or (episode_num >= args.update_after and (episode_num) % args.eval_freq == 0):
+        if episode_num+1 == num_episodes or (episode_num) % args.eval_freq == 0:
             print("EVALUATING EPISODE AT: ",episode_num)
             print("Evaluating with "+str(args.eval_num)+" grasping trials")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
@@ -547,6 +534,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
 
             # Cumulative (over timesteps) reward data from each evaluation episode for boxplot
             all_ep_reward_values = eval_ret["all_ep_reward_values"]
+            all_action_values = eval_ret["all_action_values"]
 
             # Plot tensorboard metrics for learning analysis (average reward, loss, etc.)
             writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss,policy.current_expert_proportion)
@@ -556,26 +544,34 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             grasp_reward[-1].append(all_ep_reward_values["grasp_reward"])
             lift_reward[-1].append(all_ep_reward_values["lift_reward"])
             total_reward[-1].append(all_ep_reward_values["total_reward"])
+            eval_action[-1].append(all_action_values["policy_actions"])
+            eval_action_with_noise[-1].append(all_action_values["actions_with_noise"])
 
-        # Save coordinates every 1000 episodes
-        if episode_num >= args.update_after and (episode_num) % args.save_freq == 0:
-            print("Saving heatmap data at: ", heatmap_eval_dir)
+        # Save coordinates every 200 episodes
+        if episode_num+1 == num_episodes or (episode_num) % args.save_freq == 0:
+            print("Saving heatmap data at: ", all_saving_dirs["heatmap_dir"])
             # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
-            filter_heatmap_coords(eval_success_coords, eval_fail_coords, episode_num, heatmap_eval_dir)
+            filter_heatmap_coords(eval_success_coords, eval_fail_coords, episode_num, all_saving_dirs["heatmap_dir"])
             # Reset eval coords for next batch
             eval_success_coords = {"x": [], "y": [], "orientation": []}
             eval_fail_coords = {"x": [], "y": [], "orientation": []}
 
-            print("Saving boxplot data at: ", boxplot_eval_dir)
-            np.save(boxplot_eval_dir + "/finger_reward_" + str(episode_num),finger_reward)
-            np.save(boxplot_eval_dir + "/grasp_reward_" + str(episode_num),grasp_reward)
-            np.save(boxplot_eval_dir + "/lift_reward_" + str(episode_num),lift_reward)
-            np.save(boxplot_eval_dir + "/total_reward_" + str(episode_num),total_reward)
+            print("Saving boxplot data at: ", all_saving_dirs["boxplot_dir"])
+            np.save(all_saving_dirs["boxplot_dir"] + "/finger_reward_" + str(episode_num),finger_reward)
+            np.save(all_saving_dirs["boxplot_dir"] + "/grasp_reward_" + str(episode_num),grasp_reward)
+            np.save(all_saving_dirs["boxplot_dir"] + "/lift_reward_" + str(episode_num),lift_reward)
+            np.save(all_saving_dirs["boxplot_dir"] + "/total_reward_" + str(episode_num),total_reward)
+
+            # Save the finger velocities for plotting and evaluation
+            np.save(all_saving_dirs["results_saving_dir"] + "/policy_actions_" + str(episode_num), all_action_values["policy_actions"])
+            np.save(all_saving_dirs["results_saving_dir"] + "/actions_with_noise_" + str(episode_num), all_action_values["actions_with_noise"])
 
             finger_reward = [[]]
             grasp_reward = [[]]
             lift_reward = [[]]
             total_reward = [[]]
+            eval_action = [[]]
+            eval_action_with_noise = [[]]
 
         episode_num += 1
 
@@ -600,7 +596,7 @@ def create_paths(dir_list):
             new_path.mkdir(parents=True, exist_ok=True)
 
 
-def setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, create_dirs=True):
+def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, create_dirs=True):
     """ Setup directories where information will be saved
     env: Pass in current environment to have access to getting environment variables for recording purposes
     saving_dir: main name for all related files (ex: train_DDPGfD_CubeS)
@@ -616,34 +612,41 @@ def setup_directories(env, saving_dir, replay_filename, expert_replay_file_path,
         model_save_path = saving_dir + "/policy/exp_policy"
         tensorboard_dir = saving_dir + "/output/tensorboard/"
         output_dir = saving_dir + "/output"
-        heatmap_train_dir = saving_dir + "/output/heatmap/train"
+        replay_buffer_dir = saving_dir + "/replay_buffer/"  # Directory to hold replay buffer
+        heatmap_dir = saving_dir + "/output/heatmap/"
+        boxplot_dir = saving_dir + "/output/boxplot/"
         results_saving_dir = saving_dir + "/output/results"
     elif args.mode == "combined" or args.mode == "naive" or args.mode == "position-dependent":
         output_dir = saving_dir + "/output"
-        heatmap_train_dir = output_dir + "/heatmap/expert"
+        replay_buffer_dir = saving_dir + "/replay_buffer/"  # Directory to hold replay buffer
+        heatmap_dir = output_dir + "/heatmap/"
+        boxplot_dir = output_dir + "/boxplot/"
         model_save_path = "None"
         results_saving_dir = "None"
         tensorboard_dir = "None"
     else:
         print("---------- STARTING: ", args.mode, " ---------")
-        # Original saving directory locations for model and tensorboard
-        model_save_path = "./policies/" + saving_dir + "/{}_{}".format(args.mode, "DDPGfD_kinovaGrip") + datestr + "/"
-        tensorboard_dir = "./kinova_gripper_strategy/{}".format(args.tensorboardindex)
-        output_dir = "./output/" + saving_dir
-        heatmap_train_dir = output_dir + "/heatmap" + "/" + args.mode
-        results_saving_dir = output_dir + "/results" + "/" + args.mode
+        # Saving directories for model, output, and tensorboard
+        model_save_path = saving_dir+"/policy/{}_{}".format(args.mode, "DDPGfD_kinovaGrip")
+        output_dir = saving_dir + "/output" # Directory to hold output (plotting, avg. reward data, etc.)
+        replay_buffer_dir = saving_dir + "/replay_buffer/" # Directory to hold replay buffer
+        tensorboard_dir = output_dir + "/tensorboard/{}".format(args.tensorboardindex)
+        boxplot_dir = output_dir + "/boxplot/"
+        heatmap_dir = output_dir + "/heatmap/"
+        results_saving_dir = output_dir + "/results/"
 
     # Create directory paths if they do not exist
     if create_dirs is True:
-        create_paths([model_save_path, output_dir, tensorboard_dir, heatmap_train_dir, results_saving_dir])
+        create_paths([saving_dir, model_save_path, replay_buffer_dir, output_dir, tensorboard_dir, heatmap_dir, boxplot_dir, results_saving_dir])
 
     all_saving_dirs["saving_dir"] = saving_dir
     all_saving_dirs["model_save_path"] = model_save_path
     all_saving_dirs["output_dir"] = output_dir
     all_saving_dirs["tensorboard_dir"] = tensorboard_dir
-    all_saving_dirs["heatmap_train_dir"] = heatmap_train_dir
+    all_saving_dirs["heatmap_dir"] = heatmap_dir
+    all_saving_dirs["boxplot_dir"] = boxplot_dir
     all_saving_dirs["results_saving_dir"] = results_saving_dir
-    all_saving_dirs["replay_buffer"] = replay_filename
+    all_saving_dirs["replay_buffer"] = replay_buffer_dir
     all_saving_dirs["expert_replay_file_path"] = expert_replay_file_path
     all_saving_dirs["agent_replay_file_path"] = agent_replay_file_path
     all_saving_dirs["pretrain_model_save_path"] = pretrain_model_save_path
@@ -798,25 +801,25 @@ def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_
         print("Generating heatmaps...")
         for orientation in orientations_list:
             generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+mode_str+orientation+"/",
-                              saving_dir=saving_dir+mode_str+orientation+"/")
+                              saving_dir=saving_dir+mode_str+orientation+"/",tot_episodes=args.max_episode, saving_freq=args.save_freq)
     else:
         print("Heatmap dir NOT found: ", data_dir+mode_str)
 
-    if os.path.isdir(data_dir + "/heatmap/eval") is True:
+    if os.path.isdir(data_dir + "/heatmap/") is True:
         print("Generating evaluation heatmaps...")
         # Evaluation Heatmaps
         for orientation in orientations_list:
-            generate_heatmaps(plot_type="eval", orientation=str(orientation), data_dir=data_dir+"heatmap/eval/"+orientation+"/",
-                              saving_dir=saving_dir+"heatmap/eval/"+orientation+"/")
+            generate_heatmaps(plot_type="eval", orientation=str(orientation), data_dir=data_dir+"/heatmap/"+orientation+"/",
+                              saving_dir=saving_dir+"/heatmap/"+orientation+"/",tot_episodes=args.max_episode, saving_freq=args.save_freq)
     elif args.mode == "eval":
-        print("Eval Heatmap dir NOT found: ", data_dir + "/heatmap/eval")
+        print("Eval Heatmap dir NOT found: ", data_dir + "/heatmap/")
 
-    if os.path.isdir(data_dir+"/boxplot/eval/") is True:
+    if os.path.isdir(data_dir+"/boxplot/") is True:
         print("Generating boxplots...")
         # Boxplot evaluation reward
         for orientation in orientations_list:
-            generate_reward_boxplots(orientation=str(orientation), data_dir=data_dir + "/boxplot/eval/" + orientation + "/",
-                                     saving_dir=saving_dir + "/boxplot/eval/" + orientation + "/")
+            generate_reward_boxplots(orientation=str(orientation), data_dir=data_dir + "/boxplot/" + orientation + "/",
+                                     saving_dir=saving_dir + "/boxplot/" + orientation + "/", tot_episodes=args.max_episode, saving_freq=args.save_freq, eval_freq=args.eval_freq)
 
     print("Writing to experiment info file...")
     if all_saving_dirs is not None:
@@ -899,10 +902,10 @@ def create_info_file(num_success,num_total,all_saving_dirs,extra_text=""):
     # Agent Replay Buffer: None or filepath
     # Output (plotting, results): None or output_dir
     #   Output/ Tensorboard: None or tensorboard_dir
-    #   Output/ Heatmap: None or heatmap_train_dir, heatmap_eval_dir
+    #   Output/ Heatmap: None or heatmap_dir
     #   Output/ Results: None or results_saving_dir
     policy_output_text = "\n\nOUTPUT:\nPolicy: {}\nAgent Replay Buffer: {}".format(all_saving_dirs["model_save_path"],all_saving_dirs["replay_buffer"])
-    plotting_output_text = "\nOutput dir: {}\nOutput/ Tensorboard: {}\nOutput/ Heatmap: {}\nOutput/ Results: {}".format(all_saving_dirs["output_dir"],all_saving_dirs["tensorboard_dir"],all_saving_dirs["heatmap_train_dir"],all_saving_dirs["results_saving_dir"])
+    plotting_output_text = "\nOutput dir: {}\nOutput/ Tensorboard: {}\nOutput/ Heatmap: {}\nOutput/ Results: {}".format(all_saving_dirs["output_dir"],all_saving_dirs["tensorboard_dir"],all_saving_dirs["heatmap_dir"],all_saving_dirs["results_saving_dir"])
     success_text = "\n---- SUCCESS INFO: ----\n# Success: {}\n# Failures: {}\n# Total: {}".format(str(num_success),str(num_total - num_success),str(num_total)) + "\n"
     # ADDITIONAL TEXT/INFO (text or "") --> TRAINING PARAMETERS are included within extra_text
 
@@ -949,7 +952,7 @@ def setup_args(args=None):
     parser.add_argument("--agent_replay_size", default=10000, type=int)         # Maximum size of agent's replay buffer
     parser.add_argument("--expert_prob", default=0.7, type=float)           # Probability of sampling from expert replay buffer (opposed to agent replay buffer)
     parser.add_argument("--with_grasp_reward", type=str, action='store', default="False")  # bool, set True to use Grasp Reward from grasp classifier, otherwise grasp reward is 0
-    parser.add_argument("--save_freq", default=1000, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
+    parser.add_argument("--save_freq", default=200, type=int)  # Frequency to save data at (Ex: every 1000 episodes, save current success/fail coords numpy array to file)
     parser.add_argument("--update_after", default=100, type=int) # Start to update the policy after # episodes have occured
     parser.add_argument("--update_freq", default=1, type=int)   # Update the policy every # of episodes
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
@@ -1111,6 +1114,9 @@ if __name__ == "__main__":
     saving_dir = args.saving_dir
     if saving_dir is None:
         saving_dir = "%s_%s" % (args.policy_name, args.mode) + datestr
+    experiment_mode_dir = "./experiments/"+str(args.mode)+"/"
+    saving_dir = experiment_mode_dir + "{}/".format(saving_dir) + datestr
+    create_paths(["./experiments/", experiment_mode_dir, saving_dir])
 
     if args.tensorboardindex is None:
         args.tensorboardindex = "%s_%s" % (args.policy_name, args.mode)
@@ -1153,12 +1159,6 @@ if __name__ == "__main__":
     #replay_buffer = GenerateExpertPID_JointVel(args.expert_replay_size, replay_buffer)
     '''
 
-    policy_saving_dir = "./policies/"       # Directory to hold trained policy
-    replay_saving_dir = "./replay_buffer/"  # Directory to hold replay buffer
-    output_saving_dir = "./output/"         # Directory to hold output (plotting, avg. reward data, etc.)
-    if args.mode != "experiment":
-        create_paths([policy_saving_dir, replay_saving_dir, output_saving_dir]) # Create directories if they do not exist
-
     ## Expert Replay Buffer ###
     # Default expert pid file path
     if args.with_grasp_reward is True:
@@ -1166,14 +1166,15 @@ if __name__ == "__main__":
         ## Pre-training expert data: "./expert_replay_data/Expert_data_WITH_GRASP/"
         with_grasp_str = "WITH grasp"
     else:
-        # All shapes replay buffer
-        expert_replay_file_path = "./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
+        if with_orientation_noise is True:
+            expert_replay_file_path = "./expert_replay_buffer/with_noise/no_grasp/naive/CubeS/normal/replay_buffer/"
+        else:
+            expert_replay_file_path = "./expert_replay_buffer/no_noise/no_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
         with_grasp_str = "NO grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
     ## Agent Replay Buffer ##
-    # Default agent replay buffer file path
     agent_replay_file_path = "./replay_buffer/BC_4keps/replay_buffer_04_15/" # FILL WITH AGENT REPLAY FROM PRETRAINING
 
     ## Pre-trained Policy ##
@@ -1195,8 +1196,7 @@ if __name__ == "__main__":
         print("Expert ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path, "None",
-                                            "None", "None",create_dirs=False)
+        all_saving_dirs = setup_directories(env, expert_data_dir, "None", "None", "None", create_dirs=False)
         all_saving_dirs["controller_init_coord_file_path"] = coord_filepath
 
         generate_output(text="\nPARAMS: \n"+param_text+info_file_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=num_success, num_total=num_total, all_saving_dirs=all_saving_dirs)
@@ -1211,7 +1211,7 @@ if __name__ == "__main__":
         print("Naive ONLY expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path, "None",
+        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path,
                                             "None", "None",create_dirs=False)
         all_saving_dirs["controller_init_coord_file_path"] = coord_filepath
 
@@ -1228,7 +1228,7 @@ if __name__ == "__main__":
         print("Expert (Interpolation) expert_replay_file_path: ",expert_replay_file_path, "\n", expert_replay_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path, "None",
+        all_saving_dirs = setup_directories(env, expert_data_dir, expert_replay_file_path,
                                             "None", "None",create_dirs=False)
         all_saving_dirs["controller_init_coord_file_path"] = coord_filepath
 
@@ -1251,11 +1251,8 @@ if __name__ == "__main__":
         print("Loading expert replay buffer: ", expert_replay_file_path)
         replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
-        # Model replay buffer file name
-        replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
-
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Initialize timer to analyze run times
         train_time = Timer()
@@ -1289,15 +1286,14 @@ if __name__ == "__main__":
         print("Loading expert replay buffer: ", expert_replay_file_path)
         replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
 
-        # Model replay buffer saving file name
-        replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
-
+        """
         # Test model saving is correct
         print("Checking LOADED pre-trained policy and SAVED training model match!!")
         match_check = test_policy_models_match(policy, compare_model_filepath=pretrain_model_save_path)
         if match_check is False:
             print("Policies do NOT match! Quitting!")
             quit()
+        """
 
         # Load Pre-Trained policy
         if pretrain_model_save_path is None:
@@ -1307,7 +1303,7 @@ if __name__ == "__main__":
             policy.load(pretrain_model_save_path)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
         # Initialize timer to analyze run times
@@ -1345,10 +1341,10 @@ if __name__ == "__main__":
             expert_replay_buffer, expert_replay_file_path, expert_output_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(expert_replay_size, requested_shapes, requested_orientation, replay_buffer=expert_replay_buffer, with_grasp=args.with_grasp_reward, with_noise=with_orientation_noise, save=True, render_imgs=args.render_imgs, pid_mode="combined")
 
         # Model replay buffer saving file name
-        replay_filename = replay_saving_dir + saving_dir + "/replay_buffer" + datestr
+        replay_filename = saving_dir + "/replay_buffer" + datestr
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Train the policy and save it
         train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
@@ -1360,10 +1356,9 @@ if __name__ == "__main__":
     elif args.mode == "test":
         print("MODE: Test")
         print("Policy: ", pretrain_model_save_path)
-        replay_filename = "None"
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, replay_filename, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
         # Tensorboard writer
         writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
@@ -1371,7 +1366,7 @@ if __name__ == "__main__":
         # Load policy
         policy.load(pretrain_model_save_path)   # Change to be complete, trained policy
 
-        for eval_num in range(10):
+        for eval_num in range(1):
             # Evaluate policy over certain number of episodes
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
                                    mode=args.mode, eval_episodes=args.max_episode, render_imgs=args.render_imgs, with_noise=with_orientation_noise)
@@ -1448,7 +1443,7 @@ if __name__ == "__main__":
             quit()
 
         # Save directory info for info file
-        all_saving_dirs = setup_directories(env, exp_dir, exp_dir, expert_replay_file_path,
+        all_saving_dirs = setup_directories(env, exp_dir, expert_replay_file_path,
                                             agent_replay_file_path,
                                             prev_exp_dir, create_dirs=False)
 
