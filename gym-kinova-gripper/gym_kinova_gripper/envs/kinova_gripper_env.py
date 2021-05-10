@@ -775,7 +775,7 @@ class KinovaGripper_Env(gym.Env):
         (2,) X and Z angle                                      48-49
         (17,) Rangefinder data                                  50-66
         '''
-        print(self._model)
+        #print(self._model)
         if state_rep == None:
             state_rep = self.state_rep
         # states rep
@@ -920,8 +920,8 @@ class KinovaGripper_Env(gym.Env):
     def _get_obj_size(self):
         #TODO: fix this shit
         num_of_geoms=np.shape(self._sim.model.geom_size)
-        print(self._sim.data.geom_xpos)
-        print('geom sizes',self._sim.model.geom_size)
+        #print(self._sim.data.geom_xpos)
+        #print('geom sizes',self._sim.model.geom_size)
         #print('object top',self._sim.data.get_geom_xpos('object_top'))
         #print('object middle',self._sim.data.get_geom_xpos('object'))
         #print('object bottom',self._sim.data.get_geom_xpos('object_bottom'))
