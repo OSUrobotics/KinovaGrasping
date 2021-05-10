@@ -958,7 +958,7 @@ def setup_args(args=None):
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
-    parser.add_argument("--pretrain_policy_path", type=str, action='store', default="./policies/pre-train_policies/BC_4keps/") # Path to the pre-trained policy to be loaded
+    parser.add_argument("--pretrain_policy_path", type=str, action='store', default="./experiments/pre-train/Critic_sigmoid_InOrder/policy/pre-train_DDPGfD_kinovaGrip_04_29_21_1223/") # Path to the pre-trained policy to be loaded
     parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
 
     args = parser.parse_args()
@@ -1175,7 +1175,7 @@ if __name__ == "__main__":
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
     ## Agent Replay Buffer ##
-    agent_replay_file_path = "./replay_buffer/BC_4keps/replay_buffer_04_15/" # FILL WITH AGENT REPLAY FROM PRETRAINING
+    agent_replay_file_path = "./experiments/pre-train/Critic_sigmoid_InOrder/replay_buffer/replay_buffer_04_29_21_1223/" # FILL WITH AGENT REPLAY FROM PRETRAINING
 
     ## Pre-trained Policy ##
     # Default pre-trained policy file path
