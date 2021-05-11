@@ -406,6 +406,12 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
     eval_action = [[]]
     eval_action_with_noise = [[]]
 
+    # At episode 0, the target networks == current netoworks, so the network loss is 0
+    actor_loss = 0
+    critic_loss = 0
+    critic_L1loss = 0
+    critic_LNloss = 0
+
     # Tensorboard writer
     writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
 
