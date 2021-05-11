@@ -71,6 +71,20 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     x_bins = int(x_range / 0.002)
     y_bins = int(y_range / 0.002)
 
+    # Initial (local) x,y coordinate positions of the hand
+    palm_xy = [0,0]
+    f1_prox_xy = [-0.052713091739612916,0.006032608331224411]
+    f2_prox_xy = [0.046381192783558026,0.016055807264929084]
+    f3_prox_xy = [0.04673074829459711,0.01592404169727353]
+
+    f1_dist_xy = [-0.08288113504345852,0.025426551697133225]
+    f2_dist_xy = [0.07223797328448193,0.040994914052727705]
+    f3_dist_xy = [0.0726581750025766,0.04083658634787303]
+
+    f1_line = [[f1_dist_xy[0],f1_prox_xy[0],palm_xy[0]], [f1_dist_xy[1],f1_prox_xy[1],palm_xy[1]]]
+    f2_line = [[palm_xy[0],f2_prox_xy[0],f2_dist_xy[0]], [palm_xy[1],f2_prox_xy[1],f2_dist_xy[1]]]
+    f3_line = [[palm_xy[0], f3_prox_xy[0], f3_dist_xy[0]], [palm_xy[1], f3_prox_xy[1], f3_dist_xy[1]]]
+
     # Get success/fail coordinates within their respective bins
     success_data, _, _ = np.histogram2d(success_x, success_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
     fail_data, _, _ = np.histogram2d(fail_x, fail_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
@@ -119,6 +133,11 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     else:
         plt.imshow(neg_success_data.T, cmap=plt.cm.RdBu, origin='lower', extent=[x_min, x_max, y_min, y_max], vmin=-1, vmax=1)
 
+    # Plot the position of each of the fingers on top of the heatmap plot
+    plt.plot(f1_line[0],f1_line[1], label="Finger 1")
+    plt.plot(f2_line[0], f2_line[1], label="Finger 2")
+    plt.plot(f3_line[0], f3_line[1], label="Finger 3")
+
     ax.set_aspect('equal', adjustable='box')    # Sets histogram bin format
     fig.set_size_inches(11,8)   # Figure size
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
@@ -130,6 +149,7 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     plt.title(plot_title)
     plt.xlabel('X-axis initial coordinate position of object (meters)')
     plt.ylabel('Y-axis initial coordinate position of object (meters)')
+    plt.legend() # Plot the legend (displays each finger line)
 
     # Create color bar with success rate percent labels (0 to 100% success)
     cb = plt.colorbar(cmap=plt.cm.RdBu, format=PercentFormatter(1), shrink=0.6, ticks=[-1, -.5, 0, .5, 1])
@@ -215,7 +235,7 @@ def get_heatmap_coord_data(data_dir,ep_str):
     """Get boxplot data from saved numpy arrays
     data_dir: Directory location of data file
     filename: Name of data file
-    tot_episodes: Total number of evaluation episodes
+    max_episodes: Total number of evaluation episodes
     saving_freq: Frequency in which the data files were saved
     """
     arr_dict = {}
@@ -231,13 +251,13 @@ def get_heatmap_coord_data(data_dir,ep_str):
     return arr_dict["success_x"], arr_dict["success_y"], arr_dict["fail_x"], arr_dict["fail_y"], arr_dict["total_x"], arr_dict["total_y"]
 
 
-def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, tot_episodes=20000):
+def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, max_episodes=20000):
     """ Controls whether train or evaluation heatmap plots are generated
     plot_type: Type of plot (train or eval - eval will produce multiple plots)
     data_dir: Directory location of data file (coordinates)
     saving_dir: Directory to save the heatmap plots to
     saving_freq: Frequency at which the data was saved (used for getting filenames)
-    tot_episodes: Total number of episodes the data covers (to get up to the last data file)
+    max_episodes: Total number of episodes the data covers (to get up to the last data file)
     """
 
     # If input data directory is not found, return back
@@ -251,7 +271,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
 
     # FOR EVAL
     if plot_type == "eval":
-        for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes / saving_freq), dtype=int):
+        for ep_num in np.linspace(start=saving_freq, stop=max_episodes, num=int(max_episodes / saving_freq), dtype=int):
             print("EVAL EP NUM: ",ep_num)
             ep_str = str(ep_num)
             # Get coordinate data as numpy arrays
@@ -273,17 +293,24 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, action='store', default="./")
-    parser.add_argument("--saving_dir", type=str, action='store', default="./")
+    parser.add_argument("--saving_dir", type=str, action='store', default=None)
     parser.add_argument("--plot_type", type=str, action='store', default="train")
     parser.add_argument("--orientation", type=str, action='store', default="normal")
+    parser.add_argument("--saving_freq", default=1000, type=int) # Frequency at which the files were saved at (Determines the filename ex: success_x_1000.npy)
+    parser.add_argument("--max_episodes", default=4000, type=int) # Maximum number of episodes to be plotted
     args = parser.parse_args()
 
     data_dir = args.data_dir       # Directory to Get input data from
-    saving_dir = args.saving_dir   # Directory to Save data to
-    plot_type = args.plot_type     # Train or Eval plots
-    orientation = args.orientation # Hand orientation
-
     if data_dir[-1] != "/":
         data_dir += "/"
 
-    generate_heatmaps(plot_type=plot_type, orientation=orientation, data_dir=data_dir, saving_dir=saving_dir)
+    if args.saving_dir is None:
+        saving_dir = data_dir
+    else:
+        saving_dir = args.saving_dir   # Directory to Save data to
+    plot_type = args.plot_type     # Train or Eval plots
+    orientation = args.orientation # Hand orientation
+    saving_freq = args.saving_freq
+    max_episodes = args.max_episodes
+
+    generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq, max_episodes)

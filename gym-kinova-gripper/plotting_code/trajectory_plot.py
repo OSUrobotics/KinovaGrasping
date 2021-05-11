@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLocator)
 from matplotlib.patches import Rectangle
 import utils
+import argparse
 import os, sys
 expert_path = os.getcwd()
 sys.path.insert(1, expert_path)
@@ -22,25 +23,72 @@ def plot_finger(ax, finger_x, finger_y, actions, markers_on, ts_spacing, action_
             if i % action_label_freq == 0:
                 ax.annotate("TS {}) F1: {} F2: {} F3: {}".format(i,action_txt[0],action_txt[1],action_txt[2]), (finger_x[i], finger_y[i]), bbox=bbox_props)
 
-def plot_trajectory(states, actions, episode_num, saving_dir):
-    """ Plot the trajectory of the fingers and object over an episode
-    image: Image of the simulation at the final point
-    actions: Finger velocities over the course of an episode
-    object_coords: x,y coordinates of the object throughout the episode
+def get_palm_coordinates(states):
+    """ Get each of the palm coordinate values for each state within the one episode
+    states: List of each state recorded within a single episode (local coordinates wrt. the center of the palm)
+    """
+    palm_x = [ts_state[18] for ts_state in states]
+    palm_y = [ts_state[19] for ts_state in states]
+    palm_z = [ts_state[20] for ts_state in states]
+
+    return palm_x, palm_y, palm_z
+
+def get_proximal_finger_coordinates(states):
+    """ Get each of the proximal finger postion values for each state within the one episode
+    states: List of each state recorded within a single episode (local coordinates wrt. the center of the palm)
     """
     # Finger distal x,y coordinates
     # State indexes: (9 - 11) "f1_dist", (12 - 14) "f2_dist", (15 - 17) "f3_dist"
-    f1_x = [ts_state[9] for ts_state in states] # Finger 1
-    f1_y = [ts_state[10] for ts_state in states]
-    f2_x = [ts_state[12] for ts_state in states] # Finger 2
-    f2_y = [ts_state[13] for ts_state in states]
-    f3_x = [ts_state[15] for ts_state in states] # Finger 3
-    f3_y = [ts_state[16] for ts_state in states]
-    
+    f1_prox_x = [ts_state[0] for ts_state in states] # Finger 1
+    f1_prox_y = [ts_state[1] for ts_state in states]
+    f2_prox_x = [ts_state[3] for ts_state in states] # Finger 2
+    f2_prox_y = [ts_state[4] for ts_state in states]
+    f3_prox_x = [ts_state[6] for ts_state in states] # Finger 3
+    f3_prox_y = [ts_state[7] for ts_state in states]
+
+    return f1_prox_x, f1_prox_y, f2_prox_x, f2_prox_y, f3_prox_x, f3_prox_y
+
+def get_distal_finger_coordinates(states):
+    """ Get each of the distal finger postion values for each state within the one episode
+    states: List of each state recorded within a single episode (local coordinates wrt. the center of the palm)
+    """
+    # Finger distal x,y coordinates
+    # State indexes: (9 - 11) "f1_dist", (12 - 14) "f2_dist", (15 - 17) "f3_dist"
+    f1_dist_x = [ts_state[9] for ts_state in states] # Finger 1
+    f1_dist_y = [ts_state[10] for ts_state in states]
+    f2_dist_x = [ts_state[12] for ts_state in states] # Finger 2
+    f2_dist_y = [ts_state[13] for ts_state in states]
+    f3_dist_x = [ts_state[15] for ts_state in states] # Finger 3
+    f3_dist_y = [ts_state[16] for ts_state in states]
+
+    print("Finger1 distal, Finger2 distal, Finger3 distal x,y: {},{}  {},{}  {},{}".format(f1_dist_x[0],f1_dist_y[0],f2_dist_x[0],f2_dist_y[0],f3_dist_x[0],f3_dist_y[0]))
+
+    return f1_dist_x, f1_dist_y, f2_dist_x, f2_dist_y, f3_dist_x, f3_dist_y
+
+def get_object_coordinates(states):
+    """ Get each of the object postion (x,y,z) for each state within the one episode
+    states: List of each state recorded within a single episode (local coordinates wrt. the center of the palm)
+    """
     # Object coordinates
     object_x = [ts_state[21] for ts_state in states]    # Object x-coordinates
     object_y = [ts_state[22] for ts_state in states]    # Object y-coordinates
     object_z = [ts_state[23] for ts_state in states]    # Object z-coordinates
+
+    return object_x, object_y, object_z
+
+def plot_trajectory(states, actions, episode_num, saving_dir):
+    """ Plot the trajectory of the fingers and object over an episode
+    image: Image of the simulation at the final point
+    states: List of each state array recorded within a single episode
+    actions: Finger velocities over the course of an episode
+    object_coords: x,y coordinates of the object throughout the episode
+    """
+    # Get finger and object coordinates from the episode
+    palm_x, palm_y, palm_z = get_palm_coordinates(states)
+    f1_dist_x, f1_dist_y, f2_dist_x, f2_dist_y, f3_dist_x, f3_dist_y = get_distal_finger_coordinates(states)
+    f1_prox_x, f1_prox_y, f2_prox_x, f2_prox_y, f3_prox_x, f3_prox_y = get_proximal_finger_coordinates(states)
+    object_x, object_y, object_z = get_object_coordinates(states)
+
     ts_spacing = np.arange(start=0, stop=len(object_x))    # Just used to determine scatter plot spacing
 
     # Min/Max values determined based on the range of object positions within the hand
@@ -85,11 +133,11 @@ def plot_trajectory(states, actions, episode_num, saving_dir):
     action_label_freq = 5 # Frequency to label action output
 
     # Plot FINGER 1 (x,y) position over the course of the episode
-    plot_finger(ax, f1_x, f1_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color='Purples', marker_type=">", marker_color='#8a5ab8', label="Finger 1")
+    plot_finger(ax, f1_dist_x, f1_dist_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color='Purples', marker_type=">", marker_color='#8a5ab8', label="Finger 1")
     # Plot FINGER 2 (x,y) position over the course of the episode
-    plot_finger(ax, f2_x, f2_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color='Blues', marker_type="<", marker_color='#8a5ab8', label="Finger 2")
+    plot_finger(ax, f2_dist_x, f2_dist_y, actions, markers_on, ts_spacing, action_label_freq, scatter_color='Blues', marker_type="<", marker_color='#8a5ab8', label="Finger 2")
     # Plot FINGER 3 (x,y) position over the course of the episode
-    plot_finger(ax, f3_x, f3_y, actions, markers_on, ts_spacing, action_label_freq=None, scatter_color='Oranges', marker_type='D', marker_color='#8a5ab8', label="Finger 3")
+    plot_finger(ax, f3_dist_x, f3_dist_y, actions, markers_on, ts_spacing, action_label_freq=None, scatter_color='Oranges', marker_type='D', marker_color='#8a5ab8', label="Finger 3")
 
     # Plot object (x,y) position over the course of the episode
     plt.plot(object_x[-1], object_y[-1], marker="X", ms=4, linewidth=1, color='r')
@@ -132,6 +180,11 @@ def plot_trajectory(states, actions, episode_num, saving_dir):
 
 if __name__ == "__main__":
     print("--- Plot the finger and object trajectory over a set of episodes ---")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--replay_filepath", type=str, action='store', default=None)  # Replay buffer filepath
+    args = parser.parse_args()
+
+    replay_filepath = args.replay_filepath
 
     pid_mode = "naive_only"
     replay_size = 10    # Number of episodes to generate in replay buffer
@@ -139,10 +192,15 @@ if __name__ == "__main__":
     test_ep_num = 0     # Episode number to test plotting with from replay buffer
     fig_filename = "Trajectory Plot Test"
     saving_dir = None   # If None, plot_trajectory will show the plot instead of saving
+    requested_shapes = "CubeS"
+    requested_orientation = "normal"
 
     # Generate temporary replay buffer to test trajectory plotting with
     replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4)
-    #replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=replay_size, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
+    if replay_filepath is None:
+        replay_buffer, replay_filepath, expert_data_dir, info_file_text, num_success, num_total, coord_filepath = GenerateExpertPID_JointVel(replay_size, requested_shapes, requested_orientation, replay_buffer=replay_buffer, with_grasp=False, with_noise=False, save=True, render_imgs=False, pid_mode="naive")
+    else:
+        replay_text = replay_buffer.store_saved_data_into_replay(replay_filepath)
 
     # Plot finger and object trajectory over the course of the desired episode(s)
     plot_trajectory(replay_buffer.state[test_ep_num], replay_buffer.actions[test_ep_num], fig_filename, saving_dir)
