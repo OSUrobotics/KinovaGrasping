@@ -18,7 +18,7 @@ class SignedDistanceFc:
         self.padding = 0.1                # percentage empty space around object
 
         # These are for transforming to/from the object
-        self.from_mesh_to_sdf = CoordinateSystemTransformBase("mesh", "signed_distance_function")
+        self.mesh_to_sdf = CoordinateSystemTransformBase("mesh", "signed_distance_function")
 
     def __str__(self):
         """ Print out stats about self"""

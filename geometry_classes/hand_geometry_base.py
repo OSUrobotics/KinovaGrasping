@@ -30,12 +30,13 @@ class HandGeometry(GeometryBase):
         self.preshape = "cylindrical"
         self.handspan_coords = CoordinateSystemBase(("hand", "handspan"))
         self.wrist_coords = CoordinateSystemBase(("hand", "wrist"))
-        self.hand_wrist = CoordinateSystemTransformBase(("hand", "wrist"))
-        self.hand_handspan = CoordinateSystemTransformBase(("hand", "handspan"))
-        self.xml_urdf = CoordinateSystemTransformBase(("hand", "xmlOrURDF"))
+        self.mesh_to_wrist = CoordinateSystemTransformBase(("hand", "origin"), ("hand", "wrist"))
+        self.mesh_to_handspan = CoordinateSystemTransformBase(("hand", "origin"), ("hand", "handspan"))
+        self.mesh_to_xml_urdf = CoordinateSystemTransformBase(("hand", "origin"), ("hand", "xmlOrURDF"))
 
     def read_hand_from_file(self):
-        """ Read in the stl file for the corresponding base shape
+        """ Read in the stl file and joint angles for the corresponding pre-shape
+        Will set the geometry by positioning the fingers as defined
         Sets all but handspan data"""
         raise NotImplementedError
 

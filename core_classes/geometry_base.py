@@ -30,7 +30,7 @@ class GeometryBase(DataDirectoryBase):
         super(DataDirectoryBase, self).__init__(cls_name, instance_name)
         self.name = instance_name
         # bounding box will be in self.mesh_to_world
-        self.mesh_to_world = CoordinateSystemTransformBase((type_name, "origin"))
+        self.mesh_to_world = CoordinateSystemTransformBase((type_name, "origin"), (type_name, "world"))
         self.sdf = SignedDistanceFc()
 
         # If we're in the simulation, use this to get/set the geometry from the simulation

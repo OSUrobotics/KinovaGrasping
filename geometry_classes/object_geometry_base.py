@@ -21,8 +21,8 @@ class ObjectGeometryBase(GeometryBase):
 
         # Will be either vertices that are read in or a pointer to the mesh object in the simulator
         self.mesh = None
-        self.object_base = CoordinateSystemTransformBase(("object", "base"))
-        self.xml_urdf = CoordinateSystemTransformBase(("object", "xmlOrURDF"))
+        self.mesh_to_base = CoordinateSystemTransformBase(("object", "mesh"), ("object", "base"))
+        self.mesh_to_xml = CoordinateSystemTransformBase(("object", "mesh"), ("object", "xmlOrURDF"))
 
     def get_vertices(self):
         """ Generator function that returns all vertices in the form of a 1x4 numpy array [x,y,z,1]
