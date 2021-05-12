@@ -18,6 +18,7 @@ from bounding_box import BoundingBox
 from signed_distance_fc import SignedDistanceFc
 from data_directories_base import DataDirectoryBase
 
+
 class GeometryBase(DataDirectoryBase):
     # If eg PyBullet or Mujoco or RViz is up and running
     sym_environment = None

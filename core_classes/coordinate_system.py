@@ -31,8 +31,12 @@ class CoordinateSystemBase:
                               "arm":{"origin", "xmlOrURDF", "base", "endeffector"},
                               "signedDistanceFunction":{"origin", "center"},
                               "camera":{"origin", "xmlOrURDF", "at", "aruco"}}
+
+    # Overall scale normalization
+    scale_normalization_type = {"no_scale", "mesh_size", "unit_square", "unit_square_plus_pad", "percentage_mesh_size" }
+
     def __init__(self, in_type=("none", "none"), in_name="none",
-                 in_translation=(0, 0, 0), in_rotation=eye(), in_scale=(1, 1, 1)):
+                 in_translation=(0, 0, 0), in_rotation=eye(), in_scale_type="mesh_size"):
         """ In the object mesh's coordinate system, scale, then rotate, then translate the x,y,z coordinate system
            rotation: How to rotate (1,0,0) (0,1,0) (0,0,1) to be the x, y, z for this coordinate system
         @param my_type: tuple of strings from coordinate_system_type
@@ -45,7 +49,7 @@ class CoordinateSystemBase:
         self.name = in_name
         self.translation = in_translation
         self.rotation = in_rotation
-        self.scale = in_scale
+        self.scale_type = in_scale_type
 
     def __str__(self):
         """TODO print out coordinate system information"""
@@ -89,9 +93,6 @@ class CoordinateSystemTransformBase:
     # The following two are for setting a coordinate transform based on the geometry
     # Where the base of the coordinate system is
     base_location_type = {"current", "center", "bottom_middle", "lower_left"}
-
-    # Overall scale normalization
-    scale_normalization_type = {"no_scale", "unit_square", "unit_square_plus_pad", "percentage" }
 
     def __init__(self, from_coord_sys=("world", "origin"), to_coord_sys=("world", "origin"), xform = eye(4)):
         """A matrix transform from one coordinate system to another
@@ -205,10 +206,21 @@ class CoordinateSystemTransformBase:
         raise NotImplementedError
         #return trans
 
+    def __matmul__(self, other: CoordinateSystemTransformBase):
+        """ Matrix multiply AND check that previous and next match up
+        @other Another coordinate system transform
+        @return A coordinate system transform"""
+        if self.to_coord_sys is not other.from_coord_sys:
+            raise ValueError("To and from don't match {} {}".format(self, other))
+        combined_transform = CoordinateSystemTransformBase(self.from_coord_sys, other.to_coord_sys)
+        combined_transform.xform = self.xform @ other.xform
+        return combined_transform
+
     @staticmethod
     def combine_transforms(seq_transforms) ->nparray:
         """ Create a new trasnform from the sequence of transforms
         Double checks that the sequence is valid  (froms match tos)
+        A little bit more efficient than matmul if you're combining a bunch
         @param seq_transforms - iterable of CoordinateSystemTransformBase transforms
         @returns 4x4 matrix"""
         m = eye(4)

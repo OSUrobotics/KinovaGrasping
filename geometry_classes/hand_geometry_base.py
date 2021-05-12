@@ -43,6 +43,13 @@ class HandGeometry(GeometryBase):
         """ Read in hand span info"""
         raise NotImplementedError
 
+    def render(self, draw_mesh_bbox=True):
+        """TODO Draw geometry in Open GL
+        @param draw_mesh_bbox Draw the mesh bounding box as well"""
+        super(GeometryBase, self).render(draw_mesh_bbox)
+        # TODO draw hand coordinate systems
+        raise NotImplementedError
+
 
 if __name__ == "__main__":
 
