@@ -36,7 +36,7 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     im = ax.imshow(total_data.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
     ax.set_aspect('equal', adjustable='box')
 
-    fig.set_size_inches(11,7)
+    fig.set_size_inches(12,7)
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
     ax.xaxis.set_minor_locator(MultipleLocator(0.001))
     ax.yaxis.set_major_locator(MultipleLocator(0.01))
@@ -44,8 +44,8 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
 
     # Plot labels
     plt.title(plot_title)
-    plt.xlabel('X-axis initial coordinate position of object (meters)')
-    plt.ylabel('Y-axis initial coordinate position of object (meters)')
+    plt.xlabel('X-axis coordinate position (meters)')
+    plt.ylabel('Y-axis coordinate position (meters)')
 
     # Create color bar showing overall frequency count values
     cb = plt.colorbar(mappable=im,shrink=0.6)
@@ -59,7 +59,7 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
 
 def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fig_filename,saving_dir,plot_success):
     """ Create heatmap displaying success rate of object initial position coordinates """
-    cb_label = 'Success rate of grasp trials out of total trials (Negative is failure rate)'
+    cb_label = 'Grasp Trial Success Rate %'
 
     x_min = -0.09
     x_max = 0.09
@@ -108,7 +108,6 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     print("len(success_x): ",len(success_x))
     """
 
-
     # Positive Success rate coordinates bins
     if len(fail_x) == 0:
         pos_success_data = total_data #success_data
@@ -125,6 +124,8 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     neg_success_data = np.multiply(-1,neg_success_data)
 
     fig = plt.figure()
+    fig.set_size_inches(11,8)   # Figure size
+    fig.set_dpi(100)           # Pixel amount
     ax = fig.add_subplot(111)
 
     # Plot heatmap from data
@@ -139,7 +140,6 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     plt.plot(f3_line[0], f3_line[1], label="Finger 3")
 
     ax.set_aspect('equal', adjustable='box')    # Sets histogram bin format
-    fig.set_size_inches(11,8)   # Figure size
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
     ax.xaxis.set_minor_locator(MultipleLocator(0.001))
     ax.yaxis.set_major_locator(MultipleLocator(0.01))
@@ -147,8 +147,8 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
 
     # Plot labels
     plt.title(plot_title)
-    plt.xlabel('X-axis initial coordinate position of object (meters)')
-    plt.ylabel('Y-axis initial coordinate position of object (meters)')
+    plt.xlabel('X-axis coordinate position (meters)')
+    plt.ylabel('Y-axis coordinate position (meters)')
     plt.legend() # Plot the legend (displays each finger line)
 
     # Create color bar with success rate percent labels (0 to 100% success)
@@ -157,34 +157,37 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,plot_title,fi
     cb.set_label(cb_label)
 
     plt.savefig(saving_dir+fig_filename)
-    #plt.show()
-    #plt.clf()
-    #plt.close()
 
 
-def make_img_transparent(fig_filename,saving_dir):
+def change_image_transparency(image_filepath,alpha=0):
     """ Make plot image background transparent for overlaying on other plots
     img_name: Name of image to be made transparent
     dir: Directory to get plot from
+    alpha: Changes the transparency [0,1], where 0 is fully transparent, 1 is opaque
     """
     # Get the image as an rgba array
-    img = Image.open(saving_dir+fig_filename+".png")
+    img = Image.open(image_filepath)
     img = img.convert("RGBA")
     datas = img.getdata()
 
     # Convert rgb values that are white (225,225,225) to an alpha of 0 (transparent)
     newData = []
     for item in datas:
-      if item[0] == 255 and item[1] == 255 and item[2] == 255:
-          newData.append((255, 255, 255, 0))
-      elif item[0] == 255 and item[1] == 253 and item[2] == 253:
-          newData.append((255, 255, 255, 0))
-      else:
-          newData.append(item)
+        if item[3] == 0 and alpha > 0:
+            alpha_value = int(alpha*255)
+            newData.append((255, 255, 255, alpha_value))
+        elif item[0] == 246 and item[1] == 246 and item[2] == 246:
+            newData.append((246,246,246, alpha))
+        elif item[0] == 255 and item[1] == 255 and item[2] == 255:
+            newData.append((255, 255, 255, alpha))
+        elif item[0] == 255 and item[1] == 253 and item[2] == 253:
+            newData.append((255, 255, 255, alpha))
+        else:
+            newData.append(item)
 
     # Save new transparent plot in original location
     img.putdata(newData)
-    img.save(saving_dir+fig_filename+".png", "PNG",transparent=True)
+    img.save(image_filepath, "PNG",transparent=True)
 
 
 def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,saving_dir):
@@ -208,28 +211,50 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
 
     title_str = ""
     if ep_str != "":
-        title_str = ", Evaluated at Ep. " + ep_str
+        title_str = "\nEvaluated at Ep. " + ep_str
         ep_str = "_" + ep_str
 
-    title_str += " " + orientation + " Orientation"
+    title_str += " " + orientation.capitalize() + " Hand Orientation"
 
     # Plot frequency heatmap
     freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object" + title_str
     heatmap_freq(total_x,total_y,freq_plot_title,'freq_heatmap'+ep_str+'.png',freq_saving_dir)
 
     # Plot failed (negative success rate) heatmap
-    fail_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of Object" + title_str
-    heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y, fail_plot_title, 'fail_heatmap'+ep_str+'.png',
+    heatmap_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of the Object" + title_str
+    heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y, heatmap_plot_title, 'fail_heatmap'+ep_str+'.png',
                  heatmap_saving_dir, plot_success=False)
 
     # Plot successful heatmap
-    success_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of Object" + title_str
     heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y,
-                             success_plot_title, 'success_heatmap'+ep_str+'.png', heatmap_saving_dir,plot_success=True)
+                             heatmap_plot_title, 'success_heatmap'+ep_str+'.png', heatmap_saving_dir,plot_success=True)
 
-    # Make successful heatmap transparent to overlay over failed heatmap
-    fig_filename = 'success_heatmap'+ep_str
-    make_img_transparent(fig_filename,heatmap_saving_dir)
+    # Make heatmaps transparent to overlay over each other, then overlap them and save as a combine image
+    success_filepath = heatmap_saving_dir + 'success_heatmap'+ep_str+'.png'
+    fail_filepath = heatmap_saving_dir + 'fail_heatmap' + ep_str + '.png'
+    combined_filepath = heatmap_saving_dir+'combined_heatmap'+ep_str+'.png'
+
+    change_image_transparency(success_filepath)
+    change_image_transparency(fail_filepath)
+
+    overlap_images(success_filepath,fail_filepath, combined_filepath)
+
+
+def overlap_images(img1_path, img2_path, save_filename):
+    """ Overlap one image on top of another then change the background transparency to be opaque, then save.
+    This is used to overlap success and failed image plots.
+    img1_path: File path to the first image
+    img2_path: File path to the second image
+    """
+    img1 = Image.open(img1_path)
+    img2 = Image.open(img2_path)
+
+    # Overlap images
+    img3 = Image.alpha_composite(img1, img2)
+
+    img3.save(save_filename, "PNG", transparent=False)
+    change_image_transparency(save_filename,alpha=1)
+
 
 def get_heatmap_coord_data(data_dir,ep_str):
     """Get boxplot data from saved numpy arrays
