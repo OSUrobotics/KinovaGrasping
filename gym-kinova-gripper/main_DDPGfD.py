@@ -449,6 +449,10 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
         orientation_idx = env.get_orientation_idx()
         replay_buffer.add_orientation_idx_to_replay(orientation_idx)
 
+        # Determine the expert replay buffer to be used based on the selected shape
+        current_object = env.get_random_shape()
+        expert_replay_buffer = expert_buffers[current_object]
+
         timestep = 0
         replay_buffer_recorded_ts = 0
         check_for_lift = True
@@ -663,7 +667,7 @@ def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_fil
     return all_saving_dirs
 
 
-def train_policy(policy, expert_replay_buffer, replay_buffer, tot_episodes, tr_prob, all_saving_dirs):
+def train_policy(policy, expert_buffers, replay_buffer, tot_episodes, tr_prob, all_saving_dirs):
     """ Train the policy over a number of episodes, sampling from experience
     tot_episodes: Total number of episodes to update policy over
     tr_prob: Probability of sampling from expert replay buffer within training
@@ -807,7 +811,7 @@ def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_
         print("Generating heatmaps...")
         for orientation in orientations_list:
             generate_heatmaps(plot_type="train", orientation=str(orientation), data_dir=data_dir+mode_str+orientation+"/",
-                              saving_dir=saving_dir+mode_str+orientation+"/",tot_episodes=args.max_episode, saving_freq=args.save_freq)
+                              saving_dir=saving_dir+mode_str+orientation+"/",max_episodes=args.max_episode, saving_freq=args.save_freq)
     else:
         print("Heatmap dir NOT found: ", data_dir+mode_str)
 
@@ -816,7 +820,7 @@ def generate_output(text,data_dir,orientations_list,saving_dir,num_success, num_
         # Evaluation Heatmaps
         for orientation in orientations_list:
             generate_heatmaps(plot_type="eval", orientation=str(orientation), data_dir=data_dir+"/heatmap/"+orientation+"/",
-                              saving_dir=saving_dir+"/heatmap/"+orientation+"/",tot_episodes=args.max_episode, saving_freq=args.save_freq)
+                              saving_dir=saving_dir+"/heatmap/"+orientation+"/",max_episodes=args.max_episode, saving_freq=args.save_freq)
     elif args.mode == "eval":
         print("Eval Heatmap dir NOT found: ", data_dir + "/heatmap/")
 
@@ -1170,14 +1174,14 @@ if __name__ == "__main__":
     if args.with_grasp_reward is True:
         expert_replay_file_path = "./expert_replay_data_NO_NOISE/with_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_WITH_GRASP/"
-        with_grasp_str = "WITH grasp"
+        with_grasp_str = "with_grasp"
     else:
         if with_orientation_noise is True:
             expert_replay_file_path = "./expert_replay_buffer/with_noise/no_grasp/naive/CubeS/normal/replay_buffer/"
         else:
             expert_replay_file_path = "./expert_replay_buffer/no_noise/no_grasp/naive_only/CubeS/normal/replay_buffer/"
         ## Pre-training expert data: "./expert_replay_data/Expert_data_NO_GRASP/"
-        with_grasp_str = "NO grasp"
+        with_grasp_str = "no_grasp"
     print("** expert_replay_file_path: ",expert_replay_file_path)
 
     ## Agent Replay Buffer ##
@@ -1288,9 +1292,26 @@ if __name__ == "__main__":
             replay_buffer.store_saved_data_into_replay(agent_replay_file_path)
 
         # Initialize expert replay buffer, then generate expert pid data to fill it
-        expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-        print("Loading expert replay buffer: ", expert_replay_file_path)
-        replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+        #expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+        #print("Loading expert replay buffer: ", expert_replay_file_path)
+        #replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
+
+        noise_str = "no_noise"
+        if with_orientation_noise is True:
+            noise_str = "with_noise"
+
+        expert_replay_file_path = "./expert_replay_buffer/"+noise_str+"/"+with_grasp_str+"/"+"naive/"
+        print("expert_replay_file_path: ",expert_replay_file_path)
+
+        # Determine the expert replay buffer(s) to be used based on the requested shapes
+        expert_buffers = {}
+        for shape_to_load in requested_shapes:
+            expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+            shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
+            # Load expert data from saved expert pid controller replay buffer
+            print("Loading expert replay buffer: ", shape_replay_file_path)
+            replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
+            expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
 
         """
         # Test model saving is correct
@@ -1316,7 +1337,7 @@ if __name__ == "__main__":
         train_time = Timer()
         train_time.start()
         policy.sampling_decay_rate = 0.2
-        train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_replay_buffer, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
+        train_model_save_path, eval_num_success, eval_num_total = train_policy(policy, expert_buffers, replay_buffer,  args.max_episode, args.expert_prob,all_saving_dirs)
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
         print(train_time_text)
         print("\nTrain complete!")
