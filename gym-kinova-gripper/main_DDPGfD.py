@@ -248,14 +248,14 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 if ready_for_lift:
                     action_str = "Constant lift action by controller"
                 else:
-                    action_str = str(action)
+                    action_str = "Policy Action Output:\nFinger 1: {}\nFinger 2: {}\nFinger 3: {}".format(action[1],action[2],action[3])
                 if done:
                     final_success = reward
                 else:
                     final_success = None
                 if i % 10 == 0:
                     # Set the info to be displayed in episode rendering based on current hand/object status
-                    action_str = "action: " + action_str + "\nobj_local_pos: " + str(obj_local_pos)
+                    action_str = action_str + "\nObject Position (local x,y,z): " + str(obj_local_pos) + "\nReward: "+str(reward)
                     eval_env.render_img(dir_name="eval" + "_" + datestr, text_overlay=action_str, episode_num=i,
                                                timestep_num=timestep_count,
                                                obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]),final_episode_type=final_success)

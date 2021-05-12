@@ -1499,7 +1499,9 @@ class KinovaGripper_Env(gym.Env):
 
             # Overlay text string
             if text_overlay != None:
-                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=24)
+                draw = ImageDraw.Draw(img)
+                font = ImageFont.truetype(r'/kinova_description/fonts/arial.ttf', 26)
+                draw.text((0, h-(h/4)), text_overlay, (255,255,255), font=font)
 
             # Save image
             img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
