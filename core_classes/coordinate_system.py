@@ -6,7 +6,7 @@
 #    the location of an aruco marker, etc.
 # CoordinateSystemTransformBase: Use to make matrices that take objects from one coordinate system to another
 #  The from and to coordinate systems are explicitly named to support debugging/sanity checking
-#  Also has support tools for building matrices in common ways (eg, a translation and a rotation
+#  Also has support tools for building matrices in common ways (eg, a translation and a rotation)
 #  Bounding box is the mesh/geometry BEFORE the transformation - can always apply matrix transform to get resulting bbox
 #
 # Assumptions for all coordinate systems is that z is up and x is left-right, y is in-out
@@ -25,9 +25,9 @@ class CoordinateSystemBase:
 
     # Some common types of coordinate systems
     coordinate_system_type = {"world":{"origin"},
-                              "hand":{"origin", "xmlOrURDF", "centered", "wrist", "handspan", "distal"},
-                              "object":{"origin", "xmlOrURDF", "centered", "base", "center", "grasp"},
-                              "environment":{"origin", "xmlOrURDF", "center", "aruco"},
+                              "hand":{"origin", "xmlOrURDF", "centered", "wrist", "handspan", "world", "distal"},
+                              "object":{"origin", "xmlOrURDF", "centered", "base", "grasp_center", "world"},
+                              "environment":{"origin", "xmlOrURDF", "center", "world", "aruco"},
                               "arm":{"origin", "xmlOrURDF", "base", "endeffector"},
                               "signedDistanceFunction":{"origin", "center"},
                               "camera":{"origin", "xmlOrURDF", "at", "aruco"}}
@@ -86,7 +86,9 @@ class CoordinateSystemBase:
 
 
 class CoordinateSystemTransformBase:
-    # The following two are for setting a coordinate transform based on the geometry
+    # The following two are for setting a coordinate transform based on the geometry - see above for defining
+    #  from and to coordinate systems
+
     # Where the base of the coordinate system is
     base_location_type = {"current", "center", "bottom_middle", "lower_left"}
 
@@ -191,19 +193,6 @@ class CoordinateSystemTransformBase:
         @returns Output bounding box"""
 
         return self.bbox_from.calc_transformed_bbox(self.get_matrix())
-
-    def get_matrix(self) -> nparray:
-        """ Return the transform
-        @returns: np array representing a matrix"""
-        return self.xform()
-
-    def get_inverse_matrix(self) -> nparray:
-        """ -translation * rotation transposed * 1/scaling
-        @returns: np array representing a matrix"""
-        trans = nparray((4, 4))
-        # Set translation and rotation
-        raise NotImplementedError
-        #return trans
 
     @staticmethod
     def combine_transforms(seq_transforms) ->nparray:

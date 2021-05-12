@@ -73,6 +73,7 @@ class StatsTrackerBase:
     @staticmethod
     def create_instance(min_bds, max_bds, debug=True):
         """ Create an instance based on the type (float/int or array)
+        TODO Be able to pass in the get_name method so you can name the variable
         @param min_bds is either a number or an array
         @param max_bds should match dimensionality of min_bds
         @returns An instance of StatsTrackerBase (floats/ints) or StatsTrackerArray(array, numpy array) or DoNothing (debug = false"""

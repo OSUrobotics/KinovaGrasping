@@ -71,7 +71,6 @@ class BoundingBox:
 
         raise NotImplementedError
 
-
     def render(self):
         """ TODO Render the bounding box in OpenGL"""
         raise NotImplementedError
