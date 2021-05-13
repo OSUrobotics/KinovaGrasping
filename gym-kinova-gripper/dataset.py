@@ -1,5 +1,6 @@
 import numpy as np
 import os
+import random
 
 
 class Dataset:
@@ -114,6 +115,8 @@ class Dataset:
             for key, value in self.all_options[dataset]["Opns"].items():
                 with open(value[3], 'r') as f:
                     array_coords = f.readlines()
+                random.shuffle(array_coords)
+
                 self.all_options[dataset]["Opns"][key].append(array_coords)
                 self.all_options[dataset]["Opns"][key].append(start_iterator)
                 self.all_options[dataset]["Opns"][key].append(iterator_inc)
@@ -236,7 +239,7 @@ if __name__ == '__main__':
     #                              "Controller": 'Policy'}}}
 
     exp1 = Dataset(gui)
-    train_file = 'cor_train_trial_new.txt'
-    test_file = 'cor_test_trial_new.txt'
+    train_file = 'new_train.txt'
+    test_file = 'new_test.txt'
     exp1.call_of_duty(train_file, test_file)
 
