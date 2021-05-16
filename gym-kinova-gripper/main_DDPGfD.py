@@ -532,7 +532,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             print("EVALUATING EPISODE AT: ",episode_num)
             print("Evaluating with "+str(args.eval_num)+" grasping trials")
             eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=args.eval_num, with_noise=with_orientation_noise)  # , compare=True)
+                                   mode=args.mode, eval_episodes=args.eval_num, with_noise=with_orientation_noise, render_imgs=args.render_imgs)  # , compare=True)
             # Heatmap data - object starting coordinates for evaluation
             eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
             eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
@@ -980,8 +980,8 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
 
     # Set dimensions for state and action spaces - policy initialization
     state_dim = 82  # State dimension dependent on the length of the state space
-    action_dim = env.action_space.shape[0]
-    max_action = float(env.action_space.high[0])
+    action_dim = 4
+    max_action = 0.8
     n = 5   # n step look ahead for the policy
     max_q_value = 50 # Should match the maximum reward value
 
@@ -990,10 +990,10 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
-        "discount": args.discount,
-        "tau": args.tau,
-        "batch_size": args.batch_size,
-        "expert_sampling_proportion": args.expert_prob
+        "discount": 0.995,
+        "tau": 0.0005,
+        "batch_size": 64,
+        "expert_sampling_proportion": 0.7
     }
 
     # Get the comparison policy from a saved location

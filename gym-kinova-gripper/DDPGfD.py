@@ -420,3 +420,6 @@ class DDPGfD(object):
 		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer", map_location=device))
 		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))
 		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=device))
+
+		self.critic_target = copy.deepcopy(self.critic)
+		self.actor_target = copy.deepcopy(self.actor)

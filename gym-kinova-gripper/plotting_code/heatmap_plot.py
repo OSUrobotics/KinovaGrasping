@@ -27,6 +27,20 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     x_bins = int(x_range / 0.002)
     y_bins = int(y_range / 0.002)
 
+    # Initial (local) x,y coordinate positions of the hand
+    palm_xy = [0,0]
+    f1_prox_xy = [-0.052713091739612916,0.006032608331224411]
+    f2_prox_xy = [0.046381192783558026,0.016055807264929084]
+    f3_prox_xy = [0.04673074829459711,0.01592404169727353]
+
+    f1_dist_xy = [-0.08288113504345852,0.025426551697133225]
+    f2_dist_xy = [0.07223797328448193,0.040994914052727705]
+    f3_dist_xy = [0.0726581750025766,0.04083658634787303]
+
+    f1_line = [[f1_dist_xy[0],f1_prox_xy[0],palm_xy[0]], [f1_dist_xy[1],f1_prox_xy[1],palm_xy[1]]]
+    f2_line = [[palm_xy[0],f2_prox_xy[0],f2_dist_xy[0]], [palm_xy[1],f2_prox_xy[1],f2_dist_xy[1]]]
+    f3_line = [[palm_xy[0], f3_prox_xy[0], f3_dist_xy[0]], [palm_xy[1], f3_prox_xy[1], f3_dist_xy[1]]]
+
     # Get total coordinates within their respective bins
     total_data, x_edges, y_edges = np.histogram2d(total_x,total_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
 
@@ -35,6 +49,11 @@ def heatmap_freq(total_x,total_y,plot_title,fig_filename,saving_dir):
     # Plot heatmap from data
     im = ax.imshow(total_data.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
     ax.set_aspect('equal', adjustable='box')
+
+    # Plot the position of each of the fingers on top of the heatmap plot
+    plt.plot(f1_line[0],f1_line[1], label="Finger 1")
+    plt.plot(f2_line[0], f2_line[1], label="Finger 2")
+    plt.plot(f3_line[0], f3_line[1], label="Finger 3")
 
     fig.set_size_inches(12,7)
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
@@ -296,7 +315,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
 
     # FOR EVAL
     if plot_type == "eval":
-        for ep_num in np.linspace(start=saving_freq, stop=max_episodes, num=int(max_episodes / saving_freq), dtype=int):
+        for ep_num in np.linspace(start=0, stop=max_episodes, num=int(max_episodes / saving_freq)+1, dtype=int):
             print("EVAL EP NUM: ",ep_num)
             ep_str = str(ep_num)
             # Get coordinate data as numpy arrays
@@ -321,7 +340,7 @@ if __name__ == "__main__":
     parser.add_argument("--saving_dir", type=str, action='store', default=None)
     parser.add_argument("--plot_type", type=str, action='store', default="train")
     parser.add_argument("--orientation", type=str, action='store', default="normal")
-    parser.add_argument("--saving_freq", default=1000, type=int) # Frequency at which the files were saved at (Determines the filename ex: success_x_1000.npy)
+    parser.add_argument("--saving_freq", default=200, type=int) # Frequency at which the files were saved at (Determines the filename ex: success_x_1000.npy)
     parser.add_argument("--max_episodes", default=4000, type=int) # Maximum number of episodes to be plotted
     args = parser.parse_args()
 
