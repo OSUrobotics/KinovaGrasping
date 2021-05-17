@@ -186,6 +186,7 @@ class Distance(StateMetric):
             self.data.set_value(dists[0])
 
         elif 'Size' in keys:
+            TODO fix this so that it works by using the old method
             geom_sizes = np.array(StateMetric._sim.model.geom_size)
             num_of_geoms = np.shape(geom_sizes)
             geom_poses = np.array(StateMetric._sim.data.geom_xpos)
