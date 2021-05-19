@@ -378,6 +378,11 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
     type_of_training: Based on training mode ("pre-train", "eval", "test", etc.)
     max_num_timesteps: Maximum number of time steps within a RL episode
     """
+
+    # Initialize and copy current policy to be the best policy
+    best_policy = DDPGfD.DDPGfD()
+    best_policy.copy(policy)
+
     # Get saving file paths from dictionary
     saving_dir = all_saving_dirs["saving_dir"]
     replay_dir = all_saving_dirs["replay_buffer"]
@@ -557,6 +562,21 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             eval_action[-1].append(all_action_values["policy_actions"])
             eval_action_with_noise[-1].append(all_action_values["actions_with_noise"])
 
+            # Save a copy of the current policy for evaluation purposes
+            evaluated_policy_path = all_saving_dirs["results_saving_dir"] + "/policy_" + str(episode_num) + "/"
+            create_paths([evaluated_policy_path])
+            policy.save(evaluated_policy_path)
+            print("Evaluation from "+str(episode_num)+"Saving current policy at: ",all_saving_dirs["results_saving_dir"]+"policy_"+str(episode_num)+"/")
+
+            # Check if the current policy is the best policy
+            policy.avg_evaluation_reward = eval_ret["avg_reward"]
+            if policy.avg_evaluation_reward >= best_policy.avg_evaluation_reward:
+                best_policy.copy(policy)
+                print("Evaluation episode: "+str(episode_num)+" COPYING Current Policy to be the BEST policy")
+            else:
+                policy.copy(best_policy)
+                print("Evaluation episode: " + str(episode_num) + " COPYING Best Policy to be the CURRENT policy")
+
         # Save coordinates every 200 episodes
         if episode_num+1 == num_episodes or (episode_num) % args.save_freq == 0:
             print("Saving heatmap data at: ", all_saving_dirs["heatmap_dir"])
@@ -573,8 +593,11 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             np.save(all_saving_dirs["boxplot_dir"] + "/total_reward_" + str(episode_num),total_reward)
 
             # Save the finger velocities for plotting and evaluation
-            np.save(all_saving_dirs["results_saving_dir"] + "/policy_actions_" + str(episode_num), all_action_values["policy_actions"])
-            np.save(all_saving_dirs["results_saving_dir"] + "/actions_with_noise_" + str(episode_num), all_action_values["actions_with_noise"])
+            actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/policy_actions_" + str(episode_num)
+            actions_with_noise_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/actions_with_noise_" + str(episode_num)
+            create_paths([all_saving_dirs["results_saving_dir"] + "/eval_actions/"])
+            np.save(actions_path, all_action_values["policy_actions"])
+            np.save(actions_with_noise_path, all_action_values["actions_with_noise"])
 
             finger_reward = [[]]
             grasp_reward = [[]]
@@ -587,8 +610,8 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
 
     # Training is complete, now save policy and replay buffer
     # Save policy
-    print("Saving policy...")
-    policy.save(all_saving_dirs["model_save_path"])
+    print("Saving the BEST policy...")
+    best_policy.save(all_saving_dirs["model_save_path"])
     print("Saved policy at: ", all_saving_dirs["model_save_path"])
 
     print("Saving Agent replay buffer experience...")
@@ -1399,6 +1422,11 @@ if __name__ == "__main__":
                                    mode=args.mode, eval_episodes=args.max_episode, render_imgs=args.render_imgs, with_noise=with_orientation_noise)
             # Add further evaluation here
             writer = write_tensor_plot(writer, eval_num, eval_ret["avg_reward"], eval_ret["avg_rewards"], 0, 0, 0, 0, 0)
+
+        generate_output(text="\nPARAMS: \n" + param_text, data_dir=all_saving_dirs["output_dir"],
+                        orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"],
+                        num_success=eval_ret["num_success"], num_total=eval_ret["eval_num_total"], all_saving_dirs=all_saving_dirs)
+
 
 
     # Experiments for RL paper
