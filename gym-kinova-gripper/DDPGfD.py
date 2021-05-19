@@ -54,7 +54,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
+	def __init__(self, state_dim=82, action_dim=4, max_action=0.8, n=5, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -75,6 +75,9 @@ class DDPGfD(object):
 		self.current_expert_proportion = expert_sampling_proportion
 		self.sampling_decay_rate = 0.2
 		self.sampling_decay_freq = 400
+
+		# Most recent evaluation reward produced by the policy within training
+		self.avg_evaluation_reward = 0
 
 		self.batch_size = batch_size
 
@@ -406,13 +409,42 @@ class DDPGfD(object):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
+	def copy(self, policy_to_copy_from):
+		""" Copy input policy to be set to another policy instance
+		policy_to_copy_from: policy that will be copied from
+        """
+		# Copy the actor and critic networks
+		self.actor = copy.deepcopy(policy_to_copy_from.actor)
+		self.actor_target = copy.deepcopy(policy_to_copy_from.actor_target)
+		self.actor_optimizer = copy.deepcopy(policy_to_copy_from.actor_optimizer)
 
+		self.critic = copy.deepcopy(policy_to_copy_from.critic)
+		self.critic_target = copy.deepcopy(policy_to_copy_from.critic_target)
+		self.critic_optimizer = copy.deepcopy(policy_to_copy_from.critic_optimizer)
+
+		self.discount = policy_to_copy_from.discount
+		self.tau = policy_to_copy_from.tau
+		self.n = policy_to_copy_from.n
+		self.network_repl_freq = policy_to_copy_from.network_repl_freq
+		self.total_it = policy_to_copy_from.total_it
+		self.lambda_Lbc = policy_to_copy_from.lambda_Lbc
+		self.avg_evaluation_reward = policy_to_copy_from.avg_evaluation_reward
+
+		# Sample from the expert replay buffer, decaying the proportion expert-agent experience over time
+		self.initial_expert_proportion = policy_to_copy_from.initial_expert_proportion
+		self.current_expert_proportion = policy_to_copy_from.current_expert_proportion
+		self.sampling_decay_rate = policy_to_copy_from.sampling_decay_rate
+		self.sampling_decay_freq = policy_to_copy_from.sampling_decay_freq
+		self.batch_size = policy_to_copy_from.batch_size
 
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
+		torch.save(self.critic_target.state_dict(), filename + "_critic_target")
 		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
 		torch.save(self.actor.state_dict(), filename + "_actor")
+		torch.save(self.actor_target.state_dict(), filename + "_actor_target")
 		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+		np.save(filename + "avg_evaluation_reward",np.array([self.avg_evaluation_reward]))
 
 
 	def load(self, filename):
