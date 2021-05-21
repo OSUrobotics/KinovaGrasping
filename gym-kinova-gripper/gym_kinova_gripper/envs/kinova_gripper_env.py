@@ -1331,7 +1331,7 @@ class KinovaGripper_Env(gym.Env):
         
 
         if len(action)==4:
-            action=[0,0,action[0],action[1],action[2],action[3],0,0]
+            action=[0,0,action[0],action[1],action[2],action[3],0,0,0]
 
         if self.arm_or_hand=="hand":
             mass=0.733
@@ -1350,11 +1350,15 @@ class KinovaGripper_Env(gym.Env):
                     self._sim.data.set_joint_qpos('j2s7s300_slide_z',0)
                     self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
                 if action[6]==0:
-                    #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_yaw',0)
-                    self._sim.data.set_joint_qvel('j2s7s300_joint_wrist_yaw',0)
+                    #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_pitch',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_joint_wrist_roll',0)
                 if action[7]==0:
                     #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_pitch',0)
                     self._sim.data.set_joint_qvel('j2s7s300_joint_wrist_pitch',0)
+                if action[8]==0:
+                    #self._sim.data.set_joint_qpos('j2s7s300_joint_wrist_yaw',0)
+                    self._sim.data.set_joint_qvel('j2s7s300_joint_wrist_yaw',0)
+
 
                 if self.step_coords=='global':
                     slide_vector=np.matmul(self.Tfw[0:3,0:3],action[0:3])
@@ -1392,6 +1396,7 @@ class KinovaGripper_Env(gym.Env):
                 
                 self._sim.data.ctrl[9] = action[6]
                 self._sim.data.ctrl[10] = action[7]
+                self._sim.data.ctrl[11] = action[8]
 
 
                 #print(self._sim.data.ctrl)

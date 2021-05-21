@@ -7,8 +7,8 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 <mujoco model="j2s7s300">
     <compiler angle="radian" meshdir="meshes/" />
-    <option timestep ="0.01" impratio="5"> 
-    	
+    <option timestep ="0.01" impratio="5" collision="predefined"> 
+    	<flag gravity="disable"/>
     </option>
     <!-- <size njmax="500" nconmax="100" /> -->
     <asset>
@@ -63,7 +63,9 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 					<joint name="j2s7s300_slide_x" type="slide" pos="0 0 0" axis="0 1 0" limited="true" range="-0.2 0.2" />
 					<joint name="j2s7s300_slide_y" type="slide" pos="0 0 0" axis="0 0 1" limited="true" range="-0.2 0.2" />
 					<joint name="j2s7s300_slide_z" type="slide" pos="0 0 0" axis="1 0 0" limited="true" range="0.0 0.2" />
-					<joint name="j2s7s300_joint_wrist" type="hinge" pos="0 0 0" axis="0 0 1"/>
+					<joint name="j2s7s300_joint_wrist_roll" type="hinge" pos="0 0 0" axis="1 0 0"/>
+					<joint name="j2s7s300_joint_wrist_pitch" type="hinge" pos="0 0 0" axis="0 1 0"/>
+					<joint name="j2s7s300_joint_wrist_yaw" type="hinge" pos="0 0 0" axis="0 0 1"/>
 					<geom name="palm" type="mesh" rgba="0.792157 0.819608 0.933333 1" mesh="link_7"/>
 					<site name="palm" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.0 0.0 -0.11" quat="0 1 0 0"/>
 					<site name="palm_1" type="cylinder" size= "0.005 0.005 0.005" rgba="25 0.5 0.7 1" pos="0.02 0.0 -0.11" quat="0 1 0 0"/>
@@ -145,10 +147,11 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
     	</body>
 <!-- 		<body name="ground" pos="0 0 -0.01">
 			<geom condim="3" size="2.0 2.0 0.02" rgba="0 1 0 1" type="box"/>
+		
 		</body> -->
 		<geom name="ground" class="ground" pos="0 0 0" size="0.5 0.5 1" rgba="1 1 1 0.3"/>
 		<body name="object" pos="0 0 0">
-            <site name="obj_vec" type="cylinder" size="0.001 0.01" rgba="1 0.5 0.5 1" pos="0.008530517844785469 0.0012811123681114609 0.06005855872754963" euler="-0.2480411532670751 1.0218059114030003 -0.13952863650939984"/>
+            <site name="obj_vec" type="cylinder" size="0.001 0.01" rgba="1 0.5 0.5 1" pos="0.0023230140150971197 -0.007073442456400026 0.061676078017942865" euler="0.8142903611425047 0.23444314658711501 0.10148002269883032"/>
 			<joint name="object" type="free" />
 			<geom mass="0.1" name="object" rgba="0 1 0 1" size="0.02125 0.02125 0.055" type="box" material="BrightMaterial"/>
 		</body>				
@@ -157,15 +160,16 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
     <contact>
     	<pair geom1="object" geom2="ground" condim="3" friction="0.3 0.3 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f1_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+    	<!--
+		<pair geom1="object" geom2="f1_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     	<pair geom1="object" geom2="f1_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     	<pair geom1="object" geom2="f2_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     	<pair geom1="object" geom2="f2_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     	<pair geom1="object" geom2="f3_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     	<pair geom1="object" geom2="f3_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
     	<pair geom1="object" geom2="palm" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    
-    </contact>
+    	-->
+	</contact>
 
     <tendon>
     	<fixed name="finger_1" range="0 1">
@@ -186,7 +190,6 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
     	<tendon name="finger_1" tendon1="finger_1"/>
     	<tendon name="finger_2" tendon1="finger_2"/>
     	<tendon name="finger_3" tendon1="finger_3"/>
-
     </equality>
 	<!-- ======================= Joint position control with velocity and position actuators ================================ -->
 <!-- 	<actuator>
@@ -220,7 +223,13 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
 		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
 		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
-		<velocity joint="j2s7s300_joint_wrist" kv="2" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
+		<!--
+		<velocity joint="j2s7s300_joint_wrist_yaw" kv="2" ctrllimited="true" ctrlrange="-6.28 6.28"></velocity>
+		<velocity joint="j2s7s300_joint_wrist_pitch" kv="2" ctrllimited="true" ctrlrange="-6.28 6.28"></velocity>
+		-->
+		<motor joint="j2s7s300_joint_wrist_roll" gear="25"></motor>
+		<motor joint="j2s7s300_joint_wrist_pitch" gear="25"></motor>
+		<motor joint="j2s7s300_joint_wrist_yaw" gear="25"></motor>
 	</actuator> 	
 	<!-- ======================= Torque actuators ================================ -->
 	<!-- <actuator>
@@ -248,7 +257,9 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 	<jointpos joint='j2s7s300_slide_x'/>
 	<jointpos joint='j2s7s300_slide_y'/>
         <jointpos joint='j2s7s300_slide_z'/>
-	<jointpos joint='j2s7s300_joint_wrist'/>
+	<jointpos joint='j2s7s300_joint_wrist_roll'/>
+	<jointpos joint='j2s7s300_joint_wrist_pitch'/>
+	<jointpos joint='j2s7s300_joint_wrist_yaw'/>
 
 <!--
 
