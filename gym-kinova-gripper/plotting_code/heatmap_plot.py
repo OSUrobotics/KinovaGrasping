@@ -8,6 +8,75 @@ import os
 import argparse
 from pathlib import Path
 
+def heatmap_actual_coords(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
+    """ Create heatmap displaying the actual locations of object initial starting position coordinates
+    total_x: Total initial object position x-coordinates
+    total_y: Total initial object position y-coordinates
+    plot_title, plot_name, fig_filename, saving_dir
+    """
+    title = plot_title
+    cb_label = 'Frequency count of all grasp trials'
+    x_min = min(min(total_x),-0.12)
+    x_max = max(max(total_x),0.12)
+    y_min = min(min(total_y),0)
+    y_max = max(max(total_y),0.09)
+
+    x_range = x_max - (x_min)
+    y_range = y_max - y_min
+    x_bins = int(x_range / 0.002)
+    y_bins = int(y_range / 0.002)
+
+    if state_rep == "global":
+        # GLOBAL initial x,y coordinate positions of the hand
+        palm_xy = [8.302983433495364e-05, 0.07040193842926876]
+        f1_prox_xy = [0.05190709651841579, 0.05922107376362523]
+        f2_prox_xy = [-0.047800791389975575, 0.05905594293043447]
+        f3_prox_xy = [-0.047842290951250165, 0.05909756861129018]
+
+        f1_dist_xy = [0.07998453867584633, 0.03696301651652619]
+        f2_dist_xy = [-0.07601887636517492, 0.036798442851176685]
+        f3_dist_xy = [-0.07606888985873166, 0.03684846417454405]
+        color_value = '#88c999'  # Green
+    else:
+        # Initial (local) x,y coordinate positions of the hand
+        palm_xy = [0, 0]
+        f1_prox_xy = [-0.052713091739612916, 0.006032608331224411]
+        f2_prox_xy = [0.046381192783558026, 0.016055807264929084]
+        f3_prox_xy = [0.04673074829459711, 0.01592404169727353]
+
+        f1_dist_xy = [-0.08288113504345852, 0.025426551697133225]
+        f2_dist_xy = [0.07223797328448193, 0.040994914052727705]
+        f3_dist_xy = [0.0726581750025766, 0.04083658634787303]
+        color_value = '#a64dff'  # Purple
+
+    f1_line = [[f1_dist_xy[0],f1_prox_xy[0],palm_xy[0]], [f1_dist_xy[1],f1_prox_xy[1],palm_xy[1]]]
+    f2_line = [[palm_xy[0],f2_prox_xy[0],f2_dist_xy[0]], [palm_xy[1],f2_prox_xy[1],f2_dist_xy[1]]]
+    f3_line = [[palm_xy[0], f3_prox_xy[0], f3_dist_xy[0]], [palm_xy[1], f3_prox_xy[1], f3_dist_xy[1]]]
+
+    fig, ax = plt.subplots()
+    plt.scatter(total_x,total_y, color = color_value)
+
+    # Plot the position of each of the fingers on top of the heatmap plot
+    plt.plot(f1_line[0],f1_line[1], label="Finger 1")
+    plt.plot(f2_line[0], f2_line[1], label="Finger 2")
+    plt.plot(f3_line[0], f3_line[1], label="Finger 3")
+
+    fig.set_size_inches(12,7)
+    ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
+    ax.xaxis.set_minor_locator(MultipleLocator(0.001))
+    ax.yaxis.set_major_locator(MultipleLocator(0.01))
+    ax.yaxis.set_minor_locator(MultipleLocator(0.001))
+
+    # Plot labels
+    plt.title(plot_title)
+    plt.xlabel('X-axis coordinate position (meters)')
+    plt.ylabel('Y-axis coordinate position (meters)')
+
+    if saving_dir is None:
+        plt.show()
+    else:
+        plt.savefig(saving_dir+fig_filename)
+        plt.close(fig)
 
 def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
     """ Create heatmap displaying frequency of object initial starting position coordinates
@@ -17,10 +86,10 @@ def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
     """
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_min = -0.09
-    x_max = 0.09
-    y_min = 0
-    y_max = 0.07
+    x_min = min(min(total_x),-0.12)
+    x_max = max(max(total_x),0.12)
+    y_min = min(min(total_y),0)
+    y_max = max(max(total_y),0.09)
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -58,7 +127,7 @@ def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
     fig, ax = plt.subplots()
 
     # Plot heatmap from data
-    im = ax.imshow(total_data.T, cmap=plt.cm.Oranges, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
+    im = ax.imshow(total_data.T, cmap=plt.cm.Purples, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
     ax.set_aspect('equal', adjustable='box')
 
     # Plot the position of each of the fingers on top of the heatmap plot
@@ -85,16 +154,16 @@ def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
         plt.show()
     else:
         plt.savefig(saving_dir+fig_filename)
-        plt.clf()
+        plt.close(fig)
 
 def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,state_rep,plot_title,fig_filename,saving_dir,plot_success):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
 
-    x_min = -0.09
-    x_max = 0.09
-    y_min = 0
-    y_max = 0.07
+    x_min = min(min(total_x),-0.12)
+    x_max = max(max(total_x),0.12)
+    y_min = min(min(total_y),0)
+    y_max = max(max(total_y),0.09)
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -198,6 +267,7 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,state_rep,plo
     cb.set_label(cb_label)
 
     plt.savefig(saving_dir+fig_filename)
+    #plt.show()
 
 
 def change_image_transparency(image_filepath,alpha=0):
@@ -231,7 +301,7 @@ def change_image_transparency(image_filepath,alpha=0):
     img.save(image_filepath, "PNG",transparent=True)
 
 
-def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,state_rep,saving_dir):
+def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,state_rep,saving_dir,title_str=""):
     """ Calls ferquency and success/fail heatmap plots 
     success_x: Successful initial object position x-coordinates
     success_y: Successful initial object position y-coordinates
@@ -250,19 +320,23 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
     if not os.path.isdir(freq_saving_dir):
         os.mkdir(freq_saving_dir)
 
-    title_str = ""
-    if ep_str != "":
+    if ep_str == "_":
+        ep_str = ""
+    elif ep_str != "":
         title_str = "\nEvaluated at Ep. " + ep_str
         ep_str = "_" + ep_str
 
     title_str += " " + orientation.capitalize() + " Hand Orientation"
 
     # Plot frequency heatmap
-    freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object" + title_str
+    freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object\n" + title_str
     heatmap_freq(total_x,total_y,state_rep,freq_plot_title,'freq_heatmap'+ep_str+'.png',freq_saving_dir)
 
+    actual_plot_title = "Initial Coordinate Position of the Object\n" + title_str
+    heatmap_actual_coords(total_x,total_y,state_rep,freq_plot_title,'actual_heatmap'+ep_str+'.png',freq_saving_dir)
+
     # Plot failed (negative success rate) heatmap
-    heatmap_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of the Object" + title_str
+    heatmap_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of the Object\n" + title_str
     heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y, state_rep, heatmap_plot_title, 'fail_heatmap'+ep_str+'.png',
                  heatmap_saving_dir, plot_success=False)
 
@@ -274,9 +348,11 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
     success_filepath = heatmap_saving_dir + 'success_heatmap'+ep_str+'.png'
     fail_filepath = heatmap_saving_dir + 'fail_heatmap' + ep_str + '.png'
     combined_filepath = heatmap_saving_dir+'combined_heatmap'+ep_str+'.png'
+    actual_heatmap_filepath = freq_saving_dir+'actual_heatmap'+ep_str+'.png'
 
     change_image_transparency(success_filepath)
     change_image_transparency(fail_filepath)
+    change_image_transparency(actual_heatmap_filepath)
 
     overlap_images(success_filepath,fail_filepath, combined_filepath)
 
@@ -317,7 +393,7 @@ def get_heatmap_coord_data(data_dir,ep_str):
     return arr_dict["success_x"], arr_dict["success_y"], arr_dict["fail_x"], arr_dict["fail_y"], arr_dict["total_x"], arr_dict["total_y"]
 
 
-def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, max_episodes=20000, state_rep="local"):
+def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, max_episodes=20000, state_rep="local",title_str=""):
     """ Controls whether train or evaluation heatmap plots are generated
     plot_type: Type of plot (train or eval - eval will produce multiple plots)
     data_dir: Directory location of data file (coordinates)
@@ -345,7 +421,7 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
             success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+ep_str)
 
             # Plot coordinate data to frequency and success rate heatmaps
-            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, state_rep, saving_dir)
+            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, state_rep, saving_dir,title_str="")
     else:
         # FOR TRAIN
         ep_str = ""
@@ -353,6 +429,22 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
         success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, ep_str)
         total_x = np.append(success_x,fail_x)
         total_y = np.append(success_y,fail_y)
+        """
+        fail_x_temp = np.array([])
+        fail_y_temp = np.array([])
+        print("fail_coords:")
+        print("fail_y: ",fail_y)
+        for i in range(len(fail_x)):
+            if -0.03 < fail_x[i] < 0 and fail_y[i] < 0.01:
+                fail_x_temp =np.append(fail_x_temp,fail_x[i])
+                fail_y_temp = np.append(fail_y_temp,fail_y[i])
+                print(fail_x[i],",",fail_y[i])
+                #print(fail_x_temp[i], ",", fail_y_temp[i])
+        print("Fail_x,y: ")
+        for i in range(len(fail_x_temp)):
+            print(fail_x_temp[i],",",fail_y_temp[i])
+        """
+
         # Plot coordinate data to frequency and success rate heatmaps
         create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, state_rep, saving_dir)
 
