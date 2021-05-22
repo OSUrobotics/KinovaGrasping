@@ -26,9 +26,11 @@ import glob # Used for getting saved policy filename
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
-from heatmap_plot import generate_heatmaps
+import matplotlib.pyplot as pyplt # Used for evaluation plotting
+from heatmap_plot import generate_heatmaps, create_heatmaps, overlap_images
 from boxplot_plot import generate_reward_boxplots
 from heatmap_coords import add_heatmap_coords, filter_heatmap_coords
+from evaluation_plots import reward_plot
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
@@ -130,10 +132,13 @@ def compare_test():
 def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, with_noise, eval_episodes=100, compare=False, render_imgs=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
-    # Heatmap plot success/fail object coordinates
+    # Local representation of the object coordinates
     success_coords = {"x": [], "y": [], "orientation": []}
     fail_coords = {"x": [], "y": [], "orientation": []}
     # hand orientation types: NORMAL, Rotated (45 deg), Top (90 deg)
+
+    # Initial (timestep = 0) transformation matrices (from Global to Local) for each episode
+    all_hand_object_coords = []
 
     # match timesteps to expert and pre-training
     max_num_timesteps = 30
@@ -155,7 +160,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
-        success=0
+        success = 0
         state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env",with_noise=with_noise), False
 
         # Record initial coordinate file path once shapes are generated
@@ -164,12 +169,24 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         # Sets number of timesteps per episode (counted from each step() call)
         eval_env._max_episode_steps = max_num_timesteps
 
-        # Keep track of object coordinates
-        obj_coords = eval_env.get_obj_coords()
-        # Local coordinate conversion
-        obj_local = np.append(obj_coords,1)
+        # Global object and hand coordinates
+        hand_object_coords = {"local_obj_coords": [], "global_obj_coords": [], "local_hand_coords": [],
+                              "global_hand_coords": [], "global_to_local_transf": [], "orientation": [],
+                              "hand_orient_variation": [], "success": 0}
+        global_obj_coords = np.array(eval_env.get_obj_coords())
+        global_hand_coords = eval_env.wrist_pose
+        global_to_local_transf = eval_env.Tfw
+        hand_orient_variation = eval_env.hand_orient_variation
+
+        # Global to Local coordinate conversion of the object position
+        obj_local = np.append(global_obj_coords,1)
         obj_local = np.matmul(eval_env.Tfw,obj_local)
-        obj_local_pos = obj_local[0:3]
+        local_obj_coords = obj_local[0:3]
+
+        # Global to Local coordinate conversion of the wrist (hand) position
+        hand_local = np.append(eval_env.wrist_pose, 1)
+        hand_local = np.matmul(eval_env.Tfw, hand_local)
+        local_hand_coords = hand_local[0:3]
 
         timestep_count = 0
         prev_state_lift_check = None
@@ -255,14 +272,14 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                     final_success = None
                 if i % 10 == 0:
                     # Set the info to be displayed in episode rendering based on current hand/object status
-                    action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(obj_local_pos[0],obj_local_pos[1],obj_local_pos[2],reward)
+                    action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0],local_obj_coords[1],local_obj_coords[2],reward)
                     eval_env.render_img(dir_name="eval" + "_" + datestr, text_overlay=action_str, episode_num=i,
                                                timestep_num=timestep_count,
-                                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]),final_episode_type=final_success)
+                                               obj_coords=str(local_obj_coords[0]) + "_" + str(local_obj_coords[1]),final_episode_type=final_success)
 
             #####
-            if reward > 25:
-                success=1
+            if reward >= 50:
+                success = 1
 
             state = next_state
             prev_state_lift_check = curr_state_lift_check
@@ -281,13 +298,24 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         all_action_values["policy_actions"].append(episode_actions)
         all_action_values["actions_with_noise"].append(episode_actions_with_noise)
 
-        num_success+=success
+        num_success += success
 
         # Add heatmap coordinates
-        orientation = env.get_orientation()
-        ret = add_heatmap_coords(success_coords, fail_coords, orientation, obj_local_pos, success)
+        orientation = eval_env.get_orientation()
+        ret = add_heatmap_coords(success_coords, fail_coords, orientation, local_obj_coords, success)
         success_coords = copy.deepcopy(ret["success_coords"])
         fail_coords = copy.deepcopy(ret["fail_coords"])
+
+        # Save the hand-object coordinates to track the transformations
+        hand_object_coords["local_obj_coords"] = local_obj_coords
+        hand_object_coords["global_obj_coords"] = global_obj_coords
+        hand_object_coords["local_hand_coords"] = local_hand_coords
+        hand_object_coords["global_hand_coords"] = global_hand_coords
+        hand_object_coords["global_to_local_transf"] = global_to_local_transf
+        hand_object_coords["orientation"] = orientation
+        hand_object_coords["hand_orient_variation"] = hand_orient_variation
+        hand_object_coords["success"] = bool(success)
+        all_hand_object_coords.append(hand_object_coords)
 
     avg_reward /= eval_episodes
 
@@ -302,7 +330,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "all_action_values" : all_action_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords}
+    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "all_action_values" : all_action_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords, "all_hand_object_coords": all_hand_object_coords}
     return ret
 
 
@@ -447,7 +475,7 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
         # Local coordinate conversion
         obj_local = np.append(obj_coords,1)
         obj_local = np.matmul(env.Tfw,obj_local)
-        obj_local_pos = obj_local[0:3]
+        local_obj_coords = obj_local[0:3]
 
         replay_buffer.add_episode(1)
         # Add orientation noise to be recorded by replay buffer
@@ -992,6 +1020,8 @@ def setup_args(args=None):
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
     parser.add_argument("--pretrain_policy_path", type=str, action='store', default="./experiments/pre-train/Critic_sigmoid_InOrder/policy/pre-train_DDPGfD_kinovaGrip_04_29_21_1223/") # Path to the pre-trained policy to be loaded
+    parser.add_argument("--test_policy_path", type=str, action='store', default="./experiments/pre-train/Critic_sigmoid_InOrder/policy/pre-train_DDPGfD_kinovaGrip_04_29_21_1223/") # Path of the policy to be tested
+    parser.add_argument("--test_policy_name", type=str, action='store', default="") # Test policy name for clear plotting
     parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
 
     args = parser.parse_args()
@@ -1213,6 +1243,8 @@ if __name__ == "__main__":
     ## Pre-trained Policy ##
     # Default pre-trained policy file path
     pretrain_model_save_path = args.pretrain_policy_path
+    test_policy_path = args.test_policy_path
+    test_policy_name = args.test_policy_name
 
     # Initialize timer to analyze run times
     total_time = Timer()
@@ -1403,30 +1435,100 @@ if __name__ == "__main__":
         generate_output(text="\nPARAMS: \n"+param_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=eval_num_success, num_total=eval_num_total, all_saving_dirs=all_saving_dirs)
 
     # Test policy over certain number of episodes -- In Progress
-    elif args.mode == "test":
-        print("MODE: Test")
-        print("Policy: ", pretrain_model_save_path)
+    elif args.mode == "evaluate":
+        print("MODE: Evaluate")
+        print("Policy: ", test_policy_path)
+        print("Policy Name: ", test_policy_name)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, test_policy_path)
 
-        # Tensorboard writer
-        writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
+        # Evaluation variations
+        Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": False, "color": "#808080"} # Grey color
+        Baseline_HOV = {"variation_name": "Baseline + HOV", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": True, "color": "black"}
+        Sizes_HOV = {"variation_name": "Sizes + HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True, "color": "blue"}
+        Shapes_HOV = {"variation_name": "Shapes + HOV", "requested_shapes": ["CubeS", "CylinderS", "Vase2S"], "requested_orientation": "normal", "with_orientation_noise": True, "color": "red"}
 
-        # Load policy
-        policy.load(pretrain_model_save_path)   # Change to be complete, trained policy
+        variations = [Baseline, Baseline_HOV, Sizes_HOV, Shapes_HOV]
 
-        for eval_num in range(1):
-            # Evaluate policy over certain number of episodes
-            eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation,
-                                   mode=args.mode, eval_episodes=args.max_episode, render_imgs=args.render_imgs, with_noise=with_orientation_noise)
-            # Add further evaluation here
-            writer = write_tensor_plot(writer, eval_num, eval_ret["avg_reward"], eval_ret["avg_rewards"], 0, 0, 0, 0, 0)
+        max_episode = 1 #args.max_episode
+        saving_freq = 1 #args.saving_freq
 
-        generate_output(text="\nPARAMS: \n" + param_text, data_dir=all_saving_dirs["output_dir"],
-                        orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"],
-                        num_success=eval_ret["num_success"], num_total=eval_ret["eval_num_total"], all_saving_dirs=all_saving_dirs)
+        reward_fig, (ax1, ax2, ax3, ax4) = pyplt.subplots(1,4)
+        all_axes = [ax1, ax2, ax3, ax4]
+        reward_fig.suptitle("{} Policy Reward Evaluated over 100 Grasp Trials".format(test_policy_name))
+        ax1.set_ylabel("Reward")
 
+        episodes = np.linspace(start=0, stop=max_episode, num=int(max_episode / saving_freq) + 1, dtype=int)
+
+        for ep_num, ax in zip(episodes, all_axes):
+            # Load policy
+            current_test_policy_path = test_policy_path + "/policy_" + str(ep_num) + "/"
+            print("Loading policy: ",current_test_policy_path)
+            policy.load(current_test_policy_path)  # Change to be complete, trained policy
+
+            current_test_output_path = current_test_policy_path + "output/"
+            current_test_heatmap_path = current_test_policy_path + "output/heatmap/"
+            create_paths([current_test_output_path, current_test_heatmap_path])
+
+            for variation_type in variations:
+                variation_heatmap_path = current_test_heatmap_path+variation_type["variation_name"]+"/"
+                create_paths([variation_heatmap_path])
+
+                print("Now evaluating: ", variation_type.items())
+                print("current_test_output_path: ",current_test_output_path)
+                print("current_test_heatmap_path: ", current_test_heatmap_path)
+                print("variation_heatmap_path: ", variation_heatmap_path)
+
+                # Evaluate policy over certain number of episodes
+                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=variation_type["requested_shapes"], requested_orientation=variation_type["requested_orientation"],
+                                       mode=args.mode, eval_episodes=300, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
+
+                rewards = eval_ret["all_ep_reward_values"]
+                reward_plot(ax, rewards["total_reward"], policy_name=test_policy_name, label_name=variation_type["variation_name"], color=variation_type["color"], episode_num=ep_num)
+
+                # Heatmap data - object starting coordinates for evaluation
+                eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
+                eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
+
+                filter_heatmap_coords(eval_success_coords, eval_fail_coords, "", variation_heatmap_path)
+
+                all_hand_object_coords = eval_ret["all_hand_object_coords"]
+
+                requested_orientation = variation_type["requested_orientation"]
+                if requested_orientation == "random":
+                    orientations_list = ["normal", "rotated", "top"]
+                else:
+                    orientations_list = ["normal"]
+
+                for orientation in orientations_list:
+                    hand_object_coords_dicts = [d for d in all_hand_object_coords if d["orientation"] == orientation]
+                    coord_frames = ["local","global"]
+
+                    for frame in coord_frames:
+                        heatmap_orient_dir = variation_heatmap_path + orientation + "/"
+                        create_paths([variation_heatmap_path, heatmap_orient_dir, heatmap_orient_dir+frame+"/"])
+                        success_coords = [d[frame+"_obj_coords"] for d in hand_object_coords_dicts if d["success"] is True]
+                        fail_coords = [d[frame+"_obj_coords"] for d in hand_object_coords_dicts if d["success"] is False]
+
+                        success_x = [coords[0] for coords in success_coords]
+                        success_y = [coords[1] for coords in success_coords]
+                        fail_x = [coords[0] for coords in fail_coords]
+                        fail_y = [coords[1] for coords in fail_coords]
+                        total_x = success_x + fail_x
+                        total_y = success_y + fail_y
+
+                        create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, "", orientation, state_rep=frame, saving_dir=heatmap_orient_dir+frame+"/",title_str=variation_type["variation_name"]+" input variation, "+frame+" coord. frame")
+                        freq_saving_dir = heatmap_orient_dir + frame + "/" + "freq_plots/"
+
+                    local_actual_filepath = heatmap_orient_dir + "local/" + "freq_plots/" + 'actual_heatmap.png'
+                    global_actual_filepath = heatmap_orient_dir + "global/" + "freq_plots/" + 'actual_heatmap.png'
+                    combined_actual_filepath = heatmap_orient_dir + 'combined_actual_heatmap.png'
+                    overlap_images(local_actual_filepath, global_actual_filepath, combined_actual_filepath)
+
+        ax4.legend(title="Input Variation", loc='best')
+        reward_fig.show()
+        reward_fig.savefig(test_policy_path + "/Reward_Evaluation_Plot.jpg")
 
 
     # Experiments for RL paper
