@@ -105,6 +105,7 @@ class KinovaGripper_Env(gym.Env):
         self.coords_filename=None   # Name of the file used to sample initial object and hand pose coordinates from (Ex: noisy coordinates text file)
                                     # coords_filename is default to None to randomly generate coordinate values
         self.orientation='normal' # Stores string of exact hand orientation type (normal, rotated, top)
+        self.hand_orient_variation = np.array([0,0,0]) # Hand orientation variation
         self._viewer = None   # The render window
         self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
         self.Tfw=np.zeros([4,4])   # The trasfer matrix that gets us from the world frame to the local frame
@@ -1280,6 +1281,7 @@ class KinovaGripper_Env(gym.Env):
         # Use the exact hand orientation from the coordinate file
         if with_noise:
             new_rotation = np.array([hand_x, hand_y, hand_z])
+            self.hand_orient_variation = new_rotation
         # Otherwise generate hand coordinate value based on desired orientation
         elif self.filename=="/kinova_description/j2s7s300_end_effector.xml": # Default xml file
             if self.orientation == 'normal':
