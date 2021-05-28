@@ -26,11 +26,11 @@ import glob # Used for getting saved policy filename
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
-import matplotlib.pyplot as pyplt # Used for evaluation plotting
 from heatmap_plot import generate_heatmaps, create_heatmaps, overlap_images
 from boxplot_plot import generate_reward_boxplots
-from heatmap_coords import add_heatmap_coords, filter_heatmap_coords
-from evaluation_plots import reward_plot
+from heatmap_coords import add_heatmap_coords, filter_heatmap_coords, sort_coords_by_region
+from evaluation_plots import reward_plot, generate_heatmaps_by_orientation_frame
+from replay_stats_plot import get_selected_episode_metrics, actual_values_plot
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
@@ -127,9 +127,153 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, seed):
+    """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
+    the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
+    Policy: Policy to evaluate
+    all_hand_object_coords: Coordinate dictionary with their representation within the local and global frame along with the
+    hand orientation and evaluation results (reward value, success)
+    variation_type: Input data type (Baseline, Baseline_HOV, etc.)
+    variation_heatmap_path: Directory where the plots will be saved (Within the variation input directory)
+    seed: seed value to conduct evaluation grasp trials with
+    """
+    frame = "local"
+    requested_orientation = variation_type["requested_orientation"]
+    if requested_orientation == "random":
+        orientations_list = ["normal", "rotated", "top"]
+    else:
+        orientations_list = ["normal"]
+
+    for orientation in orientations_list:
+        heatmap_orient_dir = variation_heatmap_path + orientation + "/"
+        hand_object_coords_dicts = [d for d in all_hand_object_coords if d["orientation"] == orientation]
+        grasping_regions = ["extreme_left", "mid_left", "center", "mid_right", "extreme_right"]
+
+        for region_name in grasping_regions:
+            region_dicts = [d for d in hand_object_coords_dicts if d["local_coord_region"] == region_name]
+            if len(region_dicts) > 0:
+                region_dir = heatmap_orient_dir + "regions/" + region_name + "/"
+                create_paths([region_dir])
+
+                # Sample successful and failed points from evaluation
+                success_dicts = [d for d in region_dicts if d["success"] is True]
+                fail_dicts = [d for d in region_dicts if d["success"] is False]
+
+                # Determine the point within the region with the most extreme value
+                extreme_region_dict = copy.deepcopy(region_dicts[0])
+                max_x_value = abs(extreme_region_dict["global_obj_coords"][0])
+                
+                for temp_dict in region_dicts:
+                    if region_name == "center":
+                        if abs(temp_dict["global_obj_coords"][0]) <= max_x_value:
+                            extreme_region_dict = copy.deepcopy(temp_dict)
+                    else:
+                        if abs(temp_dict["global_obj_coords"][0]) >= max_x_value:
+                            extreme_region_dict = copy.deepcopy(temp_dict)
+                
+                # Determine the hand position based on the most extreme x_value within the region
+                wrist_coords = extreme_region_dict[frame + "_wrist_coords"]
+                finger_coords = extreme_region_dict[frame + "_finger_coords"]
+
+                # Sample 5 points from each region of success/failures to render
+                for dict_list in [success_dicts, fail_dicts]:
+                    for d_idx in range(min(1,len(dict_list))):
+                        curr_dict = dict_list[d_idx]
+
+                        # Evaluate policy with the most extreme coordinate point in the region and create a video rendering
+                        region_eval_ret = eval_policy(policy, args.env_name, args.seed,
+                                                      requested_shapes=variation_type["requested_shapes"],
+                                                      requested_orientation=curr_dict["orientation"],
+                                                      mode="eval", eval_episodes=1,
+                                                      render_imgs=True,
+                                                      start_pos=curr_dict["global_obj_coords"],
+                                                      hand_rotation=curr_dict["hand_orient_variation"],
+                                                      output_dir=region_dir,
+                                                      with_noise=variation_type["with_orientation_noise"])
+
+                        all_action_values = region_eval_ret["all_action_values"]
+                        policy_actions = all_action_values["policy_actions"]
+                        render_file_dir = region_eval_ret["render_file_dir"]
+                        range_of_episodes = np.arange(len(policy_actions))
+                        for metric_idx in range(1, 4):
+                            selected_ep_actions = get_selected_episode_metrics(range_of_episodes, policy_actions, metric_idx)
+                            actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx) + " Velocity",
+                                               "Policy Action Output: Finger " + str(metric_idx) + " Velocity",
+                                               saving_dir=render_file_dir)
+
+                # Save the hand and object coordinates
+                if len(success_dicts) > 0:
+                    dict_file = open(region_dir + "/success_coords_dicts.csv", "w", newline='')
+                    keys = success_dicts[0].keys()
+                    dict_writer = csv.DictWriter(dict_file, keys)
+                    dict_writer.writeheader()
+                    dict_writer.writerows(success_dicts)
+                    dict_file.close()
+
+                if len(fail_dicts) > 0:
+                    dict_file = open(region_dir + "/fail_coords_dicts.csv", "w", newline='')
+                    keys = fail_dicts[0].keys()
+                    dict_writer = csv.DictWriter(dict_file, keys)
+                    dict_writer.writeheader()
+                    dict_writer.writerows(fail_dicts)
+                    dict_file.close()
+
+                # Just take out the successful local coordinates for plotting
+                success_coords = [d[frame + "_obj_coords"] for d in region_dicts if d["success"] is True]
+                fail_coords = [d[frame + "_obj_coords"] for d in region_dicts if d["success"] is False]
+
+                success_x = [coords[0] for coords in success_coords]
+                success_y = [coords[1] for coords in success_coords]
+                fail_x = [coords[0] for coords in fail_coords]
+                fail_y = [coords[1] for coords in fail_coords]
+                total_x = success_x + fail_x
+                total_y = success_y + fail_y
+
+                create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, "", orientation,
+                                wrist_coords=wrist_coords, finger_coords=finger_coords, state_rep=frame,
+                                saving_dir=region_dir, title_str="Input Variation: " + variation_type["variation_name"] + ", " + frame.capitalize() + " coord. frame, Region: " + region_name.capitalize())
+
+def local_to_global_transf(local_coords, Tfw):
+    """ Convert coordinates from the local frame to the global frame """
+    # Local to Global coordinate conversion (from our observation)
+    global_temp = np.append(local_coords, 1)
+    global_temp = np.matmul(np.linalg.inv(Tfw), global_temp)
+    local_to_global_coords = global_temp[0:3].tolist()
+    return local_to_global_coords
+
+def test_global_to_local_transformation(local_coords,global_coords,env_global_coords, Tfw):
+    """ Get the current observation and the environment's global --> local transformation matrix and check
+    the output is the same.
+    """
+    # Number of decimal places to test against
+    precision = 10
+
+    # Global to Local coordinate conversion (from our observation)
+    local_temp = np.append(global_coords, 1)
+    local_temp = np.matmul(Tfw, local_temp)
+    local_temp_coords = local_temp[0:3].tolist()
+
+    # Check our observed global coords, transformed to the local frame, match the observed local coordinates
+    np.testing.assert_array_almost_equal(local_temp_coords,local_coords, decimal=precision, err_msg="Observed Global coords, transformed to Local, do NOT equal the observed Local coordinates")
+
+    # Local to Global coordinate conversion (from our observation)
+    global_temp = np.append(local_coords, 1)
+    global_temp = np.matmul(np.linalg.inv(Tfw), global_temp)
+    global_temp_coords = global_temp[0:3].tolist()
+
+    # Check our observed local coords, transformed to the global frame, match the observed global coordinates
+    np.testing.assert_array_almost_equal(global_temp_coords, global_coords, decimal=precision, err_msg="Observed Local coords, transformed to Global, do NOT equal the observed Global coordinates")
+
+    # Check our observed global coordinates match what the environment has set for the global coordinates (should match)
+    if env_global_coords is not None:
+        np.testing.assert_array_almost_equal(global_coords, env_global_coords, decimal=precision,
+                                      err_msg="Observed Global coords do NOT equal what the environment has set for the Global coordinates")
+
+    print("Done with test_global_to_local_transformation, (decimal precision: "+str(precision)+", all test cases PASSED! :)")
+
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, with_noise, eval_episodes=100, compare=False, render_imgs=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, with_noise, start_pos=None,hand_rotation=None,output_dir=None,eval_episodes=100, compare=False, render_imgs=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Local representation of the object coordinates
@@ -139,6 +283,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     # Initial (timestep = 0) transformation matrices (from Global to Local) for each episode
     all_hand_object_coords = []
+    render_file_dir = output_dir
 
     # match timesteps to expert and pre-training
     max_num_timesteps = 30
@@ -161,7 +306,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
         success = 0
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env",with_noise=with_noise), False
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
 
         # Record initial coordinate file path once shapes are generated
         all_saving_dirs["eval_init_coord_file_path"] = eval_env.get_coords_filename()
@@ -170,23 +315,36 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         eval_env._max_episode_steps = max_num_timesteps
 
         # Global object and hand coordinates
-        hand_object_coords = {"local_obj_coords": [], "global_obj_coords": [], "local_hand_coords": [],
-                              "global_hand_coords": [], "global_to_local_transf": [], "orientation": [],
-                              "hand_orient_variation": [], "success": 0}
-        global_obj_coords = np.array(eval_env.get_obj_coords())
-        global_hand_coords = eval_env.wrist_pose
+        hand_object_coords = {"local_obj_coords": [], "global_obj_coords": [], "local_to_global_obj_coords": [], "local_wrist_coords": [],
+                              "global_wrist_coords": [], "local_to_global_wrist_coords": [], "global_to_local_transf": [], "orientation": [],
+                              "hand_orient_variation": [], "local_finger_coords": [], "global_finger_coords": [], "local_to_global_finger_coords": [], "local_coord_region": "None", "total_episode_reward": 0, "success": 0}
         global_to_local_transf = eval_env.Tfw
         hand_orient_variation = eval_env.hand_orient_variation
 
-        # Global to Local coordinate conversion of the object position
-        obj_local = np.append(global_obj_coords,1)
-        obj_local = np.matmul(eval_env.Tfw,obj_local)
-        local_obj_coords = obj_local[0:3]
+        # Local finger positions (within the state)
+        local_state = eval_env.get_obs_from_coord_frame(coord_frame="local")
+        global_to_local_transf = eval_env.Tfw
+        local_finger_coords = local_state[0:18] # Finger 1, 2, 3 proximal (x,y,z) coords, followed by distal coords
+        local_wrist_coords = local_state[18:21]
+        local_obj_coords = local_state[21:24]
 
-        # Global to Local coordinate conversion of the wrist (hand) position
-        hand_local = np.append(eval_env.wrist_pose, 1)
-        hand_local = np.matmul(eval_env.Tfw, hand_local)
-        local_hand_coords = hand_local[0:3]
+        # Global hand and object positions
+        global_state = eval_env.get_obs_from_coord_frame(coord_frame="global")
+        global_to_local_transf = eval_env.Tfw
+        global_finger_coords = global_state[0:18]
+        global_wrist_coords = global_state[18:21]
+        global_obj_coords = global_state[21:24]
+
+        # Get the environment's current object coordinates
+        env_global_obj_coords = np.array(eval_env.get_obj_coords())
+        env_global_wrist_coords = eval_env.wrist_pose
+
+        #print("Testing the Finger1 proximal coordinates (Global-->Local transformation)")
+        #test_global_to_local_transformation(local_finger_coords[0:3], global_finger_coords[0:3], None, global_to_local_transf)
+        #print("Testing the Wrist coordinates (Global-->Local transformation)")
+        #test_global_to_local_transformation(local_wrist_coords, global_wrist_coords, env_global_wrist_coords, global_to_local_transf)
+        #print("Testing the Object coordinates (Global-->Local transformation)")
+        #test_global_to_local_transformation(local_obj_coords, global_obj_coords, env_global_obj_coords, global_to_local_transf)
 
         timestep_count = 0
         prev_state_lift_check = None
@@ -208,6 +366,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
         # Beginning of episode time steps, done is max timesteps or lift reward achieved
         while not done:
+            #eval_env.render()
+            #print("rendering...")
+
             timestep_count += 1
             if timestep_count < skip_num_ts:
                 wait_for_check = False
@@ -273,9 +434,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 if i % 10 == 0:
                     # Set the info to be displayed in episode rendering based on current hand/object status
                     action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0],local_obj_coords[1],local_obj_coords[2],reward)
-                    eval_env.render_img(dir_name="eval" + "_" + datestr, text_overlay=action_str, episode_num=i,
+                    render_file_dir = eval_env.render_img(dir_name=None, text_overlay=action_str, episode_num=i,
                                                timestep_num=timestep_count,
-                                               obj_coords=str(local_obj_coords[0]) + "_" + str(local_obj_coords[1]),final_episode_type=final_success)
+                                               obj_coords=local_obj_coords, saving_dir=output_dir, final_episode_type=final_success)
 
             #####
             if reward >= 50:
@@ -309,12 +470,27 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         # Save the hand-object coordinates to track the transformations
         hand_object_coords["local_obj_coords"] = local_obj_coords
         hand_object_coords["global_obj_coords"] = global_obj_coords
-        hand_object_coords["local_hand_coords"] = local_hand_coords
-        hand_object_coords["global_hand_coords"] = global_hand_coords
+        hand_object_coords["local_wrist_coords"] = local_wrist_coords
+        hand_object_coords["local_finger_coords"] = local_finger_coords
+        hand_object_coords["global_finger_coords"] = global_finger_coords
+        hand_object_coords["global_wrist_coords"] = global_wrist_coords
         hand_object_coords["global_to_local_transf"] = global_to_local_transf
         hand_object_coords["orientation"] = orientation
         hand_object_coords["hand_orient_variation"] = hand_orient_variation
+        hand_object_coords["total_episode_reward"] = ep_total_reward
         hand_object_coords["success"] = bool(success)
+
+        # Local to Global coordinate conversion (from our observation)
+        local_to_global_temp = np.append(local_obj_coords, 1)
+        local_to_global_temp = np.matmul(np.linalg.inv(global_to_local_transf), local_to_global_temp)
+        local_to_global_obj_coords = local_to_global_temp[0:3].tolist()
+
+        hand_object_coords["local_to_global_wrist_coords"] = local_to_global_transf(local_wrist_coords, global_to_local_transf)
+        hand_object_coords["local_to_global_obj_coords"] = local_to_global_transf(local_obj_coords, global_to_local_transf)
+        for coord_idx in range(0,len(local_finger_coords),3):
+            transf_coords = local_to_global_transf(local_finger_coords[coord_idx:coord_idx+3], global_to_local_transf)
+            hand_object_coords["local_to_global_finger_coords"].extend(transf_coords)
+
         all_hand_object_coords.append(hand_object_coords)
 
     avg_reward /= eval_episodes
@@ -326,11 +502,13 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     avg_rewards["grasp_reward"] = np.average(all_ep_reward_values["grasp_reward"])
     avg_rewards["lift_reward"] = np.average(all_ep_reward_values["lift_reward"])
 
+    sort_coords_by_region(all_hand_object_coords)  # Fills in the coordinate region
+
     print("---------------------------------------")
     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     print("---------------------------------------")
 
-    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "all_action_values" : all_action_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords, "all_hand_object_coords": all_hand_object_coords}
+    ret = {"avg_reward": avg_reward, "avg_rewards": avg_rewards, "all_ep_reward_values": all_ep_reward_values, "all_action_values" : all_action_values, "num_success": num_success, "success_coords": success_coords, "fail_coords": fail_coords, "all_hand_object_coords": all_hand_object_coords, "render_file_dir":render_file_dir}
     return ret
 
 
@@ -1435,7 +1613,7 @@ if __name__ == "__main__":
         generate_output(text="\nPARAMS: \n"+param_text, data_dir=all_saving_dirs["output_dir"], orientations_list=requested_orientation_list, saving_dir=all_saving_dirs["output_dir"], num_success=eval_num_success, num_total=eval_num_total, all_saving_dirs=all_saving_dirs)
 
     # Test policy over certain number of episodes -- In Progress
-    elif args.mode == "evaluate":
+    elif args.mode == "eval":
         print("MODE: Evaluate")
         print("Policy: ", test_policy_path)
         print("Policy Name: ", test_policy_name)
@@ -1444,91 +1622,112 @@ if __name__ == "__main__":
         all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, test_policy_path)
 
         # Evaluation variations
-        Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": False, "color": "#808080"} # Grey color
-        Baseline_HOV = {"variation_name": "Baseline + HOV", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": True, "color": "black"}
-        Sizes_HOV = {"variation_name": "Sizes + HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True, "color": "blue"}
-        Shapes_HOV = {"variation_name": "Shapes + HOV", "requested_shapes": ["CubeS", "CylinderS", "Vase2S"], "requested_orientation": "normal", "with_orientation_noise": True, "color": "red"}
+        Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": False}
+        Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Sizes_HOV = {"variation_name": "Sizes_HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeS", "CylinderS", "Vase2S"], "requested_orientation": "normal", "with_orientation_noise": True}
 
         variations = [Baseline, Baseline_HOV, Sizes_HOV, Shapes_HOV]
 
-        max_episode = 1 #args.max_episode
-        saving_freq = 1 #args.saving_freq
+        max_episode = 4000
+        eval_freq = 1000
+        num_policies = int(max_episode / eval_freq) + 1
 
-        reward_fig, (ax1, ax2, ax3, ax4) = pyplt.subplots(1,4)
-        all_axes = [ax1, ax2, ax3, ax4]
-        reward_fig.suptitle("{} Policy Reward Evaluated over 100 Grasp Trials".format(test_policy_name))
-        ax1.set_ylabel("Reward")
+        policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
+        # Currently this is for one policy, but it will be for each policy
 
-        episodes = np.linspace(start=0, stop=max_episode, num=int(max_episode / saving_freq) + 1, dtype=int)
+        # All rewards (over each evaluation point) for each policy per variation type
+        variation_rewards_per_policy = {}
 
-        for ep_num, ax in zip(episodes, all_axes):
-            # Load policy
-            current_test_policy_path = test_policy_path + "/policy_" + str(ep_num) + "/"
-            print("Loading policy: ",current_test_policy_path)
-            policy.load(current_test_policy_path)  # Change to be complete, trained policy
+        # Current policy we are evaluating over each evaluation point
+        policies = ["Baseline", "Baseline_HOV", "Sizes_HOV", "Shapes_HOV"]
+        for policy_name in policies:
+            current_policy_path = test_policy_path+"/"+policy_name+"/output/results/"
 
-            current_test_output_path = current_test_policy_path + "output/"
-            current_test_heatmap_path = current_test_policy_path + "output/heatmap/"
-            create_paths([current_test_output_path, current_test_heatmap_path])
+            # For each evaluation point, append the avg. reward from evaluating the policy
+            # PER POLICY This will contain the current policy's list of vg. rewards over each evaluation point
+            policy_rewards = {"Baseline": [], "Baseline_HOV": [], "Sizes_HOV": [],
+                                 "Shapes_HOV": []}
 
-            for variation_type in variations:
-                variation_heatmap_path = current_test_heatmap_path+variation_type["variation_name"]+"/"
-                create_paths([variation_heatmap_path])
+            for idx in range(len(policy_eval_points)):
+                # Load policy from the evaluation point
+                ep_num = policy_eval_points[idx]
 
-                print("Now evaluating: ", variation_type.items())
-                print("current_test_output_path: ",current_test_output_path)
-                print("current_test_heatmap_path: ", current_test_heatmap_path)
-                print("variation_heatmap_path: ", variation_heatmap_path)
+                eval_point_policy_path = current_policy_path + "/policy_" + str(ep_num) + "/"
+                current_test_output_path = eval_point_policy_path + "output/"
+                create_paths([current_test_output_path])
 
-                # Evaluate policy over certain number of episodes
-                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=variation_type["requested_shapes"], requested_orientation=variation_type["requested_orientation"],
-                                       mode=args.mode, eval_episodes=300, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
+                print("Loading policy: ",eval_point_policy_path)
+                policy.load(eval_point_policy_path)  # Change to be complete, trained policy
 
-                rewards = eval_ret["all_ep_reward_values"]
-                reward_plot(ax, rewards["total_reward"], policy_name=test_policy_name, label_name=variation_type["variation_name"], color=variation_type["color"], episode_num=ep_num)
+                for variation_type in variations:
+                    variation_name = variation_type["variation_name"]
+                    variation_output_path = current_test_output_path + variation_type["variation_name"]
+                    variation_heatmap_path = variation_output_path + "/heatmap/"
+                    create_paths([variation_output_path, variation_heatmap_path])
 
-                # Heatmap data - object starting coordinates for evaluation
-                eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
-                eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
+                    print("Now evaluating: ", variation_type.items())
+                    print("current_test_output_path: ",current_test_output_path)
+                    print("variation_output_path: ", variation_output_path)
 
-                filter_heatmap_coords(eval_success_coords, eval_fail_coords, "", variation_heatmap_path)
+                    # Evaluate policy over certain number of episodes
+                    eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=variation_type["requested_shapes"], requested_orientation=variation_type["requested_orientation"],
+                                           mode=args.mode, eval_episodes=500, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
 
-                all_hand_object_coords = eval_ret["all_hand_object_coords"]
+                    # Append the average reward from evaluation to the specific variation type avg. reward list
+                    policy_rewards[variation_name].append(eval_ret["avg_reward"])
 
-                requested_orientation = variation_type["requested_orientation"]
-                if requested_orientation == "random":
-                    orientations_list = ["normal", "rotated", "top"]
-                else:
-                    orientations_list = ["normal"]
+                    # Heatmap data - object starting coordinates for evaluation
+                    eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
+                    eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
 
-                for orientation in orientations_list:
-                    hand_object_coords_dicts = [d for d in all_hand_object_coords if d["orientation"] == orientation]
-                    coord_frames = ["local","global"]
+                    # Sorts coordinates by success/failure per hand orientation
+                    filter_heatmap_coords(eval_success_coords, eval_fail_coords, "", variation_heatmap_path)
 
-                    for frame in coord_frames:
-                        heatmap_orient_dir = variation_heatmap_path + orientation + "/"
-                        create_paths([variation_heatmap_path, heatmap_orient_dir, heatmap_orient_dir+frame+"/"])
-                        success_coords = [d[frame+"_obj_coords"] for d in hand_object_coords_dicts if d["success"] is True]
-                        fail_coords = [d[frame+"_obj_coords"] for d in hand_object_coords_dicts if d["success"] is False]
+                    # All_hand_object_coords is a dictionary containing each hand and object coord. used within evaluation
+                    all_hand_object_coords = eval_ret["all_hand_object_coords"]
 
-                        success_x = [coords[0] for coords in success_coords]
-                        success_y = [coords[1] for coords in success_coords]
-                        fail_x = [coords[0] for coords in fail_coords]
-                        fail_y = [coords[1] for coords in fail_coords]
-                        total_x = success_x + fail_x
-                        total_y = success_y + fail_y
+                    # Save the hand and object coordinates -- within the current policy's variation folder (Ex: Policy_0/Baseline/)
+                    dict_file = open(variation_output_path+"/all_hand_object_coords.csv", "w", newline='')
+                    keys = all_hand_object_coords[0].keys()
+                    dict_writer = csv.DictWriter(dict_file, keys)
+                    dict_writer.writeheader()
+                    dict_writer.writerows(all_hand_object_coords)
+                    dict_file.close()
 
-                        create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, "", orientation, state_rep=frame, saving_dir=heatmap_orient_dir+frame+"/",title_str=variation_type["variation_name"]+" input variation, "+frame+" coord. frame")
-                        freq_saving_dir = heatmap_orient_dir + frame + "/" + "freq_plots/"
+                    # Generate heatmap plots based on each orientation type used in evaluation (and per coordinate frame - Local, Global, Local-->Global)
+                    generate_heatmaps_by_orientation_frame(variation_type, all_hand_object_coords, variation_heatmap_path)
 
-                    local_actual_filepath = heatmap_orient_dir + "local/" + "freq_plots/" + 'actual_heatmap.png'
-                    global_actual_filepath = heatmap_orient_dir + "global/" + "freq_plots/" + 'actual_heatmap.png'
-                    combined_actual_filepath = heatmap_orient_dir + 'combined_actual_heatmap.png'
-                    overlap_images(local_actual_filepath, global_actual_filepath, combined_actual_filepath)
+                    ## RENDER AND PLOT COORDINATES BY REGION
+                    evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, args.seed)
 
-        ax4.legend(title="Input Variation", loc='best')
-        reward_fig.show()
-        reward_fig.savefig(test_policy_path + "/Reward_Evaluation_Plot.jpg")
+            # AFTER we have gone through each evaluation point, record the current policy's rewards for each variation
+            variation_rewards_per_policy[policy_name] = policy_rewards
+
+        policy_colors = {"Baseline": "#808080", "Baseline_HOV": "black", "Sizes_HOV": "blue", "Shapes_HOV": "red"}
+        # variation_input_policies format: For the current variation type, we get {policy_name: rewards}
+
+        # Create a reward plot for each variation input type
+        for variation_type in variations:
+            variation_input_name = variation_type["variation_name"]
+            variation_input_policies = {}
+
+            # Get the reward data from each policy for the current variation_input_name
+            for policy_name in policies:
+                policy_rewards_dict = variation_rewards_per_policy[policy_name]
+                # For the CURRENT VARIATION: {"Baseline": [reward, reward, ..]
+                variation_input_policies[policy_name] = policy_rewards_dict[variation_input_name]
+
+            # Save reward data to file
+            dict_file = open(test_policy_path + "/" +str(variation_input_name) + "_policy_rewards.csv", "w", newline='')
+            keys = variation_input_policies.keys()
+            dict_writer = csv.DictWriter(dict_file, keys)
+            dict_writer.writeheader()
+            dict_writer.writerows([variation_input_policies])
+            dict_file.close()
+
+            # Create a reward plot for variation_input_name
+            reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq=eval_freq, saving_dir=test_policy_path)
 
 
     # Experiments for RL paper
