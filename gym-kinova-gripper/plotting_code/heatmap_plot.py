@@ -8,7 +8,7 @@ import os
 import argparse
 from pathlib import Path
 
-def heatmap_actual_coords(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
+def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir):
     """ Create heatmap displaying the actual locations of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -16,10 +16,10 @@ def heatmap_actual_coords(total_x,total_y,state_rep,plot_title,fig_filename,savi
     """
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_min = min(min(total_x),-0.12)
-    x_max = max(max(total_x),0.12)
-    y_min = min(min(total_y),0)
-    y_max = max(max(total_y),0.09)
+    x_min = -0.12
+    x_max = 0.12
+    y_min = 0
+    y_max = 0.09
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -27,45 +27,39 @@ def heatmap_actual_coords(total_x,total_y,state_rep,plot_title,fig_filename,savi
     y_bins = int(y_range / 0.002)
 
     if state_rep == "global":
-        # GLOBAL initial x,y coordinate positions of the hand
-        palm_xy = [8.302983433495364e-05, 0.07040193842926876]
-        f1_prox_xy = [0.05190709651841579, 0.05922107376362523]
-        f2_prox_xy = [-0.047800791389975575, 0.05905594293043447]
-        f3_prox_xy = [-0.047842290951250165, 0.05909756861129018]
-
-        f1_dist_xy = [0.07998453867584633, 0.03696301651652619]
-        f2_dist_xy = [-0.07601887636517492, 0.036798442851176685]
-        f3_dist_xy = [-0.07606888985873166, 0.03684846417454405]
         color_value = '#88c999'  # Green
-    else:
-        # Initial (local) x,y coordinate positions of the hand
-        palm_xy = [0, 0]
-        f1_prox_xy = [-0.052713091739612916, 0.006032608331224411]
-        f2_prox_xy = [0.046381192783558026, 0.016055807264929084]
-        f3_prox_xy = [0.04673074829459711, 0.01592404169727353]
-
-        f1_dist_xy = [-0.08288113504345852, 0.025426551697133225]
-        f2_dist_xy = [0.07223797328448193, 0.040994914052727705]
-        f3_dist_xy = [0.0726581750025766, 0.04083658634787303]
+        label = "Global"
+        loc = 'upper right'
+    elif state_rep == "local":
         color_value = '#a64dff'  # Purple
+        label = "Local"
+        loc = 'lower right'
+    elif "local_to_global":
+        color_value = "#ff4d88" # Pink
+        label = "Local --> Global"
+        loc = 'upper left'
 
-    f1_line = [[f1_dist_xy[0],f1_prox_xy[0],palm_xy[0]], [f1_dist_xy[1],f1_prox_xy[1],palm_xy[1]]]
-    f2_line = [[palm_xy[0],f2_prox_xy[0],f2_dist_xy[0]], [palm_xy[1],f2_prox_xy[1],f2_dist_xy[1]]]
-    f3_line = [[palm_xy[0], f3_prox_xy[0], f3_dist_xy[0]], [palm_xy[1], f3_prox_xy[1], f3_dist_xy[1]]]
-
-    fig, ax = plt.subplots()
-    plt.scatter(total_x,total_y, color = color_value)
+    fig = plt.figure()
+    fig.set_size_inches(11,8)   # Figure size
+    fig.set_dpi(100)           # Pixel amount
+    ax = fig.add_subplot(111)
+    ax.set_xlim([x_min, x_max])
+    ax.set_ylim([y_min, y_max])
+    plt.scatter(total_x,total_y, label = label, color = color_value)
 
     # Plot the position of each of the fingers on top of the heatmap plot
-    plt.plot(f1_line[0],f1_line[1], label="Finger 1")
-    plt.plot(f2_line[0], f2_line[1], label="Finger 2")
-    plt.plot(f3_line[0], f3_line[1], label="Finger 3")
+    plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
+    plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
+    plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
 
-    fig.set_size_inches(12,7)
+    ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
     ax.xaxis.set_minor_locator(MultipleLocator(0.001))
     ax.yaxis.set_major_locator(MultipleLocator(0.01))
     ax.yaxis.set_minor_locator(MultipleLocator(0.001))
+
+    # Add the legend
+    ax.legend(title="Coordinate Frame", loc=loc)
 
     # Plot labels
     plt.title(plot_title)
@@ -78,7 +72,7 @@ def heatmap_actual_coords(total_x,total_y,state_rep,plot_title,fig_filename,savi
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
+def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir):
     """ Create heatmap displaying frequency of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -86,56 +80,33 @@ def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
     """
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_min = min(min(total_x),-0.12)
-    x_max = max(max(total_x),0.12)
-    y_min = min(min(total_y),0)
-    y_max = max(max(total_y),0.09)
+    x_min = -0.12
+    x_max = 0.12
+    y_min = 0
+    y_max = 0.09
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
     x_bins = int(x_range / 0.002)
     y_bins = int(y_range / 0.002)
 
-    if state_rep == "global":
-        # GLOBAL initial x,y coordinate positions of the hand
-        palm_xy = [8.302983433495364e-05, 0.07040193842926876]
-        f1_prox_xy = [0.05190709651841579, 0.05922107376362523]
-        f2_prox_xy = [-0.047800791389975575, 0.05905594293043447]
-        f3_prox_xy = [-0.047842290951250165, 0.05909756861129018]
-
-        f1_dist_xy = [0.07998453867584633, 0.03696301651652619]
-        f2_dist_xy = [-0.07601887636517492, 0.036798442851176685]
-        f3_dist_xy = [-0.07606888985873166, 0.03684846417454405]
-    else:
-        # Initial (local) x,y coordinate positions of the hand
-        palm_xy = [0, 0]
-        f1_prox_xy = [-0.052713091739612916, 0.006032608331224411]
-        f2_prox_xy = [0.046381192783558026, 0.016055807264929084]
-        f3_prox_xy = [0.04673074829459711, 0.01592404169727353]
-
-        f1_dist_xy = [-0.08288113504345852, 0.025426551697133225]
-        f2_dist_xy = [0.07223797328448193, 0.040994914052727705]
-        f3_dist_xy = [0.0726581750025766, 0.04083658634787303]
-
-    f1_line = [[f1_dist_xy[0],f1_prox_xy[0],palm_xy[0]], [f1_dist_xy[1],f1_prox_xy[1],palm_xy[1]]]
-    f2_line = [[palm_xy[0],f2_prox_xy[0],f2_dist_xy[0]], [palm_xy[1],f2_prox_xy[1],f2_dist_xy[1]]]
-    f3_line = [[palm_xy[0], f3_prox_xy[0], f3_dist_xy[0]], [palm_xy[1], f3_prox_xy[1], f3_dist_xy[1]]]
-
     # Get total coordinates within their respective bins
     total_data, x_edges, y_edges = np.histogram2d(total_x,total_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
 
-    fig, ax = plt.subplots()
+    fig = plt.figure()
+    fig.set_size_inches(11,8)   # Figure size
+    fig.set_dpi(100)           # Pixel amount
+    ax = fig.add_subplot(111)
 
     # Plot heatmap from data
     im = ax.imshow(total_data.T, cmap=plt.cm.Purples, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
-    ax.set_aspect('equal', adjustable='box')
 
     # Plot the position of each of the fingers on top of the heatmap plot
-    plt.plot(f1_line[0],f1_line[1], label="Finger 1")
-    plt.plot(f2_line[0], f2_line[1], label="Finger 2")
-    plt.plot(f3_line[0], f3_line[1], label="Finger 3")
+    plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
+    plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
+    plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
 
-    fig.set_size_inches(12,7)
+    ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
     ax.xaxis.set_minor_locator(MultipleLocator(0.001))
     ax.yaxis.set_major_locator(MultipleLocator(0.01))
@@ -156,44 +127,19 @@ def heatmap_freq(total_x,total_y,state_rep,plot_title,fig_filename,saving_dir):
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,state_rep,plot_title,fig_filename,saving_dir,plot_success):
+def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
 
-    x_min = min(min(total_x),-0.12)
-    x_max = max(max(total_x),0.12)
-    y_min = min(min(total_y),0)
-    y_max = max(max(total_y),0.09)
+    x_min = -0.12
+    x_max = 0.12
+    y_min = 0
+    y_max = 0.09
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
     x_bins = int(x_range / 0.002)
     y_bins = int(y_range / 0.002)
-
-    if state_rep == "global":
-        # GLOBAL initial x,y coordinate positions of the hand
-        palm_xy = [8.302983433495364e-05,0.07040193842926876]
-        f1_prox_xy = [0.05190709651841579,0.05922107376362523]
-        f2_prox_xy = [-0.047800791389975575,0.05905594293043447]
-        f3_prox_xy = [-0.047842290951250165,0.05909756861129018]
-
-        f1_dist_xy = [0.07998453867584633,0.03696301651652619]
-        f2_dist_xy = [-0.07601887636517492,0.036798442851176685]
-        f3_dist_xy = [-0.07606888985873166,0.03684846417454405]
-    else:
-        # Initial (local) x,y coordinate positions of the hand
-        palm_xy = [0,0]
-        f1_prox_xy = [-0.052713091739612916,0.006032608331224411]
-        f2_prox_xy = [0.046381192783558026,0.016055807264929084]
-        f3_prox_xy = [0.04673074829459711,0.01592404169727353]
-
-        f1_dist_xy = [-0.08288113504345852,0.025426551697133225]
-        f2_dist_xy = [0.07223797328448193,0.040994914052727705]
-        f3_dist_xy = [0.0726581750025766,0.04083658634787303]
-
-    f1_line = [[f1_dist_xy[0],f1_prox_xy[0],palm_xy[0]], [f1_dist_xy[1],f1_prox_xy[1],palm_xy[1]]]
-    f2_line = [[palm_xy[0],f2_prox_xy[0],f2_dist_xy[0]], [palm_xy[1],f2_prox_xy[1],f2_dist_xy[1]]]
-    f3_line = [[palm_xy[0], f3_prox_xy[0], f3_dist_xy[0]], [palm_xy[1], f3_prox_xy[1], f3_dist_xy[1]]]
 
     # Get success/fail coordinates within their respective bins
     success_data, _, _ = np.histogram2d(success_x, success_y, range=[[x_min, x_max], [y_min, y_max]],bins=(x_bins,y_bins))
@@ -245,11 +191,11 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,state_rep,plo
         plt.imshow(neg_success_data.T, cmap=plt.cm.RdBu, origin='lower', extent=[x_min, x_max, y_min, y_max], vmin=-1, vmax=1)
 
     # Plot the position of each of the fingers on top of the heatmap plot
-    plt.plot(f1_line[0],f1_line[1], label="Finger 1")
-    plt.plot(f2_line[0], f2_line[1], label="Finger 2")
-    plt.plot(f3_line[0], f3_line[1], label="Finger 3")
+    plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
+    plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
+    plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
 
-    ax.set_aspect('equal', adjustable='box')    # Sets histogram bin format
+    ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
     ax.xaxis.set_minor_locator(MultipleLocator(0.001))
     ax.yaxis.set_major_locator(MultipleLocator(0.01))
@@ -267,6 +213,7 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,state_rep,plo
     cb.set_label(cb_label)
 
     plt.savefig(saving_dir+fig_filename)
+    plt.close()
     #plt.show()
 
 
@@ -285,14 +232,14 @@ def change_image_transparency(image_filepath,alpha=0):
     newData = []
     for item in datas:
         if item[3] == 0 and alpha > 0:
-            alpha_value = int(alpha*255)
-            newData.append((255, 255, 255, alpha_value))
+            alpha_value = int(alpha*240)
+            newData.append((240,240,240, alpha_value))
         elif item[0] == 246 and item[1] == 246 and item[2] == 246:
             newData.append((246,246,246, alpha))
         elif item[0] == 255 and item[1] == 255 and item[2] == 255:
-            newData.append((255, 255, 255, alpha))
+            newData.append((240,240,240, alpha))
         elif item[0] == 255 and item[1] == 253 and item[2] == 253:
-            newData.append((255, 255, 255, alpha))
+            newData.append((240,240,240, alpha))
         else:
             newData.append(item)
 
@@ -301,7 +248,7 @@ def change_image_transparency(image_filepath,alpha=0):
     img.save(image_filepath, "PNG",transparent=True)
 
 
-def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,state_rep,saving_dir,title_str=""):
+def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,state_rep,saving_dir,wrist_coords=None,finger_coords=None,title_str=""):
     """ Calls ferquency and success/fail heatmap plots 
     success_x: Successful initial object position x-coordinates
     success_y: Successful initial object position y-coordinates
@@ -326,22 +273,58 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
         title_str = "\nEvaluated at Ep. " + ep_str
         ep_str = "_" + ep_str
 
-    title_str += " " + orientation.capitalize() + " Hand Orientation"
+    title_str += ", " + orientation.capitalize() + " Hand Orientation"
+
+    if wrist_coords is None and finger_coords is None:
+        if state_rep == "global" or state_rep == "local_to_global":
+            # GLOBAL initial x,y coordinate positions of the hand
+            palm_coords = [8.302983433495364e-05, 0.07040193842926876]
+            f1_prox_coords = [0.05190709651841579, 0.05922107376362523]
+            f2_prox_coords = [-0.047800791389975575, 0.05905594293043447]
+            f3_prox_coords = [-0.047842290951250165, 0.05909756861129018]
+
+            f1_dist_coords = [0.07998453867584633, 0.03696301651652619]
+            f2_dist_coords = [-0.07601887636517492, 0.036798442851176685]
+            f3_dist_coords = [-0.07606888985873166, 0.03684846417454405]
+        elif state_rep == "local":
+            # Initial (local) x,y coordinate positions of the hand
+            palm_coords = [0, 0]
+            f1_prox_coords = [-0.052713091739612916, 0.006032608331224411]
+            f2_prox_coords = [0.046381192783558026, 0.016055807264929084]
+            f3_prox_coords = [0.04673074829459711, 0.01592404169727353]
+
+            f1_dist_coords = [-0.08288113504345852, 0.025426551697133225]
+            f2_dist_coords = [0.07223797328448193, 0.040994914052727705]
+            f3_dist_coords = [0.0726581750025766, 0.04083658634787303]
+    else:
+        palm_coords = wrist_coords[0:2]
+        f1_prox_coords = finger_coords[0:3]
+        f2_prox_coords = finger_coords[3:6]
+        f3_prox_coords = finger_coords[6:9]
+
+        f1_dist_coords = finger_coords[9:12]
+        f2_dist_coords = finger_coords[12:15]
+        f3_dist_coords = finger_coords[15:18]
+
+    f1_line = [[f1_dist_coords[0],f1_prox_coords[0],palm_coords[0]], [f1_dist_coords[1],f1_prox_coords[1],palm_coords[1]]]
+    f2_line = [[palm_coords[0],f2_prox_coords[0],f2_dist_coords[0]], [palm_coords[1],f2_prox_coords[1],f2_dist_coords[1]]]
+    f3_line = [[palm_coords[0], f3_prox_coords[0], f3_dist_coords[0]], [palm_coords[1], f3_prox_coords[1], f3_dist_coords[1]]]
+    hand_lines = {"finger1":f1_line, "finger2":f2_line, "finger3":f3_line}
 
     # Plot frequency heatmap
     freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object\n" + title_str
-    heatmap_freq(total_x,total_y,state_rep,freq_plot_title,'freq_heatmap'+ep_str+'.png',freq_saving_dir)
+    heatmap_freq(total_x,total_y,hand_lines,state_rep,freq_plot_title,'freq_heatmap'+ep_str+'.png',freq_saving_dir)
 
     actual_plot_title = "Initial Coordinate Position of the Object\n" + title_str
-    heatmap_actual_coords(total_x,total_y,state_rep,freq_plot_title,'actual_heatmap'+ep_str+'.png',freq_saving_dir)
+    heatmap_actual_coords(total_x,total_y, hand_lines, state_rep,freq_plot_title,'actual_heatmap'+ep_str+'.png',freq_saving_dir)
 
     # Plot failed (negative success rate) heatmap
     heatmap_plot_title = "Grasp Trial Success Rate per Initial Coordinate Position of the Object\n" + title_str
-    heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y, state_rep, heatmap_plot_title, 'fail_heatmap'+ep_str+'.png',
+    heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y, hand_lines, state_rep, heatmap_plot_title, 'fail_heatmap'+ep_str+'.png',
                  heatmap_saving_dir, plot_success=False)
 
     # Plot successful heatmap
-    heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y,state_rep,
+    heatmap_plot(success_x, success_y, fail_x, fail_y, total_x, total_y, hand_lines, state_rep,
                              heatmap_plot_title, 'success_heatmap'+ep_str+'.png', heatmap_saving_dir,plot_success=True)
 
     # Make heatmaps transparent to overlay over each other, then overlap them and save as a combine image
@@ -355,6 +338,9 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
     change_image_transparency(actual_heatmap_filepath)
 
     overlap_images(success_filepath,fail_filepath, combined_filepath)
+
+    # Once all heatmaps are generated, close the plots
+    plt.close('all')
 
 
 def overlap_images(img1_path, img2_path, save_filename):
@@ -429,21 +415,6 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
         success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, ep_str)
         total_x = np.append(success_x,fail_x)
         total_y = np.append(success_y,fail_y)
-        """
-        fail_x_temp = np.array([])
-        fail_y_temp = np.array([])
-        print("fail_coords:")
-        print("fail_y: ",fail_y)
-        for i in range(len(fail_x)):
-            if -0.03 < fail_x[i] < 0 and fail_y[i] < 0.01:
-                fail_x_temp =np.append(fail_x_temp,fail_x[i])
-                fail_y_temp = np.append(fail_y_temp,fail_y[i])
-                print(fail_x[i],",",fail_y[i])
-                #print(fail_x_temp[i], ",", fail_y_temp[i])
-        print("Fail_x,y: ")
-        for i in range(len(fail_x_temp)):
-            print(fail_x_temp[i],",",fail_y_temp[i])
-        """
 
         # Plot coordinate data to frequency and success rate heatmaps
         create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, state_rep, saving_dir)
