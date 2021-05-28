@@ -1474,21 +1474,14 @@ class KinovaGripper_Env(gym.Env):
 
 
     def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',saving_dir=None,final_episode_type=None):
-        # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
 
         if saving_dir is None:
             saving_dir = "./"
 
-        video_dir = saving_dir #+"/video/"
-        #new_path = Path(video_dir)
-        #new_path.mkdir(parents=True, exist_ok=True)
-
+        video_dir = saving_dir
         output_dir = video_dir
-        #os.path.join(video_dir, dir_name + "/")
-        #new_path = Path(output_dir)
-        #new_path.mkdir(parents=True, exist_ok=True)
 
         success_dir = os.path.join(output_dir, "Success/")
         new_path = Path(success_dir)
