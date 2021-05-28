@@ -14,14 +14,19 @@ def get_stats(metric_arr):
 
     return min_value, max_value, range_value, mean_value
 
-def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name):
+def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, saving_dir=None):
     """ Create a simple plot with the actual metric values """
+    fig = plt.figure()
     plt.plot(metrics_arr[episode_idx],label=label_name)
-    plt.title("Actual Values of "+ metric_name + " over episode" + episode_idx+1)
+    plt.title("Actual Values of "+ str(metric_name) + " over episode" + str(episode_idx+1))
     plt.xlabel("Time step")
-    plt.ylabel(metric_name)
+    plt.ylabel(str(metric_name))
     plt.legend(loc='best')
-    plt.ylim([0,0.8])
+    plt.ylim([0, 1.0])
+
+    if saving_dir is not None:
+        plt.savefig(saving_dir + "/" + label_name + "act_vals" + ".png")
+        plt.close(fig)
 
 def episode_distribution_plot(metrics_arr):
     """ Plot distribution over one episode """
@@ -30,7 +35,7 @@ def episode_distribution_plot(metrics_arr):
     plt.show()
 
 
-def all_episodes_average_plot(range_of_episodes, metrics_arr, label_name, metric_name, axes_limits):
+def all_episodes_average_plot(range_of_episodes, metrics_arr, label_name, metric_name, axes_limits, saving_dir=None):
     """ Creates an average plot displaying metric values over a range of episodes
     range_of_episodes: Numpy array containing desired episode indexes
     metrics_arr: Numpy array containing metrics to be plotted (state/action metrics, reward metrics) for each episode
@@ -59,10 +64,14 @@ def all_episodes_average_plot(range_of_episodes, metrics_arr, label_name, metric
     # Return text string to be placed on plot (with stats about the metric)
     textstr = "\n{}:\n".format(label_name)
     textstr += "Mean: {:.3f}\nMin: {:.3f}\nMax: {:.3f}\nRange: {:.3f}\n".format(mean_value,min_value,max_value,range_value)
+
+    if saving_dir is not None:
+        plt.savefig(saving_dir + "/" + metric_name + "average" + ".png")
+
     return textstr
 
 
-def all_episodes_distribution_plot(range_of_episodes, metrics_arr, metric_name):
+def all_episodes_distribution_plot(range_of_episodes, metrics_arr, metric_name, saving_dir=None):
     """ Creates a distribution plot displaying metric values over a range of episodes
     range_of_episodes: Numpy array containing desired episode indexes
     metrics_arr: Numpy array containing metrics to be plotted (state/action metrics, reward metrics) for each episode
@@ -83,6 +92,8 @@ def all_episodes_distribution_plot(range_of_episodes, metrics_arr, metric_name):
 
     # Show plot
     plt.show()
+    if saving_dir is not None:
+        plt.savefig(saving_dir + "/" + metric_name + "distribution" + ".png")
 
 
 def all_episodes_boxplot(range_of_episodes, metrics_arr, metric_name, freq, min_val, max_val):
