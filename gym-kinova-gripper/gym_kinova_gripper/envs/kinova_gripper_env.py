@@ -434,6 +434,10 @@ class KinovaGripper_Env(gym.Env):
         for i in range(6):
             print(finger_joints[i], 'pose:',tests_passed[i+1])
 
+    def get_obs_from_coord_frame(self, coord_frame=None):
+        """ Get the current observation of the environment based on the input coordinate frame representation. """
+        obs = self._get_obs(coord_frame)
+        return obs
 
     # Function to return global or local transformation matrix
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
@@ -1015,6 +1019,8 @@ class KinovaGripper_Env(gym.Env):
                 delim=','
             else:
                 delim=' '
+        # Go back to the top of the file after checking for the delimiter
+        with open(coords_filename) as csvfile:
             reader = csv.reader(csvfile, delimiter=delim)
             for i in reader:
                 if with_noise is True:
@@ -1250,13 +1256,13 @@ class KinovaGripper_Env(gym.Env):
 
         return global_obj_x, global_obj_y, global_obj_z
 
-    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False):
+    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
         with_noise: Set to True if coordinates to be used are selected from the object/hand coordinate files with positional noise added
+        orient_idx:  Line number (index) within the coordinate files from which the object position is selected from
         returns object and hand coordinates along with the cooresponding orientation index
         """
-        orient_idx = None # Line number (index) within the coordinate files from which the object position is selected from
         if with_noise is True:
             noise_file = 'with_noise/'
             hand_x = 0
@@ -1266,13 +1272,13 @@ class KinovaGripper_Env(gym.Env):
             noise_file = 'no_noise/'
 
         # Expert data generation, pretraining and training will have the same coordinate files
-        if mode != "test":
+        if mode != "test" and mode != "eval":
             mode = "train"
 
         # Hand and object coordinates filename
         coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(mode)+"_coords/" + str(self.orientation) + "/" + random_shape + ".txt"
         if self.check_obj_file_empty(coords_filename) == False:
-            obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(coords_filename, with_noise=with_noise, orient_idx=None, region=self.obj_coord_region)
+            obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(coords_filename, with_noise=with_noise, orient_idx=orient_idx, region=self.obj_coord_region)
         else:
             # If coordinate file is empty or does not exist, randomly generate coordinates
             obj_x, obj_y, obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
@@ -1281,7 +1287,6 @@ class KinovaGripper_Env(gym.Env):
         # Use the exact hand orientation from the coordinate file
         if with_noise:
             new_rotation = np.array([hand_x, hand_y, hand_z])
-            self.hand_orient_variation = new_rotation
         # Otherwise generate hand coordinate value based on desired orientation
         elif self.filename=="/kinova_description/j2s7s300_end_effector.xml": # Default xml file
             if self.orientation == 'normal':
@@ -1311,6 +1316,7 @@ class KinovaGripper_Env(gym.Env):
         # -1.57, 0, 0 is side tilted
         # 0,0,-1.57 is top down
 
+        self.hand_orient_variation = new_rotation
         # Writes the new hand orientation to the xml file to be simulated in the environment
         self.write_xml(new_rotation)
 
@@ -1341,7 +1347,7 @@ class KinovaGripper_Env(gym.Env):
         return xloc,yloc,zloc,f1prox,f2prox,f3prox
 
 
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None, qpos=None, obj_coord_region=None, with_noise=False):
+    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,hand_rotation=None,obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False):
         """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
         shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
         hand_orientation: Orientation of the hand relative to the object
@@ -1376,9 +1382,21 @@ class KinovaGripper_Env(gym.Env):
         if qpos is None:
             if start_pos is None:
                 # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
-                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, with_noise=with_noise)
+                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, orient_idx=orient_idx, with_noise=with_noise)
                 self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
                 self.set_coords_filename(coords_filename)
+
+            elif len(start_pos)==3 and hand_rotation is not None:
+                # Use a pre-set object position and hand orientation rotation
+                obj_x = start_pos[0]
+                obj_y = start_pos[1]
+                obj_z = start_pos[2]
+                hand_x = hand_rotation[0]
+                hand_y = hand_rotation[1]
+                hand_z = hand_rotation[2]
+                # Writes the new hand orientation to the xml file to be simulated in the environment
+                self.write_xml(hand_rotation)
+                print("YOU MADE IT HAHAHAAAAAAAAAAAAAAAAAAAAA")
 
             elif len(start_pos)==3:
                 ######################################
@@ -1455,40 +1473,47 @@ class KinovaGripper_Env(gym.Env):
             self._viewer._paused=True
 
 
-    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
+    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',saving_dir=None,final_episode_type=None):
         # print("In render_img")
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
 
-        video_dir = "./video/"
-        if not os.path.isdir(video_dir):
-           os.mkdir(video_dir)
+        if saving_dir is None:
+            saving_dir = "./"
 
-        output_dir = os.path.join(video_dir, dir_name + "/")
-        if not os.path.isdir(output_dir):
-           os.mkdir(output_dir)
+        video_dir = saving_dir #+"/video/"
+        #new_path = Path(video_dir)
+        #new_path.mkdir(parents=True, exist_ok=True)
+
+        output_dir = video_dir
+        #os.path.join(video_dir, dir_name + "/")
+        #new_path = Path(output_dir)
+        #new_path.mkdir(parents=True, exist_ok=True)
 
         success_dir = os.path.join(output_dir, "Success/")
-        if not os.path.isdir(success_dir):
-           os.mkdir(success_dir)
+        new_path = Path(success_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
 
         fail_dir = os.path.join(output_dir, "Fail/")
-        if not os.path.isdir(fail_dir):
-           os.mkdir(fail_dir)
+        new_path = Path(fail_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
 
-        episode_coords = "obj_coords_" + str(obj_coords) + "/"
-        episode_dir = os.path.join(output_dir, episode_coords)
-        if not os.path.isdir(episode_dir):
-            os.mkdir(episode_dir)
+        x_str = str(obj_coords[0])[:8]
+        y_str = str(obj_coords[1])[:8]
+        episode_coords = "obj_{}_{}".format(x_str,y_str)
+        episode_dir = os.path.join(output_dir,episode_coords+"/")
+        new_path = Path(episode_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
 
         source = episode_dir
+        destination = episode_dir
         if final_episode_type != None:
             if final_episode_type == 1: # If lift success
                 destination = os.path.join(success_dir,episode_coords)
             else:
                 destination = os.path.join(fail_dir,episode_coords)
             if not os.path.isdir(destination):
-                dest = shutil.move(source, destination)
+                destination = shutil.move(source, destination)
         else:
             self._viewer._record_video = True
             self._viewer._video_path = video_dir + "video_1.mp4"
@@ -1508,7 +1533,7 @@ class KinovaGripper_Env(gym.Env):
             # Save image
             img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
 
-            return a_rgb
+            return destination
 
     #Function to close the rendering window
     def close(self): #This doesn't work right now
