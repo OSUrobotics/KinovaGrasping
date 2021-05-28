@@ -28,6 +28,26 @@ def add_heatmap_coords(success_coords, fail_coords, orientation, obj_coords, suc
     ret = {"success_coords": success_coords, "fail_coords": fail_coords}
     return ret
 
+def sort_coords_by_region(dict_list):
+    """ Sort the input coordinates dictionaries by region and return the updated dictionaries with a new 'region' entry
+    based on the global object coordinate location """
+    # Definition of coordinate sampling regions within the graspable space within the hand
+    grasping_regions = {"extreme_left": [-0.12, -0.055], "mid_left": [-0.055, -0.03], "center": [-0.03,0.03], "mid_right": [0.03,0.055], "extreme_right":[0.055,0.12]}
+
+    for d in dict_list:
+        coords = d["local_obj_coords"]
+        if grasping_regions["extreme_left"][0] <= coords[0] <= grasping_regions["extreme_left"][1]:
+            d["local_coord_region"] = "extreme_left"
+        elif grasping_regions["mid_left"][0] < coords[0] <= grasping_regions["mid_left"][1]:
+            d["local_coord_region"] = "mid_left"
+        elif grasping_regions["center"][0] < coords[0] < grasping_regions["center"][1]:
+            d["local_coord_region"] = "center"
+        elif grasping_regions["mid_right"][0] <= coords[0] < grasping_regions["mid_right"][1]:
+            d["local_coord_region"] = "mid_right"
+        elif grasping_regions["extreme_right"][0] <= coords[0] <= grasping_regions["extreme_right"][1]:
+            d["local_coord_region"] = "extreme_right"
+
+    return dict_list
 
 # Coordinate Saving Step 1: Filter heatmap coordinates by success/fail, orientation
 def filter_heatmap_coords(success_coords, fail_coords, episode_num, saving_dir):
@@ -44,6 +64,7 @@ def filter_heatmap_coords(success_coords, fail_coords, episode_num, saving_dir):
     success_coords_idxs = [success_normal_idxs, success_rotated_idxs, success_top_idxs]
     fail_coords_idxs = [fail_normal_idxs, fail_rotated_idxs, fail_top_idxs]
 
+    print("Saving heatmap coordinates (success/fail) per hand orientation type...")
     for index_list in success_coords_idxs:
         if len(index_list) > 0:
             coords_dict_to_array(success_coords, index_list, "/success", episode_num, saving_dir)
@@ -54,7 +75,7 @@ def filter_heatmap_coords(success_coords, fail_coords, episode_num, saving_dir):
             coords_dict_to_array(fail_coords, index_list, "/fail", episode_num, saving_dir)
             coords_dict_to_array(fail_coords, index_list, "/total", episode_num, saving_dir)
 
-    print("Writing to heatmap info file...")
+    print("Writing to heatmap coordinate info file...")
     f = open(saving_dir + "/heatmap_info.txt", "w")
     total_text = "Heatmap Coords \nSaved at: "+saving_dir+"\n\nTotal # Success: "+str(len(success_coords["x"]))+"\nTotal # Fail: "+str(len(fail_coords["x"]))+"\n"
     normal_text = "\nNormal Orientation\n# Success: "+str(len(success_normal_idxs))+"\n# Fail: "+str(len(fail_normal_idxs))+"\n"
