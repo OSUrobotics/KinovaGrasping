@@ -1473,7 +1473,7 @@ class KinovaGripper_Env(gym.Env):
             self._viewer._paused=True
 
 
-    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',saving_dir=None,final_episode_type=None):
+    def render_img(self, episode_num, timestep_num, obj_coords, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',saving_dir=None,final_episode_type=None):
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
 
