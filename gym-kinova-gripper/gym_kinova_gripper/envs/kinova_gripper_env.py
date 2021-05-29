@@ -247,6 +247,8 @@ class KinovaGripper_Env(gym.Env):
             self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
         # <---- end of unused section
         self.Grasp_net = pickle.load(open(self.file_dir+'/kinova_description/gc_model.pkl', "rb"))
+        self.starting_coords = [10, 10, 10]
+        self.prev_pose = [10, 10, 10]
         
         #self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_05_28_20_2105local.pt"
@@ -272,21 +274,66 @@ class KinovaGripper_Env(gym.Env):
 
 
     # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
-    def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
-        self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
-        Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
-        temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
-        temp=np.transpose(temp)
-        Tfa=np.zeros([4,4])
-        Tfa[0:3,0:3]=temp
-        Tfa[3,3]=1
-        Tfw=np.zeros([4,4])
-        Tfw[0:3,0:3]=temp
-        Tfw[3,3]=1
-        self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
-        Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
-        self.Tfw=Tfw
-        self.Twf=np.linalg.inv(Tfw)
+    def _get_trans_mat_wrist_pose(self):  # WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
+        center_pose = self._sim.data.get_site_xpos('palm')
+        xpos = self._sim.data.get_site_xpos('palm_3')
+        zpos = self._sim.data.get_site_xpos('palm_1')
+        xvec = xpos - center_pose
+        zvec = zpos - center_pose
+        yvec = np.cross(zvec, xvec)
+        xvec = xvec / np.linalg.norm(xvec)
+        yvec = yvec / np.linalg.norm(yvec)
+        zvec = zvec / np.linalg.norm(zvec)
+        rotation_matrix = np.array([xvec, yvec, zvec])
+        # print("rotation matrix from cindy's method", rotation_matrix)
+        self.wrist_pose = np.copy(self._sim.data.get_geom_xpos('palm'))
+        Rfa = np.copy(self._sim.data.get_geom_xmat('palm'))
+        temp = np.matmul(Rfa, np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]]))
+        temp = np.transpose(temp)
+        Tfw = np.zeros([4, 4])
+        Tfw[0:3, 0:3] = rotation_matrix
+        Tfw[3, 3] = 1
+        # self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+        self.wrist_pose = self.wrist_pose + np.matmul(Tfw[0:3, 0:3], [-0.009, 0.048, 0.0])
+        Tfw[0:3, 3] = np.matmul(-(Tfw[0:3, 0:3]), np.transpose(self.wrist_pose))
+        self.Tfw = Tfw
+        self.Twf = np.linalg.inv(Tfw)
+        xaxis = [1, 0, 0]
+        yaxis = [0, 1, 0]
+        zaxis = [0, 0, 1]
+        xaxis = np.matmul(self.Tfw[0:3, 0:3], xaxis)
+        yaxis = np.matmul(self.Tfw[0:3, 0:3], yaxis)
+        zaxis = np.matmul(self.Tfw[0:3, 0:3], zaxis)
+
+    #        x1=[0,xaxis[0]]
+    #        y1=[0,yaxis[0]]
+    #        z1=[0,zaxis[0]]
+    #        x2=[0,xaxis[1]]
+    #        y2=[0,yaxis[1]]
+    #        z2=[0,zaxis[1]]
+    #        x3=[0,xaxis[2]]
+    #        y3=[0,yaxis[2]]
+    #        z3=[0,zaxis[2]]
+    #        x4=[0,1]
+    #        y4=[0,0]
+    #        z4=[0,0]
+    #        x5=[0,0]
+    #        y5=[0,1]
+    #        z5=[0,0]
+    #        x6=[0,0]
+    #        y6=[0,0]
+    #        z6=[0,1]
+    #        fig = plt.figure()
+    #        ax=Axes3D(fig)
+    #        ax.plot3D(x1,y1,z1)
+    #        ax.plot3D(x2,y2,z2)
+    #        ax.plot3D(x3,y3,z3)
+    #        ax.plot3D(x4,y4,z4)
+    #        ax.plot3D(x5,y5,z5)
+    #        ax.plot3D(x6,y6,z6)
+    #        ax.legend(['Rfa x', 'Rfa y', 'Rfa z','World x','World y','World z'])
+    #        plt.show()
+    # print("rotation matrix from cindy's method",self.Tfw[0:3,0:3])
 
     def experimental_sensor(self,rangedata,finger_pose,gravity):
         #print('flimflam')
@@ -1546,58 +1593,68 @@ class KinovaGripper_Env(gym.Env):
     ##### ---- Action space : Joint Velocity ---- #####
     ###################################################
     #Function to step the simulator forward in time
-    def step(self, action, graspnetwork=False): #TODO: fix this so that we can rotate the hand
+    def step(self, action, graspnetwork=False):  # TODO: fix this so that we can rotate the hand
         """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
             action: array of finger joint velocity values (finger1, finger1, finger3)
             graspnetwork: bool, set True to use grasping network to determine reward value
         """
         total_reward = 0
         self._get_trans_mat_wrist_pose()
-        if len(action)==4:
-            action=[0,0,action[0],action[1],action[2],action[3]]
-        #if action[0]==0:
+        if len(action) == 4:
+            action = [0, 0, action[0], action[1], action[2], action[3]]
+        # if action[0]==0:
         #    self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
-        #if action[1]==0:
+        # if action[1]==0:
         #    self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
-        #if action[2]==0:
+        # if action[2]==0:
         #    self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
-        if self.arm_or_hand=="hand":
-            mass=0.733
-            gear=25
-            stuff=np.matmul(self.Tfw[0:3,0:3],[0,0,mass*10/gear])
-            stuff[0]=-stuff[0]
-            stuff[1]=-stuff[1]
+
+        if self.arm_or_hand == "hand":
+            error = [0, 0, 0]
+            if all([action[i] == 0 for i in range(3)]) & (self.starting_coords[0] != 10):
+                error = self.starting_coords - self.wrist_pose
+            kp = 50
+            mass = 0.733
+            gear = 25
+            stuff = np.matmul(self.Tfw[0:3, 0:3], [kp * error[0], kp * error[1], kp * error[2] + mass * 10 / gear])
+            stuff[0] = -stuff[0]
+            stuff[1] = -stuff[1]
+
+            self.prev_pose = np.copy(self.wrist_pose)
             for _ in range(self.frame_skip):
-                if self.step_coords=='global':
-                    slide_vector=np.matmul(self.Tfw[0:3,0:3],action[0:3])
-                    if (self.orientation == 'rotated') & (action[2]<=0):
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
+                if self.step_coords == 'global':
+                    slide_vector = np.matmul(self.Tfw[0:3, 0:3], action[0:3])
+                    if (self.orientation == 'rotated') & (action[2] <= 0):
+                        slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
                     else:
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
+                        slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
                 else:
-                    if (self.orientation == 'rotated')&(action[2]<=0):
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
+                    if (self.orientation == 'rotated') & (action[2] <= 0):
+                        slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
                     else:
-                        slide_vector=[-action[0],-action[1],action[2]]
+                        slide_vector = [-action[0], -action[1], action[2]]
                 for i in range(3):
-                    self._sim.data.ctrl[(i)*2] = slide_vector[i]
-                    if self.step_coords=='rotated':
-                        self._sim.data.ctrl[i+6] = action[i+3]+0.05
+                    self._sim.data.ctrl[(i) * 2] = slide_vector[i]
+                    if self.step_coords == 'rotated':
+                        self._sim.data.ctrl[i + 6] = action[i + 3] + 0.05
                     else:
-                        self._sim.data.ctrl[i+6] = action[i+3]
-                    self._sim.data.ctrl[i*2+1]=stuff[i]
+                        self._sim.data.ctrl[i + 6] = action[i + 3]
+                    self._sim.data.ctrl[i * 2 + 1] = stuff[i]
                 self._sim.step()
+
         else:
             for _ in range(self.frame_skip):
                 joint_velocities = action[0:7]
-                finger_velocities=action[7:]
+                finger_velocities = action[7:]
                 for i in range(len(joint_velocities)):
-                    self._sim.data.ctrl[i+10] = joint_velocities[i]
+                    self._sim.data.ctrl[i + 10] = joint_velocities[i]
                 for i in range(len(finger_velocities)):
-                    self._sim.data.ctrl[i+7] = finger_velocities[i]
+                    self._sim.data.ctrl[i + 7] = finger_velocities[i]
                 self._sim.step()
         obs = self._get_obs()
-
+        self._get_trans_mat_wrist_pose()
+        if self.starting_coords[0] == 10:
+            self.starting_coords = np.copy(self.wrist_pose)
         if not graspnetwork:
             total_reward, info, done = self._get_reward(self.with_grasp_reward)
         else:
