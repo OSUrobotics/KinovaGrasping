@@ -233,13 +233,13 @@ def change_image_transparency(image_filepath,alpha=0):
     for item in datas:
         if item[3] == 0 and alpha > 0:
             alpha_value = int(alpha*240)
-            newData.append((240,240,240, alpha_value))
+            newData.append((250, 250, 250, alpha_value))
         elif item[0] == 246 and item[1] == 246 and item[2] == 246:
-            newData.append((246,246,246, alpha))
+            newData.append((250, 250, 250, alpha))
         elif item[0] == 255 and item[1] == 255 and item[2] == 255:
-            newData.append((240,240,240, alpha))
+            newData.append((250, 250, 250, alpha))
         elif item[0] == 255 and item[1] == 253 and item[2] == 253:
-            newData.append((240,240,240, alpha))
+            newData.append((250, 250, 250, alpha))
         else:
             newData.append(item)
 
