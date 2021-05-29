@@ -687,7 +687,7 @@ def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_re
     return action_str
 
 
-def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, replay_buffer=None, with_grasp=False, with_noise=False, save=True, render_imgs=False, pid_mode="combined"):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, all_saving_dirs, replay_buffer=None, with_grasp=False, with_noise=False, save=True, render_imgs=False, pid_mode="combined"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     episode_num: Number of episodes to generate expert data for
     replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -773,19 +773,15 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             env.set_with_grasp_reward(with_grasp)
             next_obs, reward, done, info = env.step(action)
 
-            # NAIVE RET SHOULD BE SET BASED ON MOST UP TO DATE F_DIST_OLD and F_DIST_NEW
-            # Check whether we are ready to lift for action string
-            #[naive_ret, _] = check_grasp(f_dist_old, f_dist_new)
-
             # Set the info to be displayed in episode rendering based on current hand/object status
             action_str = set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info)
 
             # Render image from current episode
             if render_imgs is True:
                 if total_steps % 1 == 0:
-                    env.render_img(dir_name=pid_mode + "_" + datestr, text_overlay=action_str, episode_num=i,
+                    env.render_img(saving_dir=all_saving_dirs["output_dir"], text_overlay=action_str, episode_num=i,
                                    timestep_num=total_steps,
-                                   obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]))
+                                   obj_coords=obj_local_pos)
                 else:
                     env._viewer = None
 
@@ -820,8 +816,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             action_str = set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info)
 
             if total_steps % 1 == 0:
-                image = env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=success)
+                image = env.render_img(saving_dir=all_saving_dirs["output_dir"],text_overlay=action_str, episode_num=i, timestep_num=total_steps,
+                               obj_coords=obj_local_pos, final_episode_type=success)
 
         # Add heatmap coordinates
         orientation = env.get_orientation()
@@ -859,27 +855,18 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     # Save coordinates
     # Directory for x,y coordinate heatmap data
     # STEPH TEST NO NOISE
-    expert_saving_dir = "expert_replay_data_NO_NOISE/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
-    #expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
-    expert_output_saving_dir = expert_saving_dir + "/output"
-    expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
-    expert_save_path = Path(expert_saving_dir)
-    expert_save_path.mkdir(parents=True, exist_ok=True)
-
-    heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
-    heatmap_save_path = Path(heatmap_saving_dir)
-    heatmap_save_path.mkdir(parents=True, exist_ok=True)
+    expert_saving_dir = all_saving_dirs["saving_dir"] #"expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
+    expert_output_saving_dir = all_saving_dirs["output_dir"] #expert_saving_dir + "/output"
+    expert_replay_saving_dir = all_saving_dirs["replay_buffer"] #expert_saving_dir + "/replay_buffer"
+    heatmap_saving_dir = all_saving_dirs["heatmap_dir"] #expert_output_saving_dir + "/heatmap/expert"
 
     print("\n--------- Saving Directories --------------")
     print("Main saving directory: ", expert_saving_dir)
     print("Output (data, plots) saved to: ", expert_output_saving_dir)
-    print("Heatmap data saved to: ", expert_saving_dir)
+    print("Heatmap data saved to: ", heatmap_saving_dir)
 
     # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
     filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
-
-    #print("Plotting timestep distribution...")
-    #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
 
     if save and replay_buffer is not None:
         print("\nSaving replay buffer...")
