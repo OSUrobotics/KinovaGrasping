@@ -34,6 +34,9 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
 
+#collision check
+import collision_check
+
 def compare_test():
     """ Compare policy performance """
     #     eval_env = gym.make(env_name)
@@ -935,6 +938,7 @@ if __name__ == "__main__":
     env.seed(args.seed)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
+
 
     # Set dimensions for state and action spaces - policy initialization
     state_dim = 82  # State dimension dependent on the length of the state space

@@ -361,7 +361,6 @@ class KinovaGripper_Env(gym.Env):
         arr[1]=-arr[1]
         return arr # it is a list
 
-
     def obs_test(self):
         obj_pose = self._get_obj_pose()
         obj_pose = np.copy(obj_pose)
@@ -1307,115 +1306,161 @@ class KinovaGripper_Env(gym.Env):
         return xloc,yloc,zloc,f1prox,f2prox,f3prox
 
 
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None, qpos=None, obj_coord_region=None, with_noise=True):
-        """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
-        shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
-        hand_orientation: Orientation of the hand relative to the object
-        with_grasp: Set to True to include the grasp classifier reward within the reward calculation
-        env_name: Name of the current environment; "env" for training and "eval_env" for evaluation
-        mode: Mode for current run - Ex: "train", "test"
-        start_pos: Specific initial starting coordinate location for the object for testing purposes - default to None
-        obj_params: Specific shape and size of object for testing purposes [shape_name, size] (Ex: [Cube, S]) - default to None
-        qpos: Specific initial starting qpos value for hand joint values for testing purposes - default to None
-        obj_coord_region: Specific region to sample initial object coordinate location from for testing purposes - default to None
-        with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
-        returns the state (current state representation after reset of the environment)
-        """
-        # All possible shape keys - default shape keys will be used for expert data generation
-        # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    # def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None, qpos=None, obj_coord_region=None, with_noise=True, xml_filename=None, xml_shape=None):
+    #     """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
+    #     shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
+    #     hand_orientation: Orientation of the hand relative to the object
+    #     with_grasp: Set to True to include the grasp classifier reward within the reward calculation
+    #     env_name: Name of the current environment; "env" for training and "eval_env" for evaluation
+    #     mode: Mode for current run - Ex: "train", "test"
+    #     start_pos: Specific initial starting coordinate location for the object for testing purposes - default to None
+    #     obj_params: Specific shape and size of object for testing purposes [shape_name, size] (Ex: [Cube, S]) - default to None
+    #     qpos: Specific initial starting qpos value for hand joint values for testing purposes - default to None
+    #     obj_coord_region: Specific region to sample initial object coordinate location from for testing purposes - default to None
+    #     with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
+    #     returns the state (current state representation after reset of the environment)
+    #     """
+    #     # All possible shape keys - default shape keys will be used for expert data generation
+    #     # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    #
+    #     self.set_with_grasp_reward(with_grasp) # If True, use Grasp Reward from grasp classifier in reward calculation
+    #     self.set_obj_coord_region(obj_coord_region) # Set the region from where the initial x,y object coordinate will be sampled from
+    #
+    #     if xml_filename is None:
+    #         # Determine object to be used within current environment
+    #         random_shape = self.select_object(env_name, shape_keys, obj_params)
+    #         print("###########################!!!!!!!!**********", random_shape)
+    #     else:
+    #         load_model_from_path(xml_filename)
+    #         random_shape = xml_shape
+    #
+    #     self.set_random_shape(random_shape)
+    #
+    #     # Determine hand orientation to be used within current environment
+    #     orientation = self.select_orienation(random_shape, hand_orientation)
+    #     self.set_orientation(orientation)
+    #
+    #     # Determine location of x, y, z joint locations and proximal finger locations of the hand
+    #     xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
+    #
+    #     # STEPH Use pre-set qpos (joint velocities?) and pre-set initial object initial object position
+    #     if qpos is None:
+    #         if start_pos is None:
+    #             # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
+    #             obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, with_noise=with_noise)
+    #             self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
+    #             self.set_coords_filename(coords_filename)
+    #
+    #         elif len(start_pos)==3:
+    #             ######################################
+    #             ## TO Test Real world data Uncomment##
+    #             ######################################
+    #             #start_pos.append(1)
+    #             #self._get_trans_mat_wrist_pose()
+    #             #temp_start_pos = np.matmul(self.Twf, start_pos)
+    #             #obj_x, obj_y, obj_z = temp_start_pos[0], temp_start_pos[1], temp_start_pos[2]
+    #
+    #             ##Comment this to Test real world data
+    #             obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
+    #         elif len(start_pos)==2:
+    #             obj_x, obj_y = start_pos[0], start_pos[1]
+    #             obj_z = self._get_obj_size()[-1]
+    #         else:
+    #             xloc,yloc,zloc,f1prox,f2prox,f3prox=start_pos[0], start_pos[1], start_pos[2],start_pos[3], start_pos[4], start_pos[5]
+    #             obj_x, obj_y, obj_z = start_pos[6], start_pos[7], start_pos[8]
+    #
+    #         # all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,obj_x,obj_y,obj_z]
+    #         self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x, obj_y, obj_z])
+    #         #if coords=='local':
+    #         #    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
+    #         #    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
+    #         self.Grasp_Reward=False
+    #         self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
+    #         self.all_states = [self.all_states_1 , self.all_states_2]
+    #
+    #         self._set_state(self.all_states[0])
+    #     else:
+    #         self.set_sim_state(qpos,start_pos)
+    #         obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
+    #
+    #     states = self._get_obs()
+    #     obj_pose=self._get_obj_pose()
+    #     deltas=[obj_x-obj_pose[0],obj_y-obj_pose[1],obj_z-obj_pose[2]]
+    #
+    #     if np.linalg.norm(deltas)>0.05:
+    #         self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x+deltas[0], obj_y+deltas[1], obj_z+deltas[2]])
+    #         self.all_states=[self.all_states_1,self.all_states_2]
+    #         self._set_state(self.all_states[0])
+    #         states = self._get_obs()
+    #
+    #     #These two varriables are used when the action space is in joint states
+    #     self.t_vel = 0
+    #     self.prev_obs = []
+    #
+    #     # Sets the object coordinates for heatmap tracking and plotting
+    #     self.set_obj_coords(obj_x, obj_y, obj_z)
+    #     self._get_trans_mat_wrist_pose()
+    #
+    #     ##Testing Code
+    #     '''
+    #     if test:
+    #         if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]:
+    #             if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
+    #                 print("Reset function is working Properly Check the render")
+    #                 self.render()
+    #         else:
+    #             print("Reset function is not working Properly Check the render")
+    #             self.render()
+    #     '''
+    #     return states
 
-        self.set_with_grasp_reward(with_grasp) # If True, use Grasp Reward from grasp classifier in reward calculation
-        self.set_obj_coord_region(obj_coord_region) # Set the region from where the initial x,y object coordinate will be sampled from
+    def reset(self):
+        pass
 
-        # Determine object to be used within current environment
-        random_shape = self.select_object(env_name, shape_keys, obj_params)
-        self.set_random_shape(random_shape)
+    def real_reset(self, data_points):
+        load_model_from_path(data_points[11])
+        ornx = data_points[3]
+        orny = data_points[4]
+        ornz = data_points[5]
+        objx = data_points[7]
+        objy = data_points[8]
+        objz = data_points[9]
 
-        # Determine hand orientation to be used within current environment
-        orientation = self.select_orienation(random_shape, hand_orientation)
-        self.set_orientation(orientation)
+        self.write_xml(np.array([ornx, orny, ornz]))
+        self.place_obj(objx, objy, objz)
 
-        # Determine location of x, y, z joint locations and proximal finger locations of the hand
-        xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
-
-        # STEPH Use pre-set qpos (joint velocities?) and pre-set initial object initial object position
-        if qpos is None:
-            if start_pos is None:
-                # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
-                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, with_noise=with_noise)
-                self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
-                self.set_coords_filename(coords_filename)
-
-            elif len(start_pos)==3:
-                ######################################
-                ## TO Test Real world data Uncomment##
-                ######################################
-                #start_pos.append(1)
-                #self._get_trans_mat_wrist_pose()
-                #temp_start_pos = np.matmul(self.Twf, start_pos)
-                #obj_x, obj_y, obj_z = temp_start_pos[0], temp_start_pos[1], temp_start_pos[2]
-
-                ##Comment this to Test real world data
-                obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
-            elif len(start_pos)==2:
-                obj_x, obj_y = start_pos[0], start_pos[1]
-                obj_z = self._get_obj_size()[-1]
-            else:
-                xloc,yloc,zloc,f1prox,f2prox,f3prox=start_pos[0], start_pos[1], start_pos[2],start_pos[3], start_pos[4], start_pos[5]
-                obj_x, obj_y, obj_z = start_pos[6], start_pos[7], start_pos[8]
-
-            # all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,obj_x,obj_y,obj_z]
-            self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x, obj_y, obj_z])
-            #if coords=='local':
-            #    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
-            #    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
-            self.Grasp_Reward=False
-            self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
-            self.all_states = [self.all_states_1 , self.all_states_2]
-
-            self._set_state(self.all_states[0])
-        else:
-            self.set_sim_state(qpos,start_pos)
-            obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
-
-        states = self._get_obs()
-        obj_pose=self._get_obj_pose()
-        deltas=[obj_x-obj_pose[0],obj_y-obj_pose[1],obj_z-obj_pose[2]]
-
-        if np.linalg.norm(deltas)>0.05:
-            self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x+deltas[0], obj_y+deltas[1], obj_z+deltas[2]])
-            self.all_states=[self.all_states_1,self.all_states_2]
-            self._set_state(self.all_states[0])
-            states = self._get_obs()
-
-        #These two varriables are used when the action space is in joint states
-        self.t_vel = 0
-        self.prev_obs = []
-
-        # Sets the object coordinates for heatmap tracking and plotting
-        self.set_obj_coords(obj_x, obj_y, obj_z)
+    def real_step(self, action):
         self._get_trans_mat_wrist_pose()
+        action = [0, 0, action[0], action[1], action[2], action[3]]
+        mass = 0.733
+        gear = 25
+        stuff = np.matmul(self.Tfw[0:3, 0:3], [0, 0, mass * 10 / gear])
+        stuff[0] = -stuff[0]
+        stuff[1] = -stuff[1]
+        for i in range (0,3):
+            self._sim.data.ctrl[i + 6] = action[i + 3]
+            self._sim.data.ctrl[i * 2 + 1] = stuff[i]
+        self._sim.step()
 
-        ##Testing Code
-        '''
-        if test:
-            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]:
-                if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
-                    print("Reset function is working Properly Check the render")
-                    self.render()
-            else:
-                print("Reset function is not working Properly Check the render")
-                self.render()
-        '''
-        return states
+    def place_obj(self, objx, objy, objz):
+        self._sim.data.set_joint_qpos("object", [objx, objy, objz, 1.0, 0.0, 0.0, 0.0])
+        self._sim.forward()
+        arr = self._sim.data.get_geom_xpos("object")
+        print("###Hello####", arr)
 
+    def is_it_still_there(self, objx, objy, objz):
+        arr1 = self._get_obj_pose()
+        arr = self._sim.data.get_geom_xpos("object")
+        arr2 = self._get_obs('global')
+        print("###Hello####", arr,  arr1,  arr2)
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
     def render(self, mode='human'): #TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        setPause=False
-        if self._viewer is None:
-            self._viewer = MjViewer(self._sim)
-            self._viewer._paused = setPause
+        setPause=True
+        # if self._viewer is None:
+            # self._viewer = MjViewer(self._sim)
+            # self._viewer._paused = setPause
+        self._viewer = MjViewer(self._sim)
         self._viewer.render()
         if setPause:
             self._viewer._paused=True
