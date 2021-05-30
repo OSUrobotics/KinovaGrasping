@@ -87,6 +87,8 @@ for f in range(1):#was 3
         error_sum_y = 0
         error_sum_z = 0
 
+        curr_angle_list = []
+
         x_angles = []
         y_angles = []
         z_angles = []
@@ -129,11 +131,12 @@ for f in range(1):#was 3
         #stem = env.env.sim.data.get_obj_qpos('stem') #stem in euler
         #feed into slerp, convert to local? 
         
-        
+        #env.env._get_trans_mat_wrist_pose()
+        #hand = env.env.Tfw[0:3,0:3]
         hand = env.env._sim.data.get_body_xmat('j2s7s300_link_7')
         stem = env.env._sim.data.get_site_xmat('obj_vec')
         
-        SLERP_TIMESTEPS = 200
+        SLERP_TIMESTEPS = 300
         end_time = SLERP_TIMESTEPS*.04
         print(end_time)
         key_times=[0,end_time]
@@ -193,7 +196,10 @@ for f in range(1):#was 3
             #         const_add[2]+=diffs[2]
     
             #Rt1w
+            #hand = env.env.Tfw([0:3,0:3])
             curr_angle = R.from_matrix(env.env._sim.data.get_body_xmat('j2s7s300_link_7')).inv()
+            # env.env._get_trans_mat_wrist_pose()
+            # curr_angle = R.from_matrix(env.env.Tfw[0:3,0:3])
             if i == 0:
                 prev_angles = curr_angle
             # print('type(curr_angle):', type(curr_angle))
@@ -208,19 +214,27 @@ for f in range(1):#was 3
             #Rt1w * Rwt0            
             d_error = (curr_angle*(prev_angles.inv())).as_euler('xyz')
 
+            curr_angle_list.append(curr_angle.inv().as_euler('xyz'))
+
+
             x_angles.append(error[0])
             y_angles.append(error[1])
             z_angles.append(error[2])
 
                         #error_sum_x += goal_euler[0]-curr_euler[0]-const_add[0]
-            #error_sum_y += goal_euler[1]-curr_euler[1]-const_add[1]
-            #error_sum_z += goal_euler[2]-curr_euler[2]-const_add[2]
+            error_sum_x += error[0]
+            error_sum_y += error[1]
+            error_sum_z += error[2]
+
+            error_sum_x*=.99
+            error_sum_y*=.99
+            error_sum_z*=.99
 
             #Successful w/yz .06, .04-.06
             #was goal_euler[0]-curr_euler[0]-const_add[0]
-            rotx, xpid_vals = pid(.016, 0, 0.05, error[0], 0, -d_error[0])
-            roty, ypid_vals = pid(.016, 0, 0.05, error[1], 0, -d_error[1])
-            rotz, zpid_vals = pid(.008, 0, 0.05, error[2], 0, -d_error[2])
+            rotx, xpid_vals = pid(.02, .02, 0.1, error[0], error_sum_x * .01, -d_error[0])
+            roty, ypid_vals = pid(.02, .02, 0.1, error[1], error_sum_y * .01, -d_error[1])
+            rotz, zpid_vals = pid(.01, .02, 0.05, error[2], error_sum_z* .01, -d_error[2])
             
             prev_angles = curr_angle
             #prev_goal = goal_euler.copy()
@@ -239,9 +253,8 @@ for f in range(1):#was 3
             #    env.env.pid=True
             #    last_obs.append(obs)
             #testing
-
             action = np.array([0,0,0,0,0,0,rotx, roty, rotz])
-
+                
             #print("diff pitch:", curr_pitch - Q_current.as_euler('xyz')[1])
             #action = np.array([0,0,0,0,0,0,local_euler[2]+curr_yaw,local_euler[1]+curr_pitch])                
 
@@ -282,6 +295,7 @@ for f in range(1):#was 3
         xpid_list = np.array(xpid_list)
         plt.plot(xpid_list[:,0], label="P")
         plt.plot(xpid_list[:,1], label="I")
+        plt.plot(xpid_list[:,0]+xpid_list[:,1]+xpid_list[:,2], label="TOTAL")
         plt.plot(xpid_list[:,2], label="D")
         plt.legend()
 
@@ -290,6 +304,7 @@ for f in range(1):#was 3
         ypid_list = np.array(ypid_list)
         plt.plot(ypid_list[:,0], label="P")
         plt.plot(ypid_list[:,1], label="I")
+        plt.plot(ypid_list[:,0]+ypid_list[:,1]+ypid_list[:,2], label="TOTAL")
         plt.plot(ypid_list[:,2], label="D")
         plt.legend()
 
@@ -298,6 +313,15 @@ for f in range(1):#was 3
         zpid_list = np.array(zpid_list)
         plt.plot(zpid_list[:,0], label="P")
         plt.plot(zpid_list[:,1], label="I")
+        plt.plot(zpid_list[:,0]+zpid_list[:,1]+zpid_list[:,2], label="TOTAL")
         plt.plot(zpid_list[:,2], label="D")
+        plt.legend()
+
+        plt.figure(5)
+        plt.title("Current Angle")
+        curr_angle_arr = np.array(curr_angle_list)
+        plt.plot(curr_angle_arr[: ,0], label="X")
+        plt.plot(curr_angle_arr[: ,1], label="Y")
+        plt.plot(curr_angle_arr[: ,2], label="Z")
         plt.legend()
         plt.show()
