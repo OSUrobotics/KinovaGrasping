@@ -1410,7 +1410,7 @@ class KinovaGripper_Env(gym.Env):
         else:
             noise_str = "with_noise/"
         mode = "shape"
-        shape_keys = ["CubeB", "CylinderS"] #, "VaseS"]
+        shape_keys = ["Vase2S"]
         file_size = 5000
 
         # Make the new VALID filtered corodinates filepath
