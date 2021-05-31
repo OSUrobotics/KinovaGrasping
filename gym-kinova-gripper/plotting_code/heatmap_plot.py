@@ -278,7 +278,7 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
     if wrist_coords is None and finger_coords is None:
         if state_rep == "global" or state_rep == "local_to_global":
             # GLOBAL initial x,y coordinate positions of the hand
-            palm_coords = [8.302983433495364e-05, 0.07040193842926876]
+            palm_coords = [0.004856534244671696, 0.07105498718707715]
             f1_prox_coords = [0.05190709651841579, 0.05922107376362523]
             f2_prox_coords = [-0.047800791389975575, 0.05905594293043447]
             f3_prox_coords = [-0.047842290951250165, 0.05909756861129018]
@@ -289,13 +289,13 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
         elif state_rep == "local":
             # Initial (local) x,y coordinate positions of the hand
             palm_coords = [0, 0]
-            f1_prox_coords = [-0.052713091739612916, 0.006032608331224411]
-            f2_prox_coords = [0.046381192783558026, 0.016055807264929084]
-            f3_prox_coords = [0.04673074829459711, 0.01592404169727353]
+            f1_prox_coords = [-0.04704485301602504, 0.011828222834321257]
+            f2_prox_coords = [0.052678133204167574, 0.011978223789074184]
+            f3_prox_coords = [0.05267800707091165, 0.011978223789590757]
 
-            f1_dist_coords = [-0.08288113504345852, 0.025426551697133225]
-            f2_dist_coords = [0.07223797328448193, 0.040994914052727705]
-            f3_dist_coords = [0.0726581750025766, 0.04083658634787303]
+            f1_dist_coords = [-0.0751175118336241, 0.034081512699861705]
+            f2_dist_coords = [0.08090042520228961, 0.03423151495416306]
+            f3_dist_coords = [0.08090041735658912, 0.03423151495419517]
     else:
         palm_coords = wrist_coords[0:2]
         f1_prox_coords = finger_coords[0:3]
