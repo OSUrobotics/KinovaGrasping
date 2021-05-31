@@ -1394,14 +1394,6 @@ class KinovaGripper_Env(gym.Env):
 
         return xloc,yloc,zloc,f1prox,f2prox,f3prox
 
-    def write_coord_data_to_file(self, coords_filename, with_noise):
-        data = []
-        # Go back to the top of the file after checking for the delimiter
-        with open(coords_filename) as csvfile:
-            writer = csv.writer(csvfile)
-            for coord in data:
-                writer.writerow(coord)
-
     def create_paths(self, dir_list):
         """ Create directories if they do not exist already, given path """
         for new_dir in dir_list:
