@@ -397,9 +397,8 @@ class ExpertPIDController(object):
             # Ready to lift, so slow down Finger 1 to allow for desired grip
             # (where Fingers 2 and 3 have dominance)
             print("Check 2A: Object is grasped, ready for lift")
-            wrist, f1, f2, f3 = wrist_lift_velocity, (
-                    finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
-        return np.array([wrist, f1, f2, f3])
+            f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+        return np.array([f1, f2, f3])
 
     def right_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
         """ Object is in an extreme right-side location within the hand, so Finger 2 and 3 move the
@@ -438,10 +437,9 @@ class ExpertPIDController(object):
             # and this check has occurred over multiple time steps
             if lift_check is True:
                 print("CHECK 9: Yes! Good grasp, move ALL fingers")
-                wrist, f1, f2, f3 = wrist_lift_velocity, (
-                        finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+                f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
 
-        return np.array([wrist, f1, f2, f3])
+        return np.array([f1, f2, f3])
 
     def left_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
         """ Object is in an extreme left-side location within the hand, so Finger 1 moves the
@@ -480,9 +478,8 @@ class ExpertPIDController(object):
             # and this check has occurred over multiple time steps
             if lift_check is True:
                 print("CHECK 15b: Good grasp - moving ALL fingers")
-                wrist, f1, f2, f3 = wrist_lift_velocity, (
-                        finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
-        return np.array([wrist, f1, f2, f3])
+                f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+        return np.array([f1, f2, f3])
 
     def PDController(self, lift_check, states, action_space, velocities):
         """ Position-Dependent (PD) Controller that is dependent on the x-axis coordinate position of the object to 
@@ -510,31 +507,31 @@ class ExpertPIDController(object):
         # Check if the object is near the center area (less than x-axis 0.03)
         if abs(self.init_obj_pose) <= 0.03:
             print("CHECK 1: Object is near the center")
-            action = self.center_action(constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+            controller_action = self.center_action(constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
         else:
             print("CHECK 3: Object is on extreme left OR right sides")
             # Object on right hand side, move 2-fingered side
             # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
             if self.init_obj_pose > 0.0:
                 print("CHECK 4: Object is on RIGHT side")
-                action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+                controller_action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
 
             # object on left hand side, move 1-fingered side
             # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
                 print("CHECK 10: Object is on the LEFT side")
-                action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+                controller_action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
 
         self._count()
-        action = check_vel_in_range(action, min_velocity, max_velocity, finger_lift_velocity)
+        controller_action = check_vel_in_range(controller_action, min_velocity, max_velocity, finger_lift_velocity)
 
-        print("f1: ", action[1], " f2: ", action[2], " f3: ", action[3], " wrist: ", action[0])
+        print("f1: ", controller_action[0], " f2: ", controller_action[1], " f3: ", controller_action[2])
         self.f1_vels.append(f1)
         self.f2_vels.append(f2)
         self.f3_vels.append(f3)
-        self.wrist_vels.append(f3)
+        self.wrist_vels.append(wrist)
 
-        return action, self.f1_vels, self.f2_vels, self.f3_vels, self.wrist_vels
+        return controller_action, self.f1_vels, self.f2_vels, self.f3_vels, self.wrist_vels
 
 
 def check_vel_in_range(action, min_velocity, max_velocity, finger_lift_velocity):
@@ -597,11 +594,11 @@ def NaiveController(lift_check, velocities):
     """ Move fingers at a constant speed, return action """
 
     # By default, close all fingers at a constant speed
-    action = np.array([0, velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
+    action = np.array([velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
 
     # If ready to lift, set fingers to constant lifting velocities
     if lift_check is True:
-        action = np.array([velocities["wrist_lift_velocity"], velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
+        action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
                            velocities["finger_lift_velocity"]])
 
     return action
@@ -618,22 +615,22 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
     object_x_coord = obs[21]  # Object x coordinate position
 
     # By default, action is set to close fingers at a constant velocity
-    action = np.array([0, velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
+    controller_action = np.array([velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
 
     # NAIVE CONTROLLER: Close all fingers at a constant speed
     if pid_mode == "naive":
-        action = NaiveController(lift_check, velocities)
+        controller_action = NaiveController(lift_check, velocities)
 
     # POSITION-DEPENDENT CONTROLLER: Only move fingers based on object x-coord position within hand
     elif pid_mode == "position-dependent":
-        action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+        controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
 
     # COMBINED CONTROLLER: Interpolate Naive and Position-Dependent controller output based on object x-coord position within hand
     else:
         # If object x position is on outer edges, do expert pid
         if object_x_coord < -0.04 or object_x_coord > 0.04:
             # Expert Nudge controller strategy
-            action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
 
         # Object x position within the side-middle ranges, interpolate expert/naive velocity output
         elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
@@ -643,32 +640,19 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
             # Naive controller action (fingers move at constant velocity)
             naive_action = NaiveController(lift_check, velocities)
 
-            # Only start to lift if we've had some RL time steps (multiple actions) to adjust hand
-            # Naive controller lift check determines whether we lift or not
-            if naive_action[0] == 0 and lift_check is True:
-                wrist_vel = 0
-            else:
-                wrist_vel = velocities["wrist_lift_velocity"] #naive_action[0] + expert_action[0] / 2
-
             # Interpolate finger velocity values between position-dependent and Naive action output
-            finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
+            finger_vels = np.interp(np.arange(0, 3), naive_action, expert_action)
 
-            action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
+            controller_action = np.array([finger_vels[0], finger_vels[1], finger_vels[2]])
 
         # Object x position is within center area, so use naive controller
         else:
             # Naive controller action (fingers move at constant velocity)
-            action = NaiveController(lift_check, velocities)
-
-    # From the controllers we get the iniividual finger velocities, then lift with the same wrist velocity
-    if lift_check is True:
-        action[0] = velocities["wrist_lift_velocity"]
-    else:
-        action[0] = 0
+            controller_action = NaiveController(lift_check, velocities)
 
     #print("**** action: ",action)
 
-    return action
+    return controller_action
 
 
 def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info):
@@ -707,6 +691,9 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     success_timesteps = np.array([])  # Successful episode timesteps count distribution
     fail_timesteps = np.array([])  # Failed episode timesteps count distribution
     datestr = datetime.datetime.now().strftime("%m_%d_%y_%H%M") # used for file name saving
+
+    # Wrist lifting velocity
+    wrist_lift_action = 0.6 # radians/sec
 
     print("----Generating {} expert episodes----".format(episode_num))
     print("Using PID MODE: ", pid_mode)
@@ -767,7 +754,16 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             ### END OF READY FOR LIFTING CHECK ###
 
             # Get action based on the selected controller (Naive, position-dependent, combined Interpolation
-            action = get_action(obs, lift_check, controller, env, pid_mode)
+            controller_action = get_action(obs, lift_check, controller, env, pid_mode)
+
+            # From the controllers we get the iniividual finger velocities, then lift with the same wrist velocity
+            if lift_check is True:
+                wrist_action = np.array([wrist_lift_action])
+                action = np.concatenate((wrist_action, controller_action))
+            else:
+                # No movement in the wrist if we are not ready for lifting (0 rad/sec)
+                wrist_action = np.array([0])
+                action = np.concatenate((wrist_action, controller_action))
 
             # Take action (Reinforcement Learning step)
             env.set_with_grasp_reward(with_grasp)
@@ -787,7 +783,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
 
             # Add experience to replay buffer
             if replay_buffer is not None and not lift_check:
-                replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+                # Only recording the controller's actions (finger velocities) within the replay buffer
+                replay_buffer.add(obs[0:82], controller_action, next_obs[0:82], reward, float(done))
 
             if lift_check and done:
                 replay_buffer.replace(reward, done)
@@ -925,7 +922,7 @@ if __name__ ==  "__main__":
     pid_mode = "naive"
     replay_size = 10
     with_grasp = False
-    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4, max_episode=replay_size)
+    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=3, max_episode=replay_size)
     replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=expert_replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
 
     #print (replay_buffer, save_filepath)
