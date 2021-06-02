@@ -1067,9 +1067,8 @@ def generate_output(text, orientations_list, num_success, num_total, all_saving_
     if os.path.isdir(all_saving_dirs["boxplot_dir"]) is True:
         print("Generating boxplots...")
         # Boxplot evaluation reward
-        for orientation in orientations_list:
-            plot_output_dir = all_saving_dirs["boxplot_dir"] + orientation + "/"
-            generate_reward_boxplots(plot_type=plot_type,orientation=str(orientation), data_dir=plot_output_dir,
+        plot_output_dir = all_saving_dirs["boxplot_dir"] + "/"
+        generate_reward_boxplots(plot_type=plot_type,orientation=str(requested_orientation), data_dir=plot_output_dir,
                                      saving_dir=plot_output_dir, tot_episodes=args.max_episode, saving_freq=args.save_freq, eval_freq=args.eval_freq)
     else:
         print("Boxplot dir NOT found: ", all_saving_dirs["boxplot_dir"])

@@ -59,7 +59,6 @@ def create_std_dev_bar_plot(x,y,deviation,labels,saving_dir,filename):
     else:
         plt.savefig(saving_dir+"/"+filename)
         print("Standard deviation bar plot saved at: ",saving_dir+"/"+filename)
-    plt.show()
 
 def get_boxplot_data(plot_type, data_dir,filename,tot_episodes,saving_freq):
     """Get boxplot data from saved numpy arrays
@@ -70,7 +69,7 @@ def get_boxplot_data(plot_type, data_dir,filename,tot_episodes,saving_freq):
     """
     data = []
     if plot_type == "eval":
-        for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes/saving_freq), dtype=int):
+        for ep_num in np.linspace(start=0, stop=tot_episodes, num=int(tot_episodes / saving_freq)+1, dtype=int):
             data_str = data_dir+filename+"_"+str(ep_num)+".npy"
             my_file = Path(data_str)
             if my_file.is_file():
@@ -81,7 +80,6 @@ def get_boxplot_data(plot_type, data_dir,filename,tot_episodes,saving_freq):
                     data.append(eval_data)
             else:
                 print("Boxplot file not found! file: ", data_str)
-                data = None
     else:
         data_str = data_dir + filename + ".npy"
         my_file = Path(data_str)
@@ -93,7 +91,8 @@ def get_boxplot_data(plot_type, data_dir,filename,tot_episodes,saving_freq):
                 data.append(eval_data)
         else:
             print("Boxplot file not found! file: ", data_str)
-            data = None
+    if len(data) == 0:
+        data = None
 
     return data
 
@@ -120,11 +119,12 @@ def generate_reward_boxplots(plot_type, orientation, data_dir, saving_dir, file_
 
             avgs = []
             std_devs = []
-            for row in boxplot_data:
-                print("row: ",row)
-                avgs.append(np.average(row))
-                std_devs.append(np.std(row))
-            x = np.arange(0, len(avgs))
+            if boxplot_data is not None:
+                for row in boxplot_data:
+                    #"row: ",row)
+                    avgs.append(np.average(row))
+                    std_devs.append(np.std(row))
+                x = np.arange(0, len(avgs))
 
             plot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
                               "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials, " + orientation + " Orientation", "freq_vals": freq_vals}
