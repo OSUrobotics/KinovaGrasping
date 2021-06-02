@@ -22,6 +22,7 @@ from pathlib import Path
 import pathlib
 import copy # For copying over coordinates
 import glob # Used for getting saved policy filename
+from expert_data import ExpertPIDController, get_action # Expert controller, used within evaluation
 
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
@@ -127,7 +128,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, seed):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, controller_type="policy"):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -189,16 +190,17 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, va
                                                       start_pos=curr_dict["global_obj_coords"],
                                                       hand_rotation=curr_dict["hand_orient_variation"],
                                                       output_dir=region_dir,
-                                                      with_noise=variation_type["with_orientation_noise"])
+                                                      with_noise=variation_type["with_orientation_noise"],
+                                                      controller_type=controller_type)
 
                         all_action_values = region_eval_ret["all_action_values"]
                         policy_actions = all_action_values["policy_actions"]
                         render_file_dir = region_eval_ret["render_file_dir"]
                         range_of_episodes = np.arange(len(policy_actions))
-                        for metric_idx in range(1, 4):
+                        for metric_idx in range(0, 3):
                             selected_ep_actions = get_selected_episode_metrics(range_of_episodes, policy_actions, metric_idx)
-                            actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx) + " Velocity",
-                                               "Policy Action Output: Finger " + str(metric_idx) + " Velocity",
+                            actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx+1) + " Velocity",
+                                               "Policy Action Output: Finger " + str(metric_idx+1) + " Velocity",
                                                saving_dir=render_file_dir)
 
                 # Save the hand and object coordinates
@@ -273,7 +275,7 @@ def test_global_to_local_transformation(local_coords,global_coords,env_global_co
 
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, with_noise, start_pos=None,hand_rotation=None,output_dir=None,eval_episodes=100, compare=False, render_imgs=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, mode, with_noise, start_pos=None,hand_rotation=None,output_dir=None,eval_episodes=100, compare=False, render_imgs=False, controller_type="policy"):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Local representation of the object coordinates
@@ -306,7 +308,11 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
         success = 0
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode=args.mode,env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode="eval",env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+
+        # Initialize the controller for evaluation purposes
+        if controller_type != "policy":
+            controller = ExpertPIDController(state)
 
         # Record initial coordinate file path once shapes are generated
         all_saving_dirs["eval_init_coord_file_path"] = eval_env.get_coords_filename()
@@ -388,9 +394,21 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             #####
             # Not ready for lift, continue agent grasping following the policy
             if not ready_for_lift:
-                action = policy.select_action(np.array(state[0:82])) # Due to the sigmoid should be between (0,max_action)
+                if controller_type == "policy":
+                    # Finger velocities
+                    policy_action = policy.select_action(np.array(state[0:82])) # Due to the sigmoid should be between (0,max_action)
+                    wrist_action = np.array([0])
+                    action = np.concatenate((wrist_action, policy_action)) # If not ready for lift, wrist should always be 0
+                else:
+                    #print("Getting the action from the "+controller_type+" controller!!")
+                    # Get the action from the controller (controller_type: naive, position-dependent)
+                    # Finger velocities
+                    controller_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=eval_env, pid_mode=controller_type)
+                    wrist_action = np.array([0])
+                    action = np.concatenate((wrist_action, controller_action))  # The wrist velocity gets set within get_action
+
                 eval_env.set_with_grasp_reward(args.with_grasp_reward)
-                next_state, reward, done, info = eval_env.step(action)
+                next_state, reward, done, info = eval_env.step(action) # Step action takes in the wrist velocity plus the finger velocities
                 cumulative_reward += reward
                 avg_reward += reward
                 curr_reward = reward
@@ -402,8 +420,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 ep_lift_reward += info["lift_reward"]
 
                 # Tracking actions with and without noise
-                episode_actions.append(action)
-                action_with_noise = (action + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(0, max_action)
+                episode_actions.append(policy_action)
+                action_with_noise = (policy_action + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(0, max_action)
                 episode_actions_with_noise.append(action_with_noise)
 
             else:  # Make it happen in one time step
@@ -426,7 +444,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 if ready_for_lift:
                     action_str = "Constant lift action by controller"
                 else:
-                    action_str = "Policy Action Output (rad/sec):\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[1],action[2],action[3])
+                    action_str = "Policy Action Output (rad/sec):\nWrist Velocity: {}\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[0], action[1],action[2],action[3])
                 if done:
                     final_success = reward
                 else:
@@ -693,15 +711,17 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
 
             # Follow policy until ready for lifting, then switch to set controller
             if not ready_for_lift:
-                action = (
+                policy_action = (
                         policy.select_action(np.array(state))
                         + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
                 ).clip(0, max_action)
+                wrist_action = np.array([0])
+                action = np.concatenate((wrist_action, policy_action)) # Policy outputs the finger velocities - the wrist velocity will be 0 until ready for lift
 
                 # Perform action obs, total_reward, done, info
                 env.set_with_grasp_reward(args.with_grasp_reward)
                 next_state, reward, done, info = env.step(action)
-                replay_buffer.add(state[0:82], action, next_state[0:82], reward, float(done))
+                replay_buffer.add(state[0:82], policy_action, next_state[0:82], reward, float(done))
                 replay_buffer_recorded_ts += 1
                 episode_reward += reward
 
@@ -1195,6 +1215,7 @@ def setup_args(args=None):
     parser.add_argument("--test_policy_path", type=str, action='store', default="./experiments/pre-train/Critic_sigmoid_InOrder/policy/pre-train_DDPGfD_kinovaGrip_04_29_21_1223/") # Path of the policy to be tested
     parser.add_argument("--test_policy_name", type=str, action='store', default="") # Test policy name for clear plotting
     parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
+    parser.add_argument("--controller_type", type=str, action='store', default="policy") # Determine the type of controller to use for evaluation (policy OR naive, expert, position-dependent)
 
     args = parser.parse_args()
     return args
@@ -1205,7 +1226,7 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
 
     # Set dimensions for state and action spaces - policy initialization
     state_dim = 82  # State dimension dependent on the length of the state space
-    action_dim = 4
+    action_dim = 3
     max_action = 0.8
     n = 5   # n step look ahead for the policy
     max_q_value = 50 # Should match the maximum reward value
@@ -1275,7 +1296,7 @@ if __name__ == "__main__":
 
     # Set dimensions for state and action spaces - policy initialization
     state_dim = 82  # State dimension dependent on the length of the state space
-    action_dim = env.action_space.shape[0]
+    action_dim = 3 #env.action_space.shape[0]
     max_action = float(env.action_space.high[0])
     max_action_trained = env.action_space.high  # a vector of max actions
     n = 5   # n step look ahead for the policy
@@ -1615,6 +1636,9 @@ if __name__ == "__main__":
         print("Policy: ", test_policy_path)
         print("Policy Name: ", test_policy_name)
 
+        # Determine whether we're evaluating over the policies or comparing performance of a certain controller
+        controller_type = str(args.controller_type)
+
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, test_policy_path)
 
@@ -1630,14 +1654,21 @@ if __name__ == "__main__":
         eval_freq = 1000
         num_policies = int(max_episode / eval_freq) + 1
 
-        policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
+        if max_episode == 0:
+            policy_eval_points = np.array([0])
+        else:
+            policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
         # Currently this is for one policy, but it will be for each policy
 
         # All rewards (over each evaluation point) for each policy per variation type
         variation_rewards_per_policy = {}
 
-        # Current policy we are evaluating over each evaluation point
-        policies = ["Baseline", "Baseline_HOV", "Sizes_HOV", "Shapes_HOV"]
+        if controller_type == "policy":
+            # Current policy we are evaluating over each evaluation point
+            policies = ["Baseline", "Baseline_HOV", "Sizes_HOV", "Shapes_HOV"]
+        else:
+            policies = [controller_type]
+
         for policy_name in policies:
             current_policy_path = test_policy_path+"/"+policy_name+"/output/results/"
 
@@ -1647,15 +1678,22 @@ if __name__ == "__main__":
                                  "Shapes_HOV": []}
 
             for idx in range(len(policy_eval_points)):
-                # Load policy from the evaluation point
-                ep_num = policy_eval_points[idx]
 
-                eval_point_policy_path = current_policy_path + "/policy_" + str(ep_num) + "/"
-                current_test_output_path = eval_point_policy_path + "output/"
-                create_paths([current_test_output_path])
+                if controller_type == "policy":
+                    # Load policy from the evaluation point
+                    ep_num = policy_eval_points[idx]
 
-                print("Loading policy: ",eval_point_policy_path)
-                policy.load(eval_point_policy_path)  # Change to be complete, trained policy
+                    eval_point_policy_path = current_policy_path + "/policy_" + str(ep_num) + "/"
+                    current_test_output_path = eval_point_policy_path + "output/"
+                    create_paths([current_test_output_path])
+
+                    print("Loading policy: ",eval_point_policy_path)
+                    policy.load(eval_point_policy_path)  # Change to be complete, trained policy
+                else:
+                    eval_point_policy_path = current_policy_path + "/" + controller_type + "/"
+                    current_test_output_path = eval_point_policy_path + "output/"
+                    create_paths([current_test_output_path])
+                    print("Using controller: ", controller_type)
 
                 for variation_type in variations:
                     variation_name = variation_type["variation_name"]
@@ -1696,7 +1734,7 @@ if __name__ == "__main__":
                     generate_heatmaps_by_orientation_frame(variation_type, all_hand_object_coords, variation_heatmap_path)
 
                     ## RENDER AND PLOT COORDINATES BY REGION
-                    evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, args.seed)
+                    evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, controller_type=controller_type)
 
             # AFTER we have gone through each evaluation point, record the current policy's rewards for each variation
             variation_rewards_per_policy[policy_name] = policy_rewards
