@@ -22,7 +22,7 @@ def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, saving
     plt.xlabel("Time step")
     plt.ylabel(str(metric_name))
     plt.legend(loc='best')
-    plt.ylim([0, 1.0])
+    plt.ylim([0, 0.8])
 
     if saving_dir is not None:
         plt.savefig(saving_dir + "/" + label_name + "act_vals" + ".png")

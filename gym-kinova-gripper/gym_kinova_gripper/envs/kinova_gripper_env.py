@@ -126,7 +126,7 @@ class KinovaGripper_Env(gym.Env):
         # Parameters for cost function
         self.state_des = 0.20
         self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
+        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
         self.const_T=np.array([[0,-1,0,0],[0,0,-1,0],[1,0,0,0],[0,0,0,1]])  #Transfer matrix from world frame to un-modified hand frame
         self.frame_skip = frame_skip # Used in step. Number of frames you go through before you reach the next step
         self.all_states = None  # This is the varriable we use to save the states before they are sent to the simulator when we are resetting.
@@ -1651,13 +1651,17 @@ class KinovaGripper_Env(gym.Env):
         source = episode_dir
         destination = episode_dir
         if final_episode_type != None:
-            if final_episode_type == 1: # If lift success
-                destination = os.path.join(success_dir,episode_coords)
+            if final_episode_type > 0: # If lift success
+                os.path.join(success_dir,episode_coords)
+                final_dir = success_dir
             else:
-                destination = os.path.join(fail_dir,episode_coords)
-            if not os.path.isdir(destination):
-                destination = shutil.move(source, destination)
+                os.path.join(fail_dir,episode_coords)
+                final_dir = fail_dir
+
+            if not os.path.isdir(final_dir + episode_coords):
+                shutil.move(source, final_dir)
         else:
+            final_dir = ""
             self._viewer._record_video = True
             self._viewer._video_path = video_dir + "video_1.mp4"
             a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
@@ -1676,7 +1680,9 @@ class KinovaGripper_Env(gym.Env):
             # Save image
             img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
 
-            return destination
+        final_destination = final_dir + episode_coords
+
+        return final_destination
 
     #Function to close the rendering window
     def close(self): #This doesn't work right now
