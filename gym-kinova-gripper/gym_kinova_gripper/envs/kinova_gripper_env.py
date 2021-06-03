@@ -294,46 +294,10 @@ class KinovaGripper_Env(gym.Env):
         Tfw[0:3, 0:3] = rotation_matrix
         Tfw[3, 3] = 1
         # self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
-        self.wrist_pose = self.wrist_pose + np.matmul(Tfw[0:3, 0:3], [-0.009, 0.048, 0.0])
+        self.wrist_pose = self.wrist_pose + np.matmul(Tfw[0:3, 0:3], [-0.0062, 0.048, 0.0])
         Tfw[0:3, 3] = np.matmul(-(Tfw[0:3, 0:3]), np.transpose(self.wrist_pose))
         self.Tfw = Tfw
         self.Twf = np.linalg.inv(Tfw)
-        xaxis = [1, 0, 0]
-        yaxis = [0, 1, 0]
-        zaxis = [0, 0, 1]
-        xaxis = np.matmul(self.Tfw[0:3, 0:3], xaxis)
-        yaxis = np.matmul(self.Tfw[0:3, 0:3], yaxis)
-        zaxis = np.matmul(self.Tfw[0:3, 0:3], zaxis)
-
-    #        x1=[0,xaxis[0]]
-    #        y1=[0,yaxis[0]]
-    #        z1=[0,zaxis[0]]
-    #        x2=[0,xaxis[1]]
-    #        y2=[0,yaxis[1]]
-    #        z2=[0,zaxis[1]]
-    #        x3=[0,xaxis[2]]
-    #        y3=[0,yaxis[2]]
-    #        z3=[0,zaxis[2]]
-    #        x4=[0,1]
-    #        y4=[0,0]
-    #        z4=[0,0]
-    #        x5=[0,0]
-    #        y5=[0,1]
-    #        z5=[0,0]
-    #        x6=[0,0]
-    #        y6=[0,0]
-    #        z6=[0,1]
-    #        fig = plt.figure()
-    #        ax=Axes3D(fig)
-    #        ax.plot3D(x1,y1,z1)
-    #        ax.plot3D(x2,y2,z2)
-    #        ax.plot3D(x3,y3,z3)
-    #        ax.plot3D(x4,y4,z4)
-    #        ax.plot3D(x5,y5,z5)
-    #        ax.plot3D(x6,y6,z6)
-    #        ax.legend(['Rfa x', 'Rfa y', 'Rfa z','World x','World y','World z'])
-    #        plt.show()
-    # print("rotation matrix from cindy's method",self.Tfw[0:3,0:3])
 
     def experimental_sensor(self,rangedata,finger_pose,gravity):
         #print('flimflam')
