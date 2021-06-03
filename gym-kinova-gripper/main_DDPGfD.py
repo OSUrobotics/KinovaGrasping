@@ -196,12 +196,13 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, va
                         all_action_values = region_eval_ret["all_action_values"]
                         policy_actions = all_action_values["policy_actions"]
                         render_file_dir = region_eval_ret["render_file_dir"]
-                        range_of_episodes = np.arange(len(policy_actions))
-                        for metric_idx in range(0, 3):
-                            selected_ep_actions = get_selected_episode_metrics(range_of_episodes, policy_actions, metric_idx)
-                            actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx+1) + " Velocity",
-                                               "Policy Action Output: Finger " + str(metric_idx+1) + " Velocity",
-                                               saving_dir=render_file_dir)
+                        if controller_type == "policy":
+                            range_of_episodes = np.arange(len(policy_actions))
+                            for metric_idx in range(0, 3):
+                                selected_ep_actions = get_selected_episode_metrics(range_of_episodes, policy_actions, metric_idx)
+                                actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx+1) + " Velocity",
+                                                   "Policy Action Output: Finger " + str(metric_idx+1) + " Velocity",
+                                                   saving_dir=render_file_dir)
 
                 # Save the hand and object coordinates
                 if len(success_dicts) > 0:
@@ -420,9 +421,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 ep_lift_reward += info["lift_reward"]
 
                 # Tracking actions with and without noise
-                episode_actions.append(policy_action)
-                action_with_noise = (policy_action + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(0, max_action)
-                episode_actions_with_noise.append(action_with_noise)
+                if controller_type == "policy":
+                    episode_actions.append(policy_action)
+                    action_with_noise = (policy_action + np.random.normal(0, max_action * args.expl_noise, size=action_dim)).clip(0, max_action)
+                    episode_actions_with_noise.append(action_with_noise)
 
             else:  # Make it happen in one time step
                 next_state, reward, done, info,  cumulative_reward = eval_lift_hand(eval_env, cumulative_reward,
@@ -470,9 +472,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         all_ep_reward_values["grasp_reward"].append(ep_grasp_reward)
         all_ep_reward_values["lift_reward"].append(ep_lift_reward)
 
-        # Record all actions taken by the policy (with and without noise)
-        episode_actions = np.stack(episode_actions, axis=0)
-        episode_actions_with_noise = np.stack(episode_actions_with_noise, axis=0)
+        if controller_type == "policy":
+            # Record all actions taken by the policy (with and without noise)
+            episode_actions = np.stack(episode_actions, axis=0)
+            episode_actions_with_noise = np.stack(episode_actions_with_noise, axis=0)
 
         all_action_values["policy_actions"].append(episode_actions)
         all_action_values["actions_with_noise"].append(episode_actions_with_noise)
@@ -799,9 +802,6 @@ def update_policy(policy, evaluations, episode_num, num_episodes, prob,
             if policy.avg_evaluation_reward >= best_policy.avg_evaluation_reward:
                 best_policy.copy(policy)
                 print("Evaluation episode: "+str(episode_num)+" COPYING Current Policy to be the BEST policy")
-            else:
-                policy.copy(best_policy)
-                print("Evaluation episode: " + str(episode_num) + " COPYING Best Policy to be the CURRENT policy")
 
         # Save coordinates every 200 episodes
         if episode_num+1 == num_episodes or (episode_num) % args.save_freq == 0:
@@ -1210,8 +1210,9 @@ def setup_args(args=None):
     parser.add_argument("--update_num", default=100, type=int)  # Number of times to update policy per update step
     parser.add_argument("--exp_num", default=None, type=int)    # RL Paper: experiment number
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
-    parser.add_argument("--pretrain_policy_path", type=str, action='store', default="./experiments/pre-train/Critic_sigmoid_InOrder/policy/pre-train_DDPGfD_kinovaGrip_04_29_21_1223/") # Path to the pre-trained policy to be loaded
-    parser.add_argument("--test_policy_path", type=str, action='store', default="./experiments/pre-train/Critic_sigmoid_InOrder/policy/pre-train_DDPGfD_kinovaGrip_04_29_21_1223/") # Path of the policy to be tested
+    parser.add_argument("--pretrain_policy_path", type=str, action='store', default=None) # Path to the pre-trained policy to be loaded
+    parser.add_argument("--agent_replay_buffer_path", type=str, action='store', default=None) # Path to the pre-trained replay buffer to be loaded
+    parser.add_argument("--test_policy_path", type=str, action='store', default=None) # Path of the policy to be tested
     parser.add_argument("--test_policy_name", type=str, action='store', default="") # Test policy name for clear plotting
     parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
     parser.add_argument("--controller_type", type=str, action='store', default="policy") # Determine the type of controller to use for evaluation (policy OR naive, expert, position-dependent)
@@ -1435,7 +1436,7 @@ if __name__ == "__main__":
     print("** expert_replay_file_path: ", expert_replay_file_path)
 
     ## Agent Replay Buffer ##
-    agent_replay_file_path = "./experiments/pre-train/Critic_sigmoid_InOrder/replay_buffer/replay_buffer_04_29_21_1223/" # FILL WITH AGENT REPLAY FROM PRETRAINING
+    agent_replay_file_path = args.agent_replay_buffer_path # FILL WITH AGENT REPLAY FROM PRETRAINING
 
     ## Pre-trained Policy ##
     # Default pre-trained policy file path
@@ -1507,12 +1508,6 @@ if __name__ == "__main__":
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
-        # Initialize expert replay buffer, then generate expert pid data to fill it
-        #expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-
-        #print("Loading expert replay buffer: ", expert_replay_file_path)
-        #replay_text = expert_replay_buffer.store_saved_data_into_replay(expert_replay_file_path)
-
         # Determine the expert replay buffer(s) to be used based on the requested shapes
         expert_buffers = {}
         for shape_to_load in requested_shapes:
@@ -1552,6 +1547,8 @@ if __name__ == "__main__":
         if agent_replay_file_path is not None:
             # Fill experience from previous stage into replay buffer
             replay_buffer.store_saved_data_into_replay(agent_replay_file_path)
+        else:
+            print("Using an empty agent replay buffer!!")
 
         # Determine the expert replay buffer(s) to be used based on the requested shapes
         expert_buffers = {}
@@ -1670,7 +1667,7 @@ if __name__ == "__main__":
 
         for policy_name in policies:
             current_policy_path = test_policy_path+"/"+policy_name+"/output/results/"
-
+            create_paths([test_policy_path, current_policy_path])
             # For each evaluation point, append the avg. reward from evaluating the policy
             # PER POLICY This will contain the current policy's list of vg. rewards over each evaluation point
             policy_rewards = {"Baseline": [], "Baseline_HOV": [], "Sizes_HOV": [],
@@ -1688,6 +1685,15 @@ if __name__ == "__main__":
 
                     print("Loading policy: ",eval_point_policy_path)
                     policy.load(eval_point_policy_path)  # Change to be complete, trained policy
+                elif controller_type == "random_policy":
+                    eval_point_policy_path = current_policy_path + "/" + controller_type + "/"
+                    current_test_output_path = eval_point_policy_path + "output/"
+                    create_paths([current_test_output_path])
+                    print("Using a randomly initialized policy!")
+                    variations = [Baseline]
+                    # Now that we know we are using the random policy for initialization, set the controller type to
+                    # policy for getting the policy action
+                    controller_type = "policy"
                 else:
                     eval_point_policy_path = current_policy_path + "/" + controller_type + "/"
                     current_test_output_path = eval_point_policy_path + "output/"
