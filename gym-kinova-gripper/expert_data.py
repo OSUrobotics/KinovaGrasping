@@ -553,7 +553,7 @@ def GenerateTestPID_JointVel(obs, env):
     return action
 
 
-def check_grasp(f_dist_old, f_dist_new):
+def check_pid_grasp(f_dist_old, f_dist_new):
     """
     Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
     the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
@@ -563,7 +563,7 @@ def check_grasp(f_dist_old, f_dist_new):
 
     # Initial check to see if previous state has been set
     if f_dist_old is None:
-        return [0,0]
+        return 0
     sampling_time = 15
 
     # Change in finger 1 distal x-coordinate position
@@ -603,6 +603,24 @@ def NaiveController(lift_check, velocities):
 
     return action
 
+def BellShapedController(lift_check, velocities, timestep):
+    """ Move fingers at a constant speed, return action """
+
+    # Determine the finger velocities by increasing and decreasing the values with a constant acceleration
+    if timestep <= 15:
+        finger_velocity = timestep + 0.05
+    else:
+        finger_velocity = timestep - 0.05
+    # By default, close all fingers at a constant speed
+    action = np.array([finger_velocity, finger_velocity, finger_velocity])
+
+    # If ready to lift, set fingers to constant lifting velocities
+    if lift_check is True:
+        action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
+                           velocities["finger_lift_velocity"]])
+
+    return action
+
 
 def get_action(obs, lift_check, controller, env, pid_mode="combined"):
     """ Get action based on controller (Naive, position-dependent, combined interpolation)
@@ -611,7 +629,7 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
         env: Current Mujoco environment needed for expert PID controller
         return action: np.array([wrist, f1, f2, f3]) (velocities in rad/sec)
     """
-    velocities = {"constant_velocity": 0.5, "min_velocity": 0.5, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
+    velocities = {"constant_velocity": 0.5, "min_velocity": 0.2, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
     object_x_coord = obs[21]  # Object x coordinate position
 
     # By default, action is set to close fingers at a constant velocity
@@ -624,6 +642,9 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
     # POSITION-DEPENDENT CONTROLLER: Only move fingers based on object x-coord position within hand
     elif pid_mode == "position-dependent":
         controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+
+    elif pid_mode == "bell-shaped":
+        controller_action = BellShapedController(lift_check, velocities)
 
     # COMBINED CONTROLLER: Interpolate Naive and Position-Dependent controller output based on object x-coord position within hand
     else:
@@ -743,8 +764,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             lift_check = False  # Check whether we have had enough good grasps and meet lifting requirements
 
             # Check if ready to lift based on distal finger tip change in movement
-            naive_ret = check_grasp(f_dist_old, f_dist_new)
-            grasp_check = bool(naive_ret[0])  # (1) True if within distal finger movement is <= threshold (ready for lifting)
+            grasp_check = check_pid_grasp(f_dist_old, f_dist_new)
+            # (1) True if within distal finger movement is <= threshold (ready for lifting)
             if grasp_check is True:
                 num_good_grasps += 1  # Increment the number of consecutive good grasps
 
