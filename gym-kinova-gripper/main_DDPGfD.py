@@ -1443,7 +1443,9 @@ if __name__ == "__main__":
     '''
 
     ## Expert Replay Buffer ###
-    if expert_prob == 0 or args.expert_replay_file_path is None:
+    if expert_prob > 0 and args.expert_replay_file_path is None:
+        expert_replay_file_path = experiment_dir + "naive/" + noise_str + "/" + with_grasp_str + "/"
+    elif expert_prob == 0 or args.expert_replay_file_path is None:
         expert_replay_file_path = None
     elif args.expert_replay_file_path is not None:
         expert_replay_file_path = args.expert_replay_file_path
@@ -1592,8 +1594,8 @@ if __name__ == "__main__":
         all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, test_policy_path)
 
         # Evaluation variations
-        Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": False}
-        Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeS"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": False}
+        Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": True}
         Sizes_HOV = {"variation_name": "Sizes_HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True}
         Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeS", "CylinderS", "Vase2S"], "requested_orientation": "normal", "with_orientation_noise": True}
 
@@ -1639,7 +1641,7 @@ if __name__ == "__main__":
                     print("Loading policy: ",eval_point_policy_path)
                     policy.load(eval_point_policy_path)  # Change to be complete, trained policy
                 elif controller_type == "random_policy":
-                    eval_point_policy_path = current_policy_path + "/" + controller_type + "/"
+                    eval_point_policy_path = current_policy_path + "/" + saving_dir + "/"
                     current_test_output_path = eval_point_policy_path + "output/"
                     create_paths([current_test_output_path])
                     print("Using a randomly initialized policy!")
@@ -1648,7 +1650,7 @@ if __name__ == "__main__":
                     # policy for getting the policy action
                     controller_type = "policy"
                 else:
-                    eval_point_policy_path = current_policy_path + "/" + controller_type + "/"
+                    eval_point_policy_path = current_policy_path + "/" + saving_dir + "/"
                     current_test_output_path = eval_point_policy_path + "output/"
                     create_paths([current_test_output_path])
                     variations = [Baseline]
