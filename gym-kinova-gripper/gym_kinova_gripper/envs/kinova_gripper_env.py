@@ -274,20 +274,35 @@ class KinovaGripper_Env(gym.Env):
 
     # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
     def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
+        center_pose = self._sim.data.get_site_xpos('palm')
+        xpos = self._sim.data.get_site_xpos('palm_3')
+        zpos = self._sim.data.get_site_xpos('palm_1')
+        xvec = xpos-center_pose
+        zvec = zpos-center_pose
+        yvec = np.cross(zvec, xvec)
+        xvec = xvec/np.linalg.norm(xvec)
+        yvec = yvec/np.linalg.norm(yvec)
+        zvec = zvec/np.linalg.norm(zvec)
+        rotation_matrix = np.array([xvec,yvec,zvec])
+        #print("rotation matrix from cindy's method", rotation_matrix)
         self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
         Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
         temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
         temp=np.transpose(temp)
-        Tfa=np.zeros([4,4])
-        Tfa[0:3,0:3]=temp
-        Tfa[3,3]=1
         Tfw=np.zeros([4,4])
-        Tfw[0:3,0:3]=temp
+        Tfw[0:3,0:3]=rotation_matrix
         Tfw[3,3]=1
-        self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+        #self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+        self.wrist_pose=self.wrist_pose+np.matmul(Tfw[0:3,0:3],[-0.009,0.048,0.0])
         Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
         self.Tfw=Tfw
         self.Twf=np.linalg.inv(Tfw)
+        xaxis=[1,0,0]
+        yaxis=[0,1,0]
+        zaxis=[0,0,1]
+        xaxis=np.matmul(self.Tfw[0:3,0:3],xaxis)
+        yaxis=np.matmul(self.Tfw[0:3,0:3],yaxis)
+        zaxis=np.matmul(self.Tfw[0:3,0:3],zaxis)
 
     def experimental_sensor(self,rangedata,finger_pose,gravity):
         #print('flimflam')
