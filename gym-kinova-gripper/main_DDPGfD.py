@@ -1212,6 +1212,7 @@ def setup_args(args=None):
     parser.add_argument("--render_imgs", type=str, action='store', default="False")   # Set to True to render video images of simulation (caution: will render each episode by default)
     parser.add_argument("--pretrain_policy_path", type=str, action='store', default=None) # Path to the pre-trained policy to be loaded
     parser.add_argument("--agent_replay_buffer_path", type=str, action='store', default=None) # Path to the pre-trained replay buffer to be loaded
+    parser.add_argument("--expert_replay_file_path", type=str, action='store', default=None) # Path to the expert replay buffer
     parser.add_argument("--test_policy_path", type=str, action='store', default=None) # Path of the policy to be tested
     parser.add_argument("--test_policy_name", type=str, action='store', default="") # Test policy name for clear plotting
     parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
@@ -1442,7 +1443,12 @@ if __name__ == "__main__":
     '''
 
     ## Expert Replay Buffer ###
-    expert_replay_file_path = experiment_dir + "naive/" + noise_str + "/" + with_grasp_str + "/"
+    if expert_prob == 0 or args.expert_replay_file_path is None:
+        expert_replay_file_path = None
+    elif args.expert_replay_file_path is not None:
+        expert_replay_file_path = args.expert_replay_file_path
+    else:
+        expert_replay_file_path = experiment_dir + "naive/" + noise_str + "/" + with_grasp_str + "/"
     print("** expert_replay_file_path: ", expert_replay_file_path)
 
     ## Agent Replay Buffer ##
@@ -1489,14 +1495,17 @@ if __name__ == "__main__":
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
 
         # Determine the expert replay buffer(s) to be used based on the requested shapes
-        expert_buffers = {}
-        for shape_to_load in requested_shapes:
-            expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            print("Loading expert replay buffer: ", shape_replay_file_path)
-            replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
-            expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
+        if expert_replay_file_path is None:
+            expert_buffers = None
+        else:
+            expert_buffers = {}
+            for shape_to_load in requested_shapes:
+                expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+                shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
+                # Load expert data from saved expert pid controller replay buffer
+                print("Loading expert replay buffer: ", shape_replay_file_path)
+                replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
+                expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
 
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
@@ -1533,14 +1542,17 @@ if __name__ == "__main__":
             print("Using an empty agent replay buffer!!")
 
         # Determine the expert replay buffer(s) to be used based on the requested shapes
-        expert_buffers = {}
-        for shape_to_load in requested_shapes:
-            expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-            shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            print("Loading expert replay buffer: ", shape_replay_file_path)
-            replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
-            expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
+        if expert_replay_file_path is None:
+            expert_buffers = None
+        else:
+            expert_buffers = {}
+            for shape_to_load in requested_shapes:
+                expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+                shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
+                # Load expert data from saved expert pid controller replay buffer
+                print("Loading expert replay buffer: ", shape_replay_file_path)
+                replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
+                expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
 
         # Load Pre-Trained policy
         if pretrain_model_save_path is None:
