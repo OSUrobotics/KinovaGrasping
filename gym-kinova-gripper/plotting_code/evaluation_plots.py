@@ -16,6 +16,8 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     reward_fig.suptitle("Variation Input: {}\nAvg. Reward from 500 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation over each policy variation type".format(variation_input_name,eval_freq))
 
     for policy_name, rewards in variation_input_policies.items():
+        if policy_colors.get(policy_name) is None:
+            policy_colors[policy_name] = "green"
         axs.plot(eval_points, rewards, label=policy_name, color=policy_colors[policy_name])
 
     axs.set_xlabel("Evaluation Point (Episode)")
