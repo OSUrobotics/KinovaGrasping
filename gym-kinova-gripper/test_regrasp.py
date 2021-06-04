@@ -40,7 +40,7 @@ print("Random Vector: ", vec)
 
 #Env setup
 env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
-env.reset(shape_keys=["RGmBox"],obj_params=["RGCube","M"],hand_orientation="random")
+env.reset(shape_keys=["RGmBox"],obj_params=["RGCube","M"],hand_orientation="random", with_noise=False)
 
 
 action = np.array([0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0, 0])
@@ -77,7 +77,7 @@ for f in range(1):#was 3
         #Setup env
         #Add random vector
         env.add_vec_site([0,0,0], vec)
-        env.reset(shape_keys=["RGmBox"],obj_params=["RGCube","M"],hand_orientation="random")        
+        env.reset(shape_keys=["RGmBox"],obj_params=["RGCube","M"],hand_orientation="random", with_noise=False)        
 
         #Default action
         action=np.append([0,0,0],act)
@@ -232,9 +232,9 @@ for f in range(1):#was 3
 
             #Successful w/yz .06, .04-.06
             #was goal_euler[0]-curr_euler[0]-const_add[0]
-            rotx, xpid_vals = pid(.02, .02, 0.1, error[0], error_sum_x * .01, -d_error[0])
-            roty, ypid_vals = pid(.02, .02, 0.1, error[1], error_sum_y * .01, -d_error[1])
-            rotz, zpid_vals = pid(.01, .02, 0.05, error[2], error_sum_z* .01, -d_error[2])
+            rotx, xpid_vals = pid(.02*.5, .02 * .5, 0.1 * .5, error[0], error_sum_x * .01, -d_error[0])
+            roty, ypid_vals = pid(.02*.5, .02 * .5, 0.1 * .5, error[1], error_sum_y * .01, -d_error[1])
+            rotz, zpid_vals = pid(.01*.5, .02 * .5, 0.05 * .5, error[2], error_sum_z* .01, -d_error[2])
             
             prev_angles = curr_angle
             #prev_goal = goal_euler.copy()
