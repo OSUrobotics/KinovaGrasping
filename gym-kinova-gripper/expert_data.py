@@ -387,7 +387,7 @@ class ExpertPIDController(object):
 
         # Check if change in object dot product to wrist center versus the initial dot product is greater than 0.01
         if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
-            print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
+            #print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
             # Start lowering velocity of finger 2 and 3 so the balance of force is equal (no tipping)
             f1, f2, f3 = constant_velocity, (constant_velocity / 2), (constant_velocity / 2)
 
@@ -396,7 +396,7 @@ class ExpertPIDController(object):
         if lift_check is True:
             # Ready to lift, so slow down Finger 1 to allow for desired grip
             # (where Fingers 2 and 3 have dominance)
-            print("Check 2A: Object is grasped, ready for lift")
+            #print("Check 2A: Object is grasped, ready for lift")
             f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
         return np.array([f1, f2, f3])
 
@@ -407,7 +407,7 @@ class ExpertPIDController(object):
         # Object has not moved much, we want the fingers to move closer to the object to move it
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
-            print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
+            #print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
             f1 = 0.0  # frontal finger doesn't move
             f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
             f3 = f2  # other double side finger moves at same speed
@@ -415,28 +415,28 @@ class ExpertPIDController(object):
         else:
             """ POST-contact """
             # now finger-object distance has been changed a decent amount.
-            print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
+            #print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
-                print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
+                #print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
                 # start to close the PID stuff
                 f1 = min_velocity  # frontal finger moves slightly
                 f2 = pid.velocity(obj_dot_prod)  # get PID velocity
                 f3 = f2  # other double side finger moves at same speed
                 wrist = 0.0
             else:  # goal is within 0.01 of being reached:
-                print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
+                #print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
                 # start to close from the first finger
                 f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                 f2 = 0.0
                 f3 = 0.0
                 wrist = 0.0
 
-            print("Check 9a: Check for grasp (small distal finger movement)")
+            #print("Check 9a: Check for grasp (small distal finger movement)")
             # Lift check determined by grasp check (distal finger tip movements)
             # and this check has occurred over multiple time steps
             if lift_check is True:
-                print("CHECK 9: Yes! Good grasp, move ALL fingers")
+                #print("CHECK 9: Yes! Good grasp, move ALL fingers")
                 f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
 
         return np.array([f1, f2, f3])
@@ -447,7 +447,7 @@ class ExpertPIDController(object):
         # Only Small change in object dot prod to wrist from initial position, must move more
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
-            print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
+            #print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
             f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
             f2 = 0.0
             f3 = 0.0
@@ -455,17 +455,17 @@ class ExpertPIDController(object):
         else:
             """ POST-contact """
             # now finger-object distance has been changed a decent amount.
-            print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
+            #print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
-                print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
+                #print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
                 f1 = pid.velocity(obj_dot_prod)
                 f2 = min_velocity  # 0.05
                 f3 = min_velocity  # 0.05
                 wrist = 0.0
             else:
                 # Goal is within 0.01 of being reached:
-                print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
+                #print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
                 # start to close from the first finger
                 # nudge with thumb
                 f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
@@ -473,11 +473,11 @@ class ExpertPIDController(object):
                 f1 = 0.0
                 wrist = 0.0
 
-            print("Check 15a: Check for grasp (small distal finger movement)")
+            #print("Check 15a: Check for grasp (small distal finger movement)")
             # Lift check determined by grasp check (distal finger tip movements)
             # and this check has occurred over multiple time steps
             if lift_check is True:
-                print("CHECK 15b: Good grasp - moving ALL fingers")
+                #print("CHECK 15b: Good grasp - moving ALL fingers")
                 f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
         return np.array([f1, f2, f3])
 
@@ -506,26 +506,26 @@ class ExpertPIDController(object):
 
         # Check if the object is near the center area (less than x-axis 0.03)
         if abs(self.init_obj_pose) <= 0.03:
-            print("CHECK 1: Object is near the center")
+            #print("CHECK 1: Object is near the center")
             controller_action = self.center_action(constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
         else:
-            print("CHECK 3: Object is on extreme left OR right sides")
+            #print("CHECK 3: Object is on extreme left OR right sides")
             # Object on right hand side, move 2-fingered side
             # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
             if self.init_obj_pose > 0.0:
-                print("CHECK 4: Object is on RIGHT side")
+                #print("CHECK 4: Object is on RIGHT side")
                 controller_action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
 
             # object on left hand side, move 1-fingered side
             # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
-                print("CHECK 10: Object is on the LEFT side")
+                #print("CHECK 10: Object is on the LEFT side")
                 controller_action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
 
         self._count()
         controller_action = check_vel_in_range(controller_action, min_velocity, max_velocity, finger_lift_velocity)
 
-        print("f1: ", controller_action[0], " f2: ", controller_action[1], " f3: ", controller_action[2])
+        #print("f1: ", controller_action[0], " f2: ", controller_action[1], " f3: ", controller_action[2])
         self.f1_vels.append(f1)
         self.f2_vels.append(f2)
         self.f3_vels.append(f3)
