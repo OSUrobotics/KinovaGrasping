@@ -673,6 +673,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         # Only try to access the expert replay buffer if it exists
         if expert_buffers is not None:
             expert_replay_buffer = expert_buffers[current_object]
+        else:
+            expert_replay_buffer = None
 
         timestep = 0 # Current time step within the episode
         episode_reward = 0 # Cumulative reward from the episode
