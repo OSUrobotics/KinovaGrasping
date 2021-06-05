@@ -629,7 +629,7 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
         env: Current Mujoco environment needed for expert PID controller
         return action: np.array([wrist, f1, f2, f3]) (velocities in rad/sec)
     """
-    velocities = {"constant_velocity": 0.5, "min_velocity": 0.2, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
+    velocities = {"constant_velocity": 0.5, "min_velocity": 0.3, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
     object_x_coord = obs[21]  # Object x coordinate position
 
     # By default, action is set to close fingers at a constant velocity

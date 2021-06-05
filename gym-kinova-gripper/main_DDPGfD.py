@@ -303,6 +303,8 @@ def check_grasp(f_dist_old, f_dist_new):
     # Sum of changes in distal fingers
     f_all_change = f1_diff + f2_diff + f3_diff
 
+    print("In check grasp, f1_change: {}, f2_change: {}, f3_change: {}, f_all_change: {}".format(f1_change,f2_change,f3_change,f_all_change))
+
     # If the fingers have only changed a small amount, we assume the object is grasped
     if f_all_change < 0.0002:
         return 1
@@ -1629,7 +1631,7 @@ if __name__ == "__main__":
 
         for policy_name in policies:
             current_policy_path = test_policy_path+"/"+policy_name+"/output/results/"
-            create_paths([test_policy_path, current_policy_path])
+            #create_paths([test_policy_path, current_policy_path])
             # For each evaluation point, append the avg. reward from evaluating the policy
             # PER POLICY This will contain the current policy's list of vg. rewards over each evaluation point
             policy_rewards = {"Baseline": [], "Baseline_HOV": [], "Sizes_HOV": [],
@@ -1643,13 +1645,13 @@ if __name__ == "__main__":
 
                     eval_point_policy_path = current_policy_path + "/policy_" + str(ep_num) + "/"
                     current_test_output_path = eval_point_policy_path + "output/"
-                    create_paths([current_test_output_path])
+                    create_paths([current_policy_path, current_test_output_path])
 
                     print("Loading policy: ",eval_point_policy_path)
                     policy.load(eval_point_policy_path)  # Change to be complete, trained policy
                 elif controller_type == "random_policy":
-                    eval_point_policy_path = current_policy_path + "/" + saving_dir + "/"
-                    current_test_output_path = eval_point_policy_path + "output/"
+                    #eval_point_policy_path = saving_dir
+                    current_test_output_path = saving_dir + "/output/"
                     create_paths([current_test_output_path])
                     print("Using a randomly initialized policy!")
                     variations = [Baseline]
@@ -1657,8 +1659,8 @@ if __name__ == "__main__":
                     # policy for getting the policy action
                     controller_type = "policy"
                 else:
-                    eval_point_policy_path = current_policy_path + "/" + saving_dir + "/"
-                    current_test_output_path = eval_point_policy_path + "output/"
+                    #eval_point_policy_path = saving_dir
+                    current_test_output_path = saving_dir + "/output/"
                     create_paths([current_test_output_path])
                     variations = [Baseline]
                     print("Using controller: ", controller_type)
