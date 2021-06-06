@@ -194,15 +194,14 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, va
                                                       max_num_timesteps=max_num_timesteps)
 
                         all_action_values = region_eval_ret["all_action_values"]
-                        policy_actions = all_action_values["policy_actions"]
+                        controller_actions = all_action_values["controller_actions"]
                         render_file_dir = region_eval_ret["render_file_dir"]
-                        if controller_type == "policy":
-                            range_of_episodes = np.arange(len(policy_actions))
-                            for metric_idx in range(0, 3):
-                                selected_ep_actions = get_selected_episode_metrics(range_of_episodes, policy_actions, metric_idx)
-                                actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx+1) + " Velocity",
-                                                   "Policy Action Output: Finger " + str(metric_idx+1) + " Velocity",
-                                                   saving_dir=render_file_dir)
+                        range_of_episodes = np.arange(len(controller_actions))
+                        for metric_idx in range(0, 3):
+                            selected_ep_actions = get_selected_episode_metrics(range_of_episodes, controller_actions, metric_idx)
+                            actual_values_plot(selected_ep_actions, 0, "Finger " + str(metric_idx+1) + " Velocity",
+                                               "Policy Action Output: Finger " + str(metric_idx+1) + " Velocity",
+                                               saving_dir=render_file_dir)
 
                 # Save the hand and object coordinates
                 if len(success_dicts) > 0:
@@ -338,7 +337,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     cumulative_reward = 0 # Total reward over all episodes
     # Reward data over each evaluation episode for boxplot
     all_ep_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
-    all_action_values = {"policy_actions":[]}
+    all_action_values = {"controller_actions":[]}
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
@@ -498,11 +497,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         all_ep_reward_values["grasp_reward"].append(ep_grasp_reward)
         all_ep_reward_values["lift_reward"].append(ep_lift_reward)
 
-        if controller_type == "policy":
-            # Record all actions taken by the policy (with and without noise)
-            episode_actions = np.stack(episode_actions, axis=0)
+        # Record all actions taken by the policy (with and without noise)
+        episode_actions = np.stack(episode_actions, axis=0)
 
-        all_action_values["policy_actions"].append(episode_actions)
+        all_action_values["controller_actions"].append(episode_actions)
 
         num_success += lift_success
 
@@ -815,7 +813,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 grasp_reward[-1].append(all_ep_reward_values["grasp_reward"])
                 lift_reward[-1].append(all_ep_reward_values["lift_reward"])
                 total_reward[-1].append(all_ep_reward_values["total_reward"])
-                eval_action[-1].append(all_action_values["policy_actions"])
+                eval_action[-1].append(all_action_values["controller_actions"])
 
                 # Save a copy of the current policy for evaluation purposes
                 evaluated_policy_path = all_saving_dirs["results_saving_dir"] + "/policy_" + str(episode_num) + "/"
@@ -845,9 +843,9 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 np.save(all_saving_dirs["boxplot_dir"] + "/total_reward_" + str(episode_num),total_reward)
 
                 # Save the finger velocities for plotting and evaluation
-                actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/policy_actions_" + str(episode_num)
+                actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/controller_actions_" + str(episode_num)
                 create_paths([all_saving_dirs["results_saving_dir"] + "/eval_actions/"])
-                np.save(actions_path, all_action_values["policy_actions"])
+                np.save(actions_path, all_action_values["controller_actions"])
 
                 finger_reward = [[]]
                 grasp_reward = [[]]
@@ -1606,9 +1604,10 @@ if __name__ == "__main__":
         Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": False}
         Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": True}
         Sizes_HOV = {"variation_name": "Sizes_HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True}
-        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeS", "CylinderS", "Vase2S"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeM", "CylinderM", "Vase2M"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Orientations_HOV = {"variation_name": "Orientations_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "random", "with_orientation_noise": True}
 
-        variations = [Baseline, Baseline_HOV, Sizes_HOV, Shapes_HOV]
+        variations = [Baseline, Baseline_HOV, Sizes_HOV, Shapes_HOV, Orientations_HOV]
 
         max_episode = 4000
         eval_freq = 1000
@@ -1625,7 +1624,7 @@ if __name__ == "__main__":
 
         if controller_type == "policy":
             # Current policy we are evaluating over each evaluation point
-            policies = ["Baseline", "Baseline_HOV", "Sizes_HOV", "Shapes_HOV"]
+            policies = ["Baseline", "Baseline_HOV", "Sizes_HOV", "Shapes_HOV", "Orientations_HOV"]
         else:
             policies = [controller_type]
 
@@ -1712,27 +1711,27 @@ if __name__ == "__main__":
         policy_colors = {"Baseline": "#808080", "Baseline_HOV": "black", "Sizes_HOV": "blue", "Shapes_HOV": "red"}
         # variation_input_policies format: For the current variation type, we get {policy_name: rewards}
 
-        # Create a reward plot for each variation input type
-        for variation_type in variations:
-            variation_input_name = variation_type["variation_name"]
-            variation_input_policies = {}
+        if controller_type == "policy":
+            # Create a reward plot for each variation input type over evaluation points in training
+            for variation_type in variations:
+                variation_input_name = variation_type["variation_name"]
+                variation_input_policies = {}
 
-            # Get the reward data from each policy for the current variation_input_name
-            for policy_name in policies:
-                policy_rewards_dict = variation_rewards_per_policy[policy_name]
-                # For the CURRENT VARIATION: {"Baseline": [reward, reward, ..]
-                variation_input_policies[policy_name] = policy_rewards_dict[variation_input_name]
+                # Get the reward data from each policy for the current variation_input_name
+                for policy_name in policies:
+                    policy_rewards_dict = variation_rewards_per_policy[policy_name]
+                    # For the CURRENT VARIATION: {"Baseline": [reward, reward, ..]
+                    variation_input_policies[policy_name] = policy_rewards_dict[variation_input_name]
 
-            # Save reward data to file
-            dict_file = open(test_policy_path + "/" +str(variation_input_name) + "_policy_rewards.csv", "w", newline='')
-            keys = variation_input_policies.keys()
-            dict_writer = csv.DictWriter(dict_file, keys)
-            dict_writer.writeheader()
-            dict_writer.writerows([variation_input_policies])
-            dict_file.close()
+                # Save reward data to file
+                dict_file = open(test_policy_path + "/" +str(variation_input_name) + "_policy_rewards.csv", "w", newline='')
+                keys = variation_input_policies.keys()
+                dict_writer = csv.DictWriter(dict_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows([variation_input_policies])
+                dict_file.close()
 
-            # Create a reward plot for variation_input_name for evaluation of the policy over time
-            if controller_type == "policy":
+                # Create a reward plot for variation_input_name for evaluation of the policy over time
                 reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq=eval_freq, saving_dir=test_policy_path)
 
 
