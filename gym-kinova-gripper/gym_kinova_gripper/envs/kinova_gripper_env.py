@@ -1211,31 +1211,39 @@ class KinovaGripper_Env(gym.Env):
         if random_shape.find("RBowl") != -1:
             # Rotated orientation is > 0.333
             # Top orientation is > 0.667
-            if hand_orientation == 'random':
-                orientation_type = np.random.uniform(0.333,1)
+            orientation_type = np.random.uniform(0.333,1)
 
         # If the shape is Lemon, only do normal and top orientations
         elif random_shape.find("Lemon") != -1:
             # Rotated orientation is > 0.333
             # Top orientation is > 0.667
-            if hand_orientation == 'random':
-                Choice1 = np.random.uniform(0, 0.333)
-                Choice2 = np.random.uniform(0.667, 1)
-                orientation_type = np.random.choice([Choice1, Choice2])
-
-        # For all other shapes, given a random hand orientation
-        elif hand_orientation == 'random':
+            Choice1 = np.random.uniform(0, 0.333)
+            Choice2 = np.random.uniform(0.667, 1)
+            orientation_type = np.random.choice([Choice1, Choice2])
+        else:
             orientation_type = np.random.rand()
 
-        # Determine orientation type based on random selection
-        if orientation_type < 0.333:
+        if hand_orientation == 'random':
+            # Determine orientation type based on random selection
+            if orientation_type < 0.333:
+                # Normal (0 deg) Orientation
+                orientation = 'normal'
+            elif orientation_type > 0.667:
+                # Top (90 deg) Orientation
+                orientation = 'top'
+            else:
+                # Rotated (67 deg) orientation
+                orientation = 'rotated'
+
+        # For all other shapes, determine the hand orientation by the desired input
+        if hand_orientation == 'normal':
             # Normal (0 deg) Orientation
             orientation = 'normal'
-        elif orientation_type > 0.667:
+        elif hand_orientation == 'top':
             # Top (90 deg) Orientation
             orientation = 'top'
-        else:
-            # Rotated (45 deg) orientation
+        elif hand_orientation == 'rotated':
+            # Rotated (67 deg) orientation
             orientation = 'rotated'
 
         return orientation
@@ -1365,7 +1373,7 @@ class KinovaGripper_Env(gym.Env):
                 new_path = Path(new_dir)
                 new_path.mkdir(parents=True, exist_ok=True)
 
-    def loop_through_coords(self,with_noise=False, hand_orientation="normal"):
+    def loop_through_coords(self,with_noise, hand_orientation):
         # Input needed to determine the object-hand coordinates: random_shape, mode, orient_idx=orient_idx, with_noise=with_noise
         # coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(mode)+"_coords/" + str(self.orientation) + "/" + random_shape + ".txt"
         with_grasp = False
@@ -1374,7 +1382,7 @@ class KinovaGripper_Env(gym.Env):
         else:
             noise_str = "with_noise/"
         mode = "shape"
-        shape_keys = ["Vase2S"]
+        shape_keys = ["CubeM"] #["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
         file_size = 5000
 
         # Make the new VALID filtered corodinates filepath
