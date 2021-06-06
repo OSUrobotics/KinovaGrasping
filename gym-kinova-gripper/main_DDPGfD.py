@@ -1451,7 +1451,7 @@ if __name__ == "__main__":
 
     ## Expert Replay Buffer ###
     if expert_prob > 0 and args.expert_replay_file_path is None:
-        expert_replay_file_path = experiment_dir + "naive/" + noise_str + "/" + with_grasp_str + "/"
+        expert_replay_file_path = experiment_dir + "position-dependent/" + noise_str + "/" + with_grasp_str + "/"
     elif expert_prob == 0 or args.expert_replay_file_path is None:
         expert_replay_file_path = None
     elif args.expert_replay_file_path is not None:
