@@ -753,8 +753,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
 
         # Remove any invalid episodes (episodes shorter than n-step length for policy training)
         episode_len = replay_buffer_recorded_ts # Number of timesteps within the episode recorded by replay buffer
-        if episode_len - replay_buffer.n_steps <= 1:
-            replay_buffer.remove_episode(-1)  # If episode is invalid length (less that n-steps), remove it
+        if episode_len > 0 and episode_len - replay_buffer.n_steps <= 1:
+                replay_buffer.remove_episode(-1)  # If episode is invalid length (less that n-steps), remove it
 
         ## CONTROLLER: Track entire experience of success/failed grasp trials for heatmap plotting
         if controller_type != "policy":

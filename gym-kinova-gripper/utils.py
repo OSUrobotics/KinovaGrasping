@@ -313,11 +313,16 @@ class ReplayBuffer_Queue(object):
 		@param done: The updated done bit value
 		"""
 
+		# Current episode index
+		episode_idx = self.replay_ep_num
+		if len(self.reward[episode_idx]) == 0:
+			print("We cannot replace the reward as for this episode as we have not done any transitions!")
+			return 0
+
 		if not done:
 			print("Can only replace last time step of the latest episode")
 			raise ValueError
 
-		episode_idx = self.replay_ep_num
 		idx = len(self.reward[episode_idx]) - 1
 		old_reward = self.reward[episode_idx][idx]
 		self.reward[episode_idx][idx] = reward
