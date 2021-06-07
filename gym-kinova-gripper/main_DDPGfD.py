@@ -1329,7 +1329,7 @@ if __name__ == "__main__":
     if requested_orientation == "random":
         requested_orientation_list = ["normal", "rotated", "top"]
     else:
-        requested_orientation_list = ["normal"]
+        requested_orientation_list = [requested_orientation]
 
     # Fill pre-training object list using latin square method
     env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
@@ -1509,12 +1509,13 @@ if __name__ == "__main__":
         else:
             expert_buffers = {}
             for shape_to_load in requested_shapes:
-                expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-                shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-                # Load expert data from saved expert pid controller replay buffer
-                print("Loading expert replay buffer: ", shape_replay_file_path)
-                replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
-                expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
+                for orientation_to_load in requested_orientation_list:
+                    expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+                    shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(orientation_to_load) + "/replay_buffer/"
+                    # Load expert data from saved expert pid controller replay buffer
+                    print("Loading expert replay buffer: ", shape_replay_file_path)
+                    replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
+                    expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
 
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
@@ -1556,12 +1557,13 @@ if __name__ == "__main__":
         else:
             expert_buffers = {}
             for shape_to_load in requested_shapes:
-                expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
-                shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-                # Load expert data from saved expert pid controller replay buffer
-                print("Loading expert replay buffer: ", shape_replay_file_path)
-                replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
-                expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
+                for orientation_to_load in requested_orientation_list:
+                    expert_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
+                    shape_replay_file_path = expert_replay_file_path + shape_to_load + "/" + str(orientation_to_load) + "/replay_buffer/"
+                    # Load expert data from saved expert pid controller replay buffer
+                    print("Loading expert replay buffer: ", shape_replay_file_path)
+                    replay_text = expert_buffer.store_saved_data_into_replay(shape_replay_file_path)
+                    expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
 
         # Load Pre-Trained policy
         if pretrain_model_save_path is None:
@@ -1795,9 +1797,10 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
         for shapes_to_load in requested_shapes:
-            shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load + "/" + str(requested_orientation) + "/replay_buffer/"
-            # Load expert data from saved expert pid controller replay buffer
-            expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
+            for orientations_to_load in requested_orientation_list:
+                shape_replay_file_path = expert_replay_file_path + "/" + shapes_to_load + "/" + str(orientations_to_load) + "/replay_buffer/"
+                # Load expert data from saved expert pid controller replay buffer
+                expert_replay_buffer.store_saved_data_into_replay(shape_replay_file_path)
 
         if expert_replay_buffer.size == 0 or replay_buffer.size == 0:
             print("No experience in replay buffer! Quitting...")
