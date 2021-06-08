@@ -18,7 +18,7 @@ import csv
 import timer
 from timer import Timer
 from pathlib import Path
-import pathlib
+import json # Allows us to read/write dictionaries
 import copy # For copying over coordinates
 import glob # Used for getting saved policy filename
 from expert_data import ExpertPIDController, get_action # Expert controller, used within evaluation
@@ -127,29 +127,34 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, controller_type="policy"):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=10, regions_of_interest=None, controller_type="policy"):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
     all_hand_object_coords: Coordinate dictionary with their representation within the local and global frame along with the
     hand orientation and evaluation results (reward value, success)
     variation_type: Input data type (Baseline, Baseline_HOV, etc.)
-    variation_heatmap_path: Directory where the plots will be saved (Within the variation input directory)
-    seed: seed value to conduct evaluation grasp trials with
+    variation_saving_dirs["heatmap_dir"]: Directory where the plots will be saved (Within the variation input directory)
+    sample_size: Number of points to sample per region
+    regions_of_interest: A list of the specific regions within the hand we would like to examine (Ex: ["extreme_left","extreme_right"])
     """
     frame = "local"
     requested_orientation = variation_type["requested_orientation"]
     if requested_orientation == "random":
         orientations_list = ["normal", "rotated", "top"]
     else:
-        orientations_list = ["normal"]
+        orientations_list = [requested_orientation]
 
     for orientation in orientations_list:
-        heatmap_orient_dir = variation_heatmap_path + orientation + "/"
+        heatmap_orient_dir = variation_saving_dirs["heatmap_dir"] + orientation + "/"
         hand_object_coords_dicts = [d for d in all_hand_object_coords if d["orientation"] == orientation]
-        grasping_regions = ["extreme_left", "mid_left", "center", "mid_right", "extreme_right"]
+        if regions_of_interest is None or regions_of_interest == "all_regions":
+            grasping_regions = ["extreme_left", "mid_left", "center", "mid_right", "extreme_right"]
+        else:
+            grasping_regions = regions_of_interest
 
         for region_name in grasping_regions:
+            # Divide the coordinates by region
             region_dicts = [d for d in hand_object_coords_dicts if d["local_coord_region"] == region_name]
             if len(region_dicts) > 0:
                 region_dir = heatmap_orient_dir + "regions/" + region_name + "/"
@@ -159,6 +164,7 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, va
                 success_dicts = [d for d in region_dicts if d["success"] is True]
                 fail_dicts = [d for d in region_dicts if d["success"] is False]
 
+                """
                 # Determine the point within the region with the most extreme value
                 extreme_region_dict = copy.deepcopy(region_dicts[0])
                 max_x_value = abs(extreme_region_dict["global_obj_coords"][0])
@@ -174,10 +180,14 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, va
                 # Determine the hand position based on the most extreme x_value within the region
                 wrist_coords = extreme_region_dict[frame + "_wrist_coords"]
                 finger_coords = extreme_region_dict[frame + "_finger_coords"]
+                """
+                wrist_coords = None
+                finger_coords = None
 
-                # Sample 5 points from each region of success/failures to render
+                # Sample points from each region of success/failures to render
                 for dict_list in [success_dicts, fail_dicts]:
-                    for d_idx in range(min(5,len(dict_list))):
+                    num_points = len(dict_list)
+                    for d_idx in range(min(sample_size,num_points)):
                         curr_dict = dict_list[d_idx]
 
                         # Evaluate policy with a sampled point in a region and create a video rendering
@@ -188,6 +198,7 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, va
                                                       render_imgs=True,
                                                       start_pos=curr_dict["global_obj_coords"],
                                                       hand_rotation=curr_dict["hand_orient_variation"],
+                                                      all_saving_dirs=all_saving_dirs,
                                                       output_dir=region_dir,
                                                       with_noise=variation_type["with_orientation_noise"],
                                                       controller_type=controller_type,
@@ -312,7 +323,7 @@ def check_grasp(f_dist_old, f_dist_new):
 
 
 # Runs policy for X episodes and returns average reward
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, start_pos=None,hand_rotation=None,output_dir=None,eval_episodes=100, compare=False, render_imgs=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Local representation of the object coordinates
@@ -322,7 +333,6 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     # Initial (timestep = 0) transformation matrices (from Global to Local) for each episode
     all_hand_object_coords = []
-    render_file_dir = output_dir
 
     # Compare policy performance
     if compare:
@@ -338,6 +348,12 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     # Reward data over each evaluation episode for boxplot
     all_ep_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
     all_action_values = {"controller_actions":[]}
+
+    if output_dir is None:
+        output_dir = all_saving_dirs["output_dir"]
+
+    # directory where the simulation renderings are stored
+    render_file_dir = output_dir
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
@@ -401,14 +417,6 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         check_for_lift = True # Signals if we will check if we are ready for lifting (only when we are in the 'grasping' stage)
         ready_for_lift = False # Signals if we are ready for lifting
         lift_success = 0
-
-        if render_imgs is True: # Render the initial time step
-            action_str = "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(
-                local_obj_coords[0], local_obj_coords[1], local_obj_coords[2], 0)
-            render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i,
-                                                  timestep_num=timestep,
-                                                  obj_coords=local_obj_coords, saving_dir=output_dir,
-                                                  final_episode_type=None)
 
         # Beginning of episode time steps, done is max timesteps or lift reward achieved
         while not done:
@@ -498,7 +506,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         all_ep_reward_values["lift_reward"].append(ep_lift_reward)
 
         # Record all actions taken by the policy (with and without noise)
-        episode_actions = np.stack(episode_actions, axis=0)
+        if len(episode_actions) > 0:
+            episode_actions = np.stack(episode_actions, axis=0)
 
         all_action_values["controller_actions"].append(episode_actions)
 
@@ -791,7 +800,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
             if episode_num+1 == num_episodes or (episode_num) % args.eval_freq == 0:
                 print("EVALUATING EPISODE AT: ",episode_num)
                 print("Evaluating with "+str(args.eval_num)+" grasping trials")
-                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, max_num_timesteps=max_num_timesteps,
+                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, all_saving_dirs=all_saving_dirs, max_num_timesteps=max_num_timesteps,
                                        controller_type=controller_type, eval_episodes=args.eval_num, with_noise=with_orientation_noise, render_imgs=args.render_imgs)
                 # Heatmap data - object starting coordinates for evaluation
                 eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
@@ -1193,7 +1202,7 @@ def setup_args(args=None):
     parser.add_argument("--eval_freq", default=200, type=float)         # How often (time steps) we evaluate
     parser.add_argument("--eval_num", default=100, type=int)          # Number of grasp trials to evaluate over
     parser.add_argument("--max_timesteps", default=1e6, type=int)       # Max time steps to run environment for
-    parser.add_argument("--max_episode", default=20000, type=int)       # Max time steps to run environment for
+    parser.add_argument("--max_episode", default=4000, type=int)       # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
     parser.add_argument("--batch_size", default=64, type=int)            # Batch size for both actor and critic - Change to be 64 for batch train, 0 for single ep sample
@@ -1224,6 +1233,8 @@ def setup_args(args=None):
     parser.add_argument("--test_policy_name", type=str, action='store', default="") # Test policy name for clear plotting
     parser.add_argument("--with_orientation_noise", type=str, action='store', default="False") # Set to true to sample initial hand-object coordinates from with_noise/ dataset
     parser.add_argument("--controller_type", type=str, action='store', default=None) # Determine the type of controller to use for evaluation (policy OR naive, expert, position-dependent)
+    parser.add_argument("--regions_of_interest", type=str, action='store', default=None) # Determine the region of interest to evaluate over (Ex: extreme_left, extreme_right, all_regions)
+    parser.add_argument("--input_variations", type=str, action='store', default=None)  # Determine the input variations to evaluate over (Ex: Baseline, Baseline_HOV, Shapes_HOV, all_variations)
 
     args = parser.parse_args()
     return args
@@ -1280,6 +1291,47 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
             print('Models match perfectly!')
             return True
 
+def create_input_variation_reward_plot(policies, eval_freq, max_episode):
+    """ Plot the reward for each policy for each input variation (Baseline, Baseline + HOV, Shapes + HOV)"""
+    policy_colors = {"Baseline": "#808080", "Baseline_HOV": "black", "Sizes_HOV": "blue", "Shapes_HOV": "red", "Orientations_HOV": "#ffd900"}
+    # variation_input_policies format: For the current variation type, we get {policy_name: rewards}
+
+    if eval_freq == 0:
+        policy_eval_points = np.array([0])
+    else:
+        num_policies = int(max_episode / eval_freq) + 1
+        policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
+
+    for policy_name, policy_filepath in policies.items():
+        # Read reward data
+        with open(policy_filepath + "/" + str(test_policy_name) + "_policy_rewards.txt") as f:
+            data = f.read()
+
+        policy_rewards = json.loads(data)
+        # AFTER we have gone through each evaluation point, record the current policy's rewards for each variation
+        variation_rewards_per_policy[policy_name] = policy_rewards
+
+    # Create a reward plot for each variation input type over evaluation points in training
+    for variation_type in variations:
+        variation_input_name = variation_type["variation_name"]
+        variation_input_policies = {}
+
+        # Get the reward data from each policy for the current variation_input_name
+        for policy_name in policies:
+            policy_rewards_dict = variation_rewards_per_policy[policy_name]
+            # For the CURRENT VARIATION: {"Baseline": [reward, reward, ..]
+            variation_input_policies[policy_name] = policy_rewards_dict[variation_input_name]
+
+        # Save reward data to file
+        dict_file = open(saving_dir + "/" +str(variation_input_name) + "_policy_rewards.csv", "w", newline='')
+        keys = variation_input_policies.keys()
+        dict_writer = csv.DictWriter(dict_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows([variation_input_policies])
+        dict_file.close()
+
+        # Create a reward plot for variation_input_name for evaluation of the policy over time
+        reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq, max_episode, saving_dir)
 
 if __name__ == "__main__":
     # Set up environment based on command-line arguments or passed in arguments
@@ -1411,6 +1463,20 @@ if __name__ == "__main__":
 
     max_episode = args.max_episode
     expert_prob = args.expert_prob
+    eval_freq = args.eval_freq
+    eval_num = args.eval_num
+
+    # Set the variation input type for evaluation
+    if args.input_variations is None:
+        input_variations = None
+    else:
+        input_variations = args.input_variations.split(',')
+
+    # Set the regions of interest for evaluation
+    if args.regions_of_interest is None:
+        regions_of_interest = None
+    else:
+        regions_of_interest = args.regions_of_interest.split(',')
 
     # Print variables set based on command line input
     param_text = ""
@@ -1428,7 +1494,10 @@ if __name__ == "__main__":
         param_text += "Batch Size: "+ str(args.batch_size) + "\n"
         param_text += "Expert Sampling Probability: "+ str(expert_prob) + "\n"
         param_text += "Grasp Reward: "+ str(args.with_grasp_reward) + "\n"
+        param_text += "Regions of Interest: " + str(regions_of_interest) + "\n"
         param_text += "Save frequency: "+ str(args.save_freq) + "\n"
+        param_text += "Evaluation frequency: " + str(args.eval_freq) + "\n"
+        param_text += "Number of Evaluation episodes: " + str(args.eval_num) + "\n"
         param_text += "Policy update after: "+ str(args.update_after) + "\n"
         param_text += "Policy update frequency: "+ str(args.update_freq) + "\n"
         param_text += "Policy update Amount: "+ str(args.update_num) + "\n"
@@ -1466,7 +1535,10 @@ if __name__ == "__main__":
     ## Pre-trained Policy ##
     # Default pre-trained policy file path
     pretrain_model_save_path = args.pretrain_policy_path
-    test_policy_path = args.test_policy_path
+    if args.test_policy_path == "None":
+        test_policy_path = None
+    else:
+        test_policy_path = args.test_policy_path
     test_policy_name = args.test_policy_name
 
     # Initialize timer to analyze run times
@@ -1595,147 +1667,123 @@ if __name__ == "__main__":
         print("MODE: Evaluate")
         print("Policy: ", test_policy_path)
         print("Policy Name: ", test_policy_name)
+        print("Max episode: {}\nEvaluation Frequency: {}\nNumber of Evaluation Episodes: {}\nRegions of Interest: {}\n".format(max_episode,eval_freq,eval_num,regions_of_interest))
+
+        # Important command line args: --max_episode, --eval_freq, --eval_num, --regions_of_interest, --input_variations, --test_policy_path, --test_policy_name
+        # We get the policy from the test_policy_path
+        # We SAVE the evaluation output in the area of the saving_dir
 
         # Determine whether we're evaluating over the policies or comparing performance of a certain controller
         controller_type = str(args.controller_type)
 
-        # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, test_policy_path)
-
-        # Evaluation variations
+        # Evaluation input variations
         Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": False}
         Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": True}
         Sizes_HOV = {"variation_name": "Sizes_HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True}
         Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeM", "CylinderM", "Vase2M"], "requested_orientation": "normal", "with_orientation_noise": True}
-        Orientations_HOV = {"variation_name": "Orientations_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "random", "with_orientation_noise": True}
+        #Orientations_HOV = {"variation_name": "Orientations_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "random", "with_orientation_noise": True}
 
-        variations = [Baseline, Baseline_HOV, Sizes_HOV, Shapes_HOV, Orientations_HOV]
+        # Contains all input variation types
+        variations_dict = {"Baseline": Baseline, "Baseline_HOV": Baseline_HOV, "Sizes_HOV": Sizes_HOV, "Shapes_HOV": Shapes_HOV} #, "Orientations_HOV": Orientations_HOV}
 
-        max_episode = 4000
-        eval_freq = 1000
-        num_policies = int(max_episode / eval_freq) + 1
+        if input_variations is None or input_variations[0] == "all_variations":
+            variations = [variations_dict.values()]
+        else:
+            variations = [variations_dict[var_type] for var_type in input_variations]
+        print("Input variations: {}\n".format(input_variations))
 
-        if max_episode == 0:
+        if eval_freq == 0:
             policy_eval_points = np.array([0])
         else:
+            num_policies = int(max_episode / eval_freq) + 1
             policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
-        # Currently this is for one policy, but it will be for each policy
 
         # All rewards (over each evaluation point) for each policy per variation type
         variation_rewards_per_policy = {}
 
-        if controller_type == "policy":
-            # Current policy we are evaluating over each evaluation point
-            policies = ["Baseline", "Baseline_HOV", "Sizes_HOV", "Shapes_HOV", "Orientations_HOV"]
-        else:
-            policies = [controller_type]
+        # For each evaluation point, append the avg. reward from evaluating the policy
+        # PER POLICY This will contain the current policy's list of vg. rewards over each evaluation point
+        policy_rewards = {"Baseline": [], "Baseline_HOV": [], "Sizes_HOV": [], "Shapes_HOV": []} #, "Orientations_HOV": []}
 
-        for policy_name in policies:
-            current_policy_path = test_policy_path+"/"+policy_name+"/output/results/"
-            #create_paths([test_policy_path, current_policy_path])
-            # For each evaluation point, append the avg. reward from evaluating the policy
-            # PER POLICY This will contain the current policy's list of vg. rewards over each evaluation point
-            policy_rewards = {"Baseline": [], "Baseline_HOV": [], "Sizes_HOV": [],
-                                 "Shapes_HOV": []}
+        for idx in range(len(policy_eval_points)):
 
-            for idx in range(len(policy_eval_points)):
+            if controller_type == "policy":
+                # Load policy from the evaluation point
+                ep_num = policy_eval_points[idx]
 
-                if controller_type == "policy":
-                    # Load policy from the evaluation point
-                    ep_num = policy_eval_points[idx]
+                # Do not load a policy, evaluate a random policy
+                if test_policy_path is None:
+                    eval_point_saving_dir = saving_dir
+                    print("Using a random policy!!")
+                else:
+                    # Load a policy
+                    if eval_freq == 0:
+                        eval_point_str = ""
+                    else:
+                        eval_point_str = "/policy_" + str(ep_num) + "/"
 
-                    eval_point_policy_path = current_policy_path + "/policy_" + str(ep_num) + "/"
-                    current_test_output_path = eval_point_policy_path + "output/"
-                    create_paths([current_policy_path, current_test_output_path])
+                    eval_point_saving_dir = saving_dir + eval_point_str
+                    eval_point_policy_path = test_policy_path + eval_point_str
 
                     print("Loading policy: ",eval_point_policy_path)
-                    policy.load(eval_point_policy_path)  # Change to be complete, trained policy
-                elif controller_type == "random_policy":
-                    #eval_point_policy_path = saving_dir
-                    current_test_output_path = saving_dir + "/output/"
-                    create_paths([current_test_output_path])
-                    print("Using a randomly initialized policy!")
-                    variations = [Baseline]
-                    # Now that we know we are using the random policy for initialization, set the controller type to
-                    # policy for getting the policy action
-                    controller_type = "policy"
-                else:
-                    #eval_point_policy_path = saving_dir
-                    current_test_output_path = saving_dir + "/output/"
-                    create_paths([current_test_output_path])
-                    variations = [Baseline]
-                    print("Using controller: ", controller_type)
+                    policy.load(eval_point_policy_path)
 
-                for variation_type in variations:
-                    variation_name = variation_type["variation_name"]
-                    variation_output_path = current_test_output_path + variation_type["variation_name"]
-                    variation_heatmap_path = variation_output_path + "/heatmap/"
-                    create_paths([variation_output_path, variation_heatmap_path])
+            else:
+                eval_point_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+                eval_point_saving_dir = eval_point_saving_dirs["output_dir"]
+                eval_point_saving_dirs["test_policy_path"] = test_policy_path
+                print("Using controller_type: ", controller_type)
 
-                    print("Now evaluating: ", variation_type.items())
-                    print("current_test_output_path: ",current_test_output_path)
-                    print("variation_output_path: ", variation_output_path)
-
-                    # Evaluate policy over certain number of episodes
-                    eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=variation_type["requested_shapes"], requested_orientation=variation_type["requested_orientation"],
-                                           controller_type=controller_type,  max_num_timesteps=max_num_timesteps, eval_episodes=500, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
-
-                    # Append the average reward from evaluation to the specific variation type avg. reward list
-                    policy_rewards[variation_name].append(eval_ret["avg_reward"])
-
-                    # Heatmap data - object starting coordinates for evaluation
-                    eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
-                    eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
-
-                    # Sorts coordinates by success/failure per hand orientation
-                    filter_heatmap_coords(eval_success_coords, eval_fail_coords, "", variation_heatmap_path)
-
-                    # All_hand_object_coords is a dictionary containing each hand and object coord. used within evaluation
-                    all_hand_object_coords = eval_ret["all_hand_object_coords"]
-
-                    # Save the hand and object coordinates -- within the current policy's variation folder (Ex: Policy_0/Baseline/)
-                    dict_file = open(variation_output_path+"/all_hand_object_coords.csv", "w", newline='')
-                    keys = all_hand_object_coords[0].keys()
-                    dict_writer = csv.DictWriter(dict_file, keys)
-                    dict_writer.writeheader()
-                    dict_writer.writerows(all_hand_object_coords)
-                    dict_file.close()
-
-                    # Generate heatmap plots based on each orientation type used in evaluation (and per coordinate frame - Local, Global, Local-->Global)
-                    generate_heatmaps_by_orientation_frame(variation_type, all_hand_object_coords, variation_heatmap_path)
-
-                    ## RENDER AND PLOT COORDINATES BY REGION
-                    evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_heatmap_path, controller_type=controller_type)
-
-            # AFTER we have gone through each evaluation point, record the current policy's rewards for each variation
-            variation_rewards_per_policy[policy_name] = policy_rewards
-
-        policy_colors = {"Baseline": "#808080", "Baseline_HOV": "black", "Sizes_HOV": "blue", "Shapes_HOV": "red"}
-        # variation_input_policies format: For the current variation type, we get {policy_name: rewards}
-
-        if controller_type == "policy":
-            # Create a reward plot for each variation input type over evaluation points in training
             for variation_type in variations:
-                variation_input_name = variation_type["variation_name"]
-                variation_input_policies = {}
+                variation_name = variation_type["variation_name"]
+                variation_saving_dir = eval_point_saving_dir + "/" + variation_type["variation_name"]
+                variation_saving_dirs = setup_directories(env, variation_saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
 
-                # Get the reward data from each policy for the current variation_input_name
-                for policy_name in policies:
-                    policy_rewards_dict = variation_rewards_per_policy[policy_name]
-                    # For the CURRENT VARIATION: {"Baseline": [reward, reward, ..]
-                    variation_input_policies[policy_name] = policy_rewards_dict[variation_input_name]
+                print("Now evaluating: ", variation_type.items())
+                print("eval_point_saving_dir: ",eval_point_saving_dir)
+                print("variation_saving_dirs[output_dir]: ", variation_saving_dirs["output_dir"])
 
-                # Save reward data to file
-                dict_file = open(test_policy_path + "/" +str(variation_input_name) + "_policy_rewards.csv", "w", newline='')
-                keys = variation_input_policies.keys()
+                # Evaluate policy over certain number of episodes
+                eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=variation_type["requested_shapes"], requested_orientation=variation_type["requested_orientation"],
+                                       controller_type=controller_type,  max_num_timesteps=max_num_timesteps, all_saving_dirs=variation_saving_dirs, eval_episodes=eval_num, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
+
+                # Append the average reward from evaluation to the specific variation type avg. reward list
+                policy_rewards[variation_name].append(eval_ret["avg_reward"])
+
+                # Heatmap data - object starting coordinates for evaluation
+                eval_success_coords = copy.deepcopy(eval_ret["success_coords"])
+                eval_fail_coords = copy.deepcopy(eval_ret["fail_coords"])
+
+                # Sorts coordinates by success/failure per hand orientation
+                filter_heatmap_coords(eval_success_coords, eval_fail_coords, "", variation_saving_dirs["heatmap_dir"])
+
+                # All_hand_object_coords is a dictionary containing each hand and object coord. used within evaluation
+                all_hand_object_coords = eval_ret["all_hand_object_coords"]
+
+                # Save the hand and object coordinates -- within the current policy's variation folder (Ex: Policy_0/Baseline/)
+                dict_file = open(variation_saving_dirs["output_dir"]+"/all_hand_object_coords.csv", "w", newline='')
+                keys = all_hand_object_coords[0].keys()
                 dict_writer = csv.DictWriter(dict_file, keys)
                 dict_writer.writeheader()
-                dict_writer.writerows([variation_input_policies])
+                dict_writer.writerows(all_hand_object_coords)
                 dict_file.close()
 
-                # Create a reward plot for variation_input_name for evaluation of the policy over time
-                reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq=eval_freq, saving_dir=test_policy_path)
+                # Generate heatmap plots based on each orientation type used in evaluation (and per coordinate frame - Local, Global, Local-->Global)
+                generate_heatmaps_by_orientation_frame(variation_type, all_hand_object_coords, variation_saving_dirs["heatmap_dir"])
 
+                ## RENDER AND PLOT COORDINATES BY REGION
+                if regions_of_interest is not None:
+                    evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_saving_dirs, regions_of_interest=regions_of_interest, controller_type=controller_type)
+
+        # Save reward data to file
+        rewards_dict_save_file = saving_dir + "/" + str(test_policy_name) + "_policy_rewards.txt"
+        with open(rewards_dict_save_file, 'w') as convert_file:
+            convert_file.write(json.dumps(policy_rewards))
+
+        policies = {}
+        policies[test_policy_name] = saving_dir
+
+        create_input_variation_reward_plot(policies, eval_freq, max_episode)
 
     # Experiments for RL paper
     elif args.mode == "experiment":

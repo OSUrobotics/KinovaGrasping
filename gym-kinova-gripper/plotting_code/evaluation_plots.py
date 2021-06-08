@@ -10,7 +10,7 @@ def create_paths(dir_list):
             new_path = Path(new_dir)
             new_path.mkdir(parents=True, exist_ok=True)
 
-def reward_plot(eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq, saving_dir):
+def reward_plot(eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq, max_episode, saving_dir):
     """ Plot the reward values from evaluation """
     reward_fig, axs = pyplt.subplots(1)
     reward_fig.suptitle("Variation Input: {}\nAvg. Reward from 500 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation over each policy variation type".format(variation_input_name,eval_freq))
@@ -23,10 +23,10 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     axs.set_xlabel("Evaluation Point (Episode)")
     axs.set_ylabel("Reward")
     axs.legend(title="Policy Type", loc='best')
-    tick_points = np.arange(0, 4000, step=1000)
+    tick_points = np.arange(0, max_episode+1, step=max(1,eval_freq))
     axs.set_xticks(tick_points)
     axs.set_ylim(0, 55)
-    axs.set_xlim(0, 4000)
+    axs.set_xlim(0, max_episode)
 
     pyplt.grid()
     reward_fig.savefig(saving_dir + "/"+variation_input_name+"_Reward_Evaluation_Plot.jpg")
