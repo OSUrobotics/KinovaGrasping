@@ -1467,14 +1467,18 @@ if __name__ == "__main__":
     eval_num = args.eval_num
 
     # Set the variation input type for evaluation
-    if args.input_variations is None:
+    if args.input_variations == "None" or args.input_variations is None:
         input_variations = None
+    elif args.input_variations == "all_variations":
+        input_variations = "all_variations"
     else:
         input_variations = args.input_variations.split(',')
 
     # Set the regions of interest for evaluation
-    if args.regions_of_interest is None:
+    if args.regions_of_interest == "None" or args.regions_of_interest is None:
         regions_of_interest = None
+    elif args.regions_of_interest == "all_regions":
+        regions_of_interest = "all_regions"
     else:
         regions_of_interest = args.regions_of_interest.split(',')
 
@@ -1686,11 +1690,12 @@ if __name__ == "__main__":
         # Contains all input variation types
         variations_dict = {"Baseline": Baseline, "Baseline_HOV": Baseline_HOV, "Sizes_HOV": Sizes_HOV, "Shapes_HOV": Shapes_HOV} #, "Orientations_HOV": Orientations_HOV}
 
-        if input_variations is None or input_variations[0] == "all_variations":
-            variations = [variations_dict.values()]
-        else:
-            variations = [variations_dict[var_type] for var_type in input_variations]
-        print("Input variations: {}\n".format(input_variations))
+        if input_variations is None or input_variations == "all_variations":
+            all_variations = variations_dict.keys()
+            input_variations = list(all_variations)
+
+        variations = [variations_dict[var_type] for var_type in input_variations]
+        print("Input variations: {}\n".format(variations))
 
         if eval_freq == 0:
             policy_eval_points = np.array([0])
