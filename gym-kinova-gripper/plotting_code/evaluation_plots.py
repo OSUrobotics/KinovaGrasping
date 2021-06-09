@@ -29,7 +29,7 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     axs.set_xlim(0, max_episode)
 
     pyplt.grid()
-    reward_fig.savefig(saving_dir + "/"+variation_input_name+"_Reward_Evaluation_Plot.jpg")
+    reward_fig.savefig(saving_dir + "/"+variation_input_name+"_Reward_Evaluation_Plot.png")
     pyplt.close()
 
 
