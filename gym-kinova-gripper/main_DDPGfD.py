@@ -400,103 +400,91 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
         # Actions taken by the policy over an episode
         episode_actions = []
-
-        #print("Testing the Finger1 proximal coordinates (Global-->Local transformation)")
-        #test_global_to_local_transformation(local_finger_coords[0:3], global_finger_coords[0:3], None, global_to_local_transf)
-        #print("Testing the Wrist coordinates (Global-->Local transformation)")
-        #test_global_to_local_transformation(local_wrist_coords, global_wrist_coords, env_global_wrist_coords, global_to_local_transf)
-        #print("Testing the Object coordinates (Global-->Local transformation)")
-        #test_global_to_local_transformation(local_obj_coords, global_obj_coords, env_global_obj_coords, global_to_local_transf)
-
-        timestep = 0
         episode_reward = 0 # Cumulative reward over a single episode
         final_grasp_reward = 0 # Used to determine the final grasp reward value (that will be replaced)
-        prev_state_lift_check = None # Previous state (used to compare distal finger movement to see if we have a good grasp)
-        curr_state_lift_check = state # Current state - passed into the grasping check
-        f_dist_old = None # Start out with no previous distal finger position
-        check_for_lift = True # Signals if we will check if we are ready for lifting (only when we are in the 'grasping' stage)
-        ready_for_lift = False # Signals if we are ready for lifting
+        ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
         lift_success = 0
+        final_success = None # Marks whether we have a final success for rendering
 
-        # Beginning of episode time steps, done is max timesteps or lift reward achieved
-        while not done:
-            # Set the previous state and the current state to compare for the grasping check
-            if prev_state_lift_check is not None:
-                f_dist_old = prev_state_lift_check[9:17]
-            f_dist_new = curr_state_lift_check[9:17]
+        # Beginning of episode time steps, done is max time steps or lift reward achieved
+        timestep = 1
+        lift_timestep = 1
 
-            # Only check if we are ready for lifting if we are grasping the object by the policy
-            if check_for_lift:
-                ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+        # Grasping Stage
+        while timestep <= 30 and not ready_for_lift:
+            if controller_type == "policy":
+                finger_action = policy.select_action(np.array(state[0:82]))
+            else:
+                # Get the action from the controller (controller_type: naive, position-dependent)
+                finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=eval_env, pid_mode=controller_type)
 
-            # If we are greater than 30 time steps, we will conduct the lift
-            if timestep >= 30:
-                ready_for_lift = True
+            wrist_action = np.array([0])
+            action = np.concatenate((wrist_action, finger_action)) # If not ready for lift, wrist should always be 0
 
-            # Grasping stage
-            if not ready_for_lift and timestep < 30:
-                if controller_type == "policy":
-                    finger_action = policy.select_action(np.array(state[0:82]))
-                else:
-                    # Get the action from the controller (controller_type: naive, position-dependent)
-                    finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=eval_env, pid_mode=controller_type)
+            next_state, reward, grasp_done, info = eval_env.step(action) # Step action takes in the wrist velocity plus the finger velocities
 
-                wrist_action = np.array([0])
-                action = np.concatenate((wrist_action, finger_action)) # If not ready for lift, wrist should always be 0
+            episode_reward += reward
+            final_grasp_reward = reward # Used to determine the final grasp reward value (that will be replaced)
 
-                next_state, reward, grasp_done, info = eval_env.step(action) # Step action takes in the wrist velocity plus the finger velocities
+            # Cumulative reward
+            ep_finger_reward += info["finger_reward"]
+            ep_grasp_reward += info["grasp_reward"]
+            ep_lift_reward += info["lift_reward"]
 
-                episode_reward += reward
-                final_grasp_reward = reward # Used to determine the final grasp reward value (that will be replaced)
+            # Used for plotting finger actions
+            episode_actions.append(finger_action)
 
-                # Cumulative reward
+            # Render the performance
+            if render_imgs is True:
+                action_str = "Grasping stage timestep: "+str(timestep)+"\nAction (rad/sec):\nWrist Velocity: {}\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[0], action[1], action[2], action[3])
+                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0], local_obj_coords[1], local_obj_coords[2], reward)
+                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=timestep,obj_coords=local_obj_coords, saving_dir=output_dir,final_episode_type=None)
+
+            # Set the previous state and the current state distal finger tips positions
+            f_dist_old = state[9:17]
+            f_dist_new = next_state[9:17]
+
+            # Check if the movement in the distal finger tips give a grasping position
+            ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+
+            state = next_state
+            timestep = timestep + 1
+
+        # Lifting stage
+        while lift_timestep <= 15 and not done:
+            # Lift the hand with the pre-determined lifting velocities
+            action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity, finger_lift_velocity])
+            next_state, reward, done, info = eval_env.step(action)
+
+            # Done in the lifting stage is determined by whether we reach the target lifting height of the object
+            if done:
+                # Replace the final reward value with the lift reward
+                episode_reward = episode_reward - final_grasp_reward + reward
+
+                # Determine success of the episode based on the final lift reward
+                if reward == 50:
+                    lift_success = 1
+                # Cumulative reward per reward type
                 ep_finger_reward += info["finger_reward"]
                 ep_grasp_reward += info["grasp_reward"]
                 ep_lift_reward += info["lift_reward"]
-
-                # Used for plotting finger actions
-                episode_actions.append(finger_action)
-
-            else:  # Lifting stage
-                # Lift the hand with the pre-determined lifting velocities
-                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity, finger_lift_velocity])
-                next_state, reward, done, info = eval_env.step(action)
-
-                # Done in the lifting stage is determined by whether we reach the target lifting height of the object
-                if done:
-                    # Replace the final reward value with the lift reward
-                    episode_reward = episode_reward - final_grasp_reward + reward
-
-                    # Determine success of the episode based on the final lift reward
-                    if reward == 50:
-                        lift_success = 1
-                    # Cumulative reward per reward type
-                    ep_finger_reward += info["finger_reward"]
-                    ep_grasp_reward += info["grasp_reward"]
-                    ep_lift_reward += info["lift_reward"]
-                check_for_lift = False
-
-            state = next_state
-            prev_state_lift_check = curr_state_lift_check
-            curr_state_lift_check = state
-            timestep = timestep + 1
+                final_success = reward
 
             if render_imgs is True:
-                if ready_for_lift:
-                    action_str = "Constant lift action by controller"
-                else:
-                    action_str = "Policy Action Output (rad/sec):\nWrist Velocity: {}\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[0], action[1],action[2],action[3])
-                if done:
-                    final_success = reward
-                else:
-                    final_success = None
-                # Set the info to be displayed in episode rendering based on current hand/object status
-                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0],local_obj_coords[1],local_obj_coords[2],reward)
-                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i,
-                                           timestep_num=timestep,
-                                           obj_coords=local_obj_coords, saving_dir=output_dir, final_episode_type=final_success)
+                action_str = "Lifting stage timestep: "+str(lift_timestep)+"\nConstant lift action by controller"
+                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0], local_obj_coords[1], local_obj_coords[2], reward)
+                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=(timestep+lift_timestep-1),obj_coords=local_obj_coords, saving_dir=output_dir,final_episode_type=final_success)
+
+                if final_success is not None:
+                    for metric_idx in range(0, 3):
+                        metric_actions = [action_value[metric_idx] for action_value in episode_actions]
+                        actual_values_plot([metric_actions], 0, "Finger " + str(metric_idx + 1) + " Velocity","Action Output: Finger " + str(metric_idx + 1) + " Velocity",saving_dir=render_file_dir)
+
+            state = next_state
+            lift_timestep = lift_timestep + 1
 
         ## End of the episode ###
+        # Cumulative reward over all episodes
         cumulative_reward += episode_reward
 
         # Record findings
@@ -671,11 +659,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         obj_local = np.matmul(env.Tfw,obj_local)
         local_obj_coords = obj_local[0:3]
 
-        replay_buffer.add_episode(1) # Start recording the episode within the replay buffer
-
-        # Add orientation noise to be recorded by replay buffer
+        # Orientation HOV index to be recorded by replay buffer
         orientation_idx = env.get_orientation_idx()
-        replay_buffer.add_orientation_idx_to_replay(orientation_idx)
 
         # Determine the expert replay buffer to be used based on the selected shape
         current_object = env.get_random_shape()
@@ -685,80 +670,74 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         else:
             expert_replay_buffer = None
 
-        timestep = 0 # Current time step within the episode
-        episode_reward = 0 # Cumulative reward from the episode
-        replay_buffer_recorded_ts = 0 # Number of RL time steps recorded by the replay buffer
-        prev_state_lift_check = None # Previous state (used to compare distal finger movement to see if we have a good grasp)
-        curr_state_lift_check = state # Current state - passed into the grasping check
-        f_dist_old = None # Start out with no previous distal finger position
-        check_for_lift = True # Signals if we will check if we are ready for lifting (only when we are in the 'grasping' stage)
-        ready_for_lift = False # Signals if we are ready for lifting
-        lift_success = 0
-
         print(type_of_training, episode_num)
 
-        # Beginning of time steps within the episode
-        # Definition of done: After the grasp stage is complete, then lifting stage determines if we are done with the episode
-        while not done:
-            # Set the previous state and the current state to compare for the grasping check
-            if prev_state_lift_check is not None:
-                f_dist_old = prev_state_lift_check[9:17]
-            f_dist_new = curr_state_lift_check[9:17]
+        episode_reward = 0 # Cumulative reward over a single episode
+        ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
+        lift_success = 0
 
-            # Only check if we are ready for lifting if we are grasping the object by the policy
-            if check_for_lift:
-                ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+        replay_buffer_recorded_ts = 0  # Number of RL time steps recorded by the replay buffer
+        replay_buffer.add_episode(1)  # Start recording the episode within the replay buffer
 
-            # If the number of time steps is greater than 30, conduct the lift
-            if timestep >= 30:
-                ready_for_lift = True
+        # Beginning of episode time steps, done is max time steps or lift reward achieved
+        timestep = 1
+        lift_timestep = 1
 
-            # Grasping stage
-            if not ready_for_lift and timestep < 30:
-                if controller_type == "policy":
-                    finger_action = (
-                            policy.select_action(np.array(state))
-                            + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
-                    ).clip(0, max_action)
-                else:
-                    # Get the action from the controller (controller_type: naive, position-dependent)
-                    finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=env, pid_mode=controller_type)
+        # Grasping Stage
+        while timestep <= 30 and not ready_for_lift:
+            replay_buffer.add_orientation_idx_to_replay(orientation_idx)
 
-                wrist_action = np.array([0])
-                action = np.concatenate((wrist_action, finger_action))  # Wrist velocity will be 0 until ready for lift
+            if controller_type == "policy":
+                finger_action = (
+                        policy.select_action(np.array(state))
+                        + np.random.normal(0, max_action * args.expl_noise, size=action_dim)
+                ).clip(0, max_action)
+            else:
+                # Get the action from the controller (controller_type: naive, position-dependent)
+                finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=env, pid_mode=controller_type)
 
-                # Perform grasping action by the policy
-                next_state, reward, grasp_done, info = env.step(action)
+            wrist_action = np.array([0])
+            action = np.concatenate((wrist_action, finger_action))  # Wrist velocity will be 0 until ready for lift
 
-                # Record the transition within the replay buffer
-                replay_buffer.add(state[0:82], finger_action, next_state[0:82], reward, float(grasp_done))
-                replay_buffer_recorded_ts += 1
+            # Perform grasping action by the policy
+            next_state, reward, grasp_done, info = env.step(action)
 
-                episode_reward += reward
-            else:  # Lifting stage
-                # Lift the hand with the pre-determined lifting velocities
-                action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity, finger_lift_velocity])
-                next_state, reward, done, info = env.step(action)
+            # Record the transition within the replay buffer
+            replay_buffer.add(state[0:82], finger_action, next_state[0:82], reward, float(grasp_done))
+            replay_buffer_recorded_ts += 1
 
-                # Done in the lifting stage is determined by whether we reach the target lifting height of the object
-                if done:
-                    # Replace the final recorded reward within the replay buffer
-                    old_reward = replay_buffer.replace(reward, done)
-                    episode_reward = episode_reward - old_reward + reward # Add the final reward (replacing the old reward value)
+            episode_reward += reward
 
-                    # Determine success of the episode based on the final lift reward
-                    if reward == 50:
-                        lift_success = 1
+            # Set the previous state and the current state distal finger tips positions
+            f_dist_old = state[9:17]
+            f_dist_new = next_state[9:17]
 
-                check_for_lift = False
+            # Check if the movement in the distal finger tips give a grasping position
+            ready_for_lift = check_grasp(f_dist_old, f_dist_new)
 
             state = next_state
-
-            prev_state_lift_check = curr_state_lift_check
-            curr_state_lift_check = state
             timestep = timestep + 1
 
         replay_buffer.add_episode(0)  # Add entry for new episode
+
+        # Lifting stage
+        while lift_timestep <= 15 and not done:
+            # Lift the hand with the pre-determined lifting velocities
+            action = np.array([wrist_lift_velocity, finger_lift_velocity, finger_lift_velocity, finger_lift_velocity])
+            next_state, reward, done, info = env.step(action)
+
+            # Done in the lifting stage is determined by whether we reach the target lifting height of the object
+            if done:
+                # Replace the final recorded reward within the replay buffer
+                old_reward = replay_buffer.replace(reward, done)
+                episode_reward = episode_reward - old_reward + reward # Add the final reward (replacing the old reward value)
+
+                # Determine success of the episode based on the final lift reward
+                if reward == 50:
+                    lift_success = 1
+
+            state = next_state
+            lift_timestep = lift_timestep + 1
 
         # Remove any invalid episodes (episodes shorter than n-step length for policy training)
         episode_len = replay_buffer_recorded_ts # Number of timesteps within the episode recorded by replay buffer
@@ -1701,7 +1680,7 @@ if __name__ == "__main__":
             policy_eval_points = np.array([0])
         else:
             num_policies = int(max_episode / eval_freq) + 1
-            policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
+            policy_eval_points = np.linspace(start=3000, stop=max_episode, num=1, dtype=int)
 
         # All rewards (over each evaluation point) for each policy per variation type
         variation_rewards_per_policy = {}
