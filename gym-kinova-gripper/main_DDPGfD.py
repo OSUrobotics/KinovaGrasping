@@ -127,7 +127,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=10, regions_of_interest=None, controller_type="policy"):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=20, regions_of_interest=None, controller_type="policy"):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -416,7 +416,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 finger_action = policy.select_action(np.array(state[0:82]))
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
-                finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=eval_env, pid_mode=controller_type)
+                finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=eval_env, pid_mode=controller_type, timestep=timestep)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action)) # If not ready for lift, wrist should always be 0
@@ -1680,7 +1680,7 @@ if __name__ == "__main__":
             policy_eval_points = np.array([0])
         else:
             num_policies = int(max_episode / eval_freq) + 1
-            policy_eval_points = np.linspace(start=3000, stop=max_episode, num=1, dtype=int)
+            policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
 
         # All rewards (over each evaluation point) for each policy per variation type
         variation_rewards_per_policy = {}
