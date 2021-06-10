@@ -127,7 +127,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=20, regions_of_interest=None, controller_type="policy"):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=30, regions_of_interest=None, controller_type="policy"):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -1663,7 +1663,7 @@ if __name__ == "__main__":
         Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": False}
         Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": True}
         Sizes_HOV = {"variation_name": "Sizes_HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True}
-        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeM", "CylinderM", "Vase2M"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeM", "CylinderM", "Vase1M"], "requested_orientation": "normal", "with_orientation_noise": True}
         #Orientations_HOV = {"variation_name": "Orientations_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "random", "with_orientation_noise": True}
 
         # Contains all input variation types
