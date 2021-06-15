@@ -1586,7 +1586,7 @@ class KinovaGripper_Env(gym.Env):
 
     #Function to display the current state in a video. The video is always paused when it first starts up.
     def render(self, mode='human'): #TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        setPause=False
+        setPause=True
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
             self._viewer._paused = setPause
@@ -1602,8 +1602,7 @@ class KinovaGripper_Env(gym.Env):
         if saving_dir is None:
             saving_dir = "./"
 
-        video_dir = saving_dir
-        output_dir = video_dir
+        output_dir = saving_dir
 
         success_dir = os.path.join(output_dir, "Success/")
         new_path = Path(success_dir)
@@ -1633,9 +1632,9 @@ class KinovaGripper_Env(gym.Env):
             if not os.path.isdir(final_dir + episode_coords):
                 shutil.move(source, final_dir)
         else:
-            final_dir = ""
+            final_dir = output_dir
             self._viewer._record_video = True
-            self._viewer._video_path = video_dir + "video_1.mp4"
+            self._viewer._video_path = output_dir + "video_1.mp4"
             a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
 
             # Just keep rgb values, so image is shape (w,h), make to be numpy array
