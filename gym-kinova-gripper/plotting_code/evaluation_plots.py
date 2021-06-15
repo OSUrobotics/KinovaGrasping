@@ -33,11 +33,12 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     pyplt.close()
 
 
-def generate_heatmaps_by_orientation_frame(variation_type,all_hand_object_coords, variation_heatmap_path):
+def generate_heatmaps_by_orientation_frame(variation_type, ep_num, all_hand_object_coords, variation_heatmap_path):
     """ Generates heatmaps based on the region of the object's initial x-coordinate position within the hand.
     This function will take in all of the hand-object coordinates generated from evaluating the policy, sorts them
     by region, and generates new heatmap plots for each of the regions.
     """
+    ep_str = ""
     requested_orientation = variation_type["requested_orientation"]
     if requested_orientation == "random":
         orientations_list = ["normal", "rotated", "top"]
@@ -46,39 +47,41 @@ def generate_heatmaps_by_orientation_frame(variation_type,all_hand_object_coords
 
     for orientation in orientations_list:
         hand_object_coords_dicts = [d for d in all_hand_object_coords if d["orientation"] == orientation]
-        heatmap_orient_dir = variation_heatmap_path + orientation + "/"
+        all_shapes = [d["shape"] for d in all_hand_object_coords]
+        for shape in all_shapes:
+            heatmap_orient_dir = variation_heatmap_path + orientation + "/"
+            heatmap_shape_dir = variation_heatmap_path + orientation + "/" + shape + "/"
 
-        ## PLOT ALL COORDINATES BY GLOBAL/LOCAL FRAME
-        coord_frames = ["local", "global"] #, "local_to_global"]
-        for frame in coord_frames:
-            create_paths([variation_heatmap_path, heatmap_orient_dir, heatmap_orient_dir + frame + "/"])
-            success_coords = [d[frame + "_obj_coords"] for d in hand_object_coords_dicts if d["success"] is True]
-            fail_coords = [d[frame + "_obj_coords"] for d in hand_object_coords_dicts if d["success"] is False]
+            ## PLOT ALL COORDINATES BY GLOBAL/LOCAL FRAME
+            coord_frames = ["local", "global"] #, "local_to_global"]
+            for frame in coord_frames:
+                create_paths([variation_heatmap_path, heatmap_orient_dir, heatmap_shape_dir, heatmap_shape_dir + frame + "/"])
+                success_coords = [d[frame + "_obj_coords"] for d in hand_object_coords_dicts if d["success"] is True]
+                fail_coords = [d[frame + "_obj_coords"] for d in hand_object_coords_dicts if d["success"] is False]
 
-            wrist_coords = None
-            finger_coords = None
+                wrist_coords = None
+                finger_coords = None
 
-            success_x = [coords[0] for coords in success_coords]
-            success_y = [coords[1] for coords in success_coords]
-            fail_x = [coords[0] for coords in fail_coords]
-            fail_y = [coords[1] for coords in fail_coords]
-            total_x = success_x + fail_x
-            total_y = success_y + fail_y
+                success_x = [coords[0] for coords in success_coords]
+                success_y = [coords[1] for coords in success_coords]
+                fail_x = [coords[0] for coords in fail_coords]
+                fail_y = [coords[1] for coords in fail_coords]
+                total_x = success_x + fail_x
+                total_y = success_y + fail_y
 
-            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, "", orientation,
-                            wrist_coords=wrist_coords, finger_coords=finger_coords, state_rep=frame,
-                            saving_dir=heatmap_orient_dir + frame + "/",
-                            title_str="Input variation: "+variation_type["variation_name"] + ", " + frame.capitalize() + " Coord. Frame")
+                ep_str = create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, orientation, ep_num=ep_num,
+                                wrist_coords=wrist_coords, finger_coords=finger_coords, state_rep=frame,
+                                saving_dir=heatmap_shape_dir + frame + "/",
+                                title_str="Input variation: "+variation_type["variation_name"] + ", " + frame.capitalize() + " Coord. Frame")
 
+            local_actual_filepath = heatmap_shape_dir + "local/" + "freq_plots/" + 'actual_heatmap' + ep_str + '.png'
+            global_actual_filepath = heatmap_shape_dir + "global/" + "freq_plots/" + 'actual_heatmap' + ep_str + '.png'
+            local_to_global_actual_filepath = heatmap_shape_dir + "local_to_global/" + "freq_plots/" + 'actual_heatmap' + ep_str + '.png'
 
-        local_actual_filepath = heatmap_orient_dir + "local/" + "freq_plots/" + 'actual_heatmap.png'
-        global_actual_filepath = heatmap_orient_dir + "global/" + "freq_plots/" + 'actual_heatmap.png'
-        local_to_global_actual_filepath = heatmap_orient_dir + "local_to_global/" + "freq_plots/" + 'actual_heatmap.png'
+            combined_actual_filepath = heatmap_shape_dir + 'local_vs_global_combined_actual_heatmap' + ep_str + '.png'
+            overlap_images(local_actual_filepath, global_actual_filepath, combined_actual_filepath)
 
-        combined_actual_filepath = heatmap_orient_dir + 'local_vs_global_combined_actual_heatmap.png'
-        overlap_images(local_actual_filepath, global_actual_filepath, combined_actual_filepath)
-
-        """
-        local_to_global_combined_filepath = heatmap_orient_dir + 'local_to_global_vs_global_combined_actual_heatmap.png'
-        overlap_images(local_to_global_actual_filepath, global_actual_filepath, local_to_global_combined_filepath)
-        """
+            """
+            local_to_global_combined_filepath = heatmap_orient_dir + 'local_to_global_vs_global_combined_actual_heatmap.png'
+            overlap_images(local_to_global_actual_filepath, global_actual_filepath, local_to_global_combined_filepath)
+            """

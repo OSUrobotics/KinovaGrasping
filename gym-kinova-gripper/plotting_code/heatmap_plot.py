@@ -248,7 +248,7 @@ def change_image_transparency(image_filepath,alpha=0):
     img.save(image_filepath, "PNG",transparent=True)
 
 
-def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,orientation,state_rep,saving_dir,wrist_coords=None,finger_coords=None,title_str=""):
+def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,shape,orientation,state_rep,saving_dir,ep_num="",title_str="",wrist_coords=None,finger_coords=None):
     """ Calls ferquency and success/fail heatmap plots 
     success_x: Successful initial object position x-coordinates
     success_y: Successful initial object position y-coordinates
@@ -267,13 +267,13 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
     if not os.path.isdir(freq_saving_dir):
         os.mkdir(freq_saving_dir)
 
-    if ep_str == "_":
+    if ep_num != "":
+        title_str = "\nEvaluated at Ep. " + str(ep_num)
+        ep_str = "_" + str(ep_num)
+    else:
         ep_str = ""
-    elif ep_str != "":
-        title_str = "\nEvaluated at Ep. " + ep_str
-        ep_str = "_" + ep_str
 
-    title_str += ", " + orientation.capitalize() + " Hand Orientation"
+    title_str += ", " + shape + ", " + orientation.capitalize() + " Hand Orientation"
 
     if wrist_coords is None and finger_coords is None:
         if state_rep == "global" or state_rep == "local_to_global":
@@ -341,6 +341,7 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,ep_str,ori
 
     # Once all heatmaps are generated, close the plots
     plt.close('all')
+    return ep_str
 
 
 def overlap_images(img1_path, img2_path, save_filename):
@@ -379,7 +380,7 @@ def get_heatmap_coord_data(data_dir,ep_str):
     return arr_dict["success_x"], arr_dict["success_y"], arr_dict["fail_x"], arr_dict["fail_y"], arr_dict["total_x"], arr_dict["total_y"]
 
 
-def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=1000, max_episodes=20000, state_rep="local",title_str=""):
+def generate_heatmaps(plot_type, shapes_list, orientation, data_dir, saving_dir, saving_freq=1000, max_episodes=20000, state_rep="local",title_str=""):
     """ Controls whether train or evaluation heatmap plots are generated
     plot_type: Type of plot (train or eval - eval will produce multiple plots)
     data_dir: Directory location of data file (coordinates)
@@ -402,22 +403,20 @@ def generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq=
     if plot_type == "eval":
         for ep_num in np.linspace(start=0, stop=max_episodes, num=int(max_episodes / saving_freq)+1, dtype=int):
             print("EVAL EP NUM: ",ep_num)
-            ep_str = str(ep_num)
             # Get coordinate data as numpy arrays
             success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+ep_str)
 
             # Plot coordinate data to frequency and success rate heatmaps
-            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, state_rep, saving_dir,title_str="")
+            create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, str(shapes_list), orientation, state_rep, saving_dir, ep_num=ep_num, title_str="")
     else:
         # FOR TRAIN
-        ep_str = ""
         # Get coordinate data as numpy arrays
         success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, ep_str)
         total_x = np.append(success_x,fail_x)
         total_y = np.append(success_y,fail_y)
 
         # Plot coordinate data to frequency and success rate heatmaps
-        create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, ep_str, orientation, state_rep, saving_dir)
+        create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, str(shapes_list), orientation, state_rep, saving_dir)
 
 
 if __name__ == "__main__":
