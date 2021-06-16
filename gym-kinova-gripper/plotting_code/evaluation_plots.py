@@ -15,10 +15,19 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     reward_fig, axs = pyplt.subplots(1)
     reward_fig.suptitle("Variation Input: {}\nAvg. Reward from 500 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation over each policy variation type".format(variation_input_name,eval_freq))
 
-    for policy_name, rewards in variation_input_policies.items():
+    shape_marker_types = {"CubeM":'.', "CubeS":'d', "CubeB": 'D', "CylinderM": 'o', "Vase1M": 'v'}
+
+    for policy_name, policy_rewards in variation_input_policies.items():
         if policy_colors.get(policy_name) is None:
             policy_colors[policy_name] = "green"
-        axs.plot(eval_points, rewards, label=policy_name, color=policy_colors[policy_name])
+
+        for rewards_combo_dict in policy_rewards:
+            rewards = rewards_combo_dict["rewards"]
+            combo = rewards_combo_dict["orientation_shape"]
+            if shape_marker_types.get(combo[1]) is None: # Default marker type is '.'
+                shape_marker_types[combo[1]] = '.'
+
+            axs.plot(eval_points, rewards, label=policy_name + " " + combo[0] + ", " + combo[1], color=policy_colors[policy_name], marker=shape_marker_types[combo[1]])
 
     axs.set_xlabel("Evaluation Point (Episode)")
     axs.set_ylabel("Reward")
@@ -69,7 +78,7 @@ def generate_heatmaps_by_orientation_frame(variation_type, ep_num, all_hand_obje
                 total_x = success_x + fail_x
                 total_y = success_y + fail_y
 
-                ep_str = create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, orientation, ep_num=ep_num,
+                ep_str = create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, shape, orientation, ep_num=ep_num,
                                 wrist_coords=wrist_coords, finger_coords=finger_coords, state_rep=frame,
                                 saving_dir=heatmap_shape_dir + frame + "/",
                                 title_str="Input variation: "+variation_type["variation_name"] + ", " + frame.capitalize() + " Coord. Frame")

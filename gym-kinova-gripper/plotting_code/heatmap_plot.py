@@ -404,14 +404,14 @@ def generate_heatmaps(plot_type, shapes_list, orientation, data_dir, saving_dir,
         for ep_num in np.linspace(start=0, stop=max_episodes, num=int(max_episodes / saving_freq)+1, dtype=int):
             print("EVAL EP NUM: ",ep_num)
             # Get coordinate data as numpy arrays
-            success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+ep_str)
+            success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+str(ep_num))
 
             # Plot coordinate data to frequency and success rate heatmaps
             create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, str(shapes_list), orientation, state_rep, saving_dir, ep_num=ep_num, title_str="")
     else:
         # FOR TRAIN
         # Get coordinate data as numpy arrays
-        success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, ep_str)
+        success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "")
         total_x = np.append(success_x,fail_x)
         total_y = np.append(success_y,fail_y)
 
