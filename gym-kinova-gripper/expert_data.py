@@ -26,7 +26,7 @@ import copy # For copying over coordinates
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
-from heatmap_coords import add_heatmap_coords, filter_heatmap_coords, coords_dict_to_array, save_coordinates
+from heatmap_coords import sort_and_save_heatmap_coords, coords_dict_to_array, save_coordinates
 from trajectory_plot import plot_trajectory
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -606,11 +606,11 @@ def NaiveController(lift_check, velocities):
 def BellShapedController(lift_check, velocities, timestep):
     """ Move fingers at a constant speed, return action """
 
+    bell_curve_velocities = [0.202, 0.27864, 0.35046, 0.41696, 0.47814, 0.534, 0.58454, 0.62976, 0.66966, 0.70424, 0.7335, 0.75744, 0.77606, 0.78936, 0.79734, 0.8, 0.79734, 0.78936, 0.77606, 0.75744, 0.7335, 0.70424, 0.66966, 0.62976, 0.58454, 0.534, 0.47814, 0.41696, 0.35046, 0.27864, 0.2015]
+
     # Determine the finger velocities by increasing and decreasing the values with a constant acceleration
-    if timestep <= 15:
-        finger_velocity = timestep + 0.05
-    else:
-        finger_velocity = timestep - 0.05
+    finger_velocity = bell_curve_velocities[timestep]
+
     # By default, close all fingers at a constant speed
     action = np.array([finger_velocity, finger_velocity, finger_velocity])
 
@@ -619,10 +619,12 @@ def BellShapedController(lift_check, velocities, timestep):
         action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
                            velocities["finger_lift_velocity"]])
 
+    #print("TS: {} action: {}".format(timestep, action))
+
     return action
 
 
-def get_action(obs, lift_check, controller, env, pid_mode="combined"):
+def get_action(obs, lift_check, controller, env, pid_mode="combined",timestep=None):
     """ Get action based on controller (Naive, position-dependent, combined interpolation)
         obs: Current state observation
         controller: Initialized expert PID controller
@@ -644,7 +646,7 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
         controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
 
     elif pid_mode == "bell-shaped":
-        controller_action = BellShapedController(lift_check, velocities)
+        controller_action = BellShapedController(lift_check, velocities, timestep)
 
     # COMBINED CONTROLLER: Interpolate Naive and Position-Dependent controller output based on object x-coord position within hand
     else:
