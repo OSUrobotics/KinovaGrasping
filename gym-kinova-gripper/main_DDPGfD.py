@@ -1170,6 +1170,7 @@ def setup_args(args=None):
     parser.add_argument("--eval_freq", default=200, type=float)         # How often (time steps) we evaluate
     parser.add_argument("--eval_num", default=100, type=int)          # Number of grasp trials to evaluate over
     parser.add_argument("--max_timesteps", default=1e6, type=int)       # Max time steps to run environment for
+    parser.add_argument("--start_episode", default=0, type=int)         # Initial episode to evaluate the policy over
     parser.add_argument("--max_episode", default=4000, type=int)       # Max time steps to run environment for
     parser.add_argument("--save_models", action="store_true")           # Whether or not models are saved
     parser.add_argument("--expl_noise", default=0.1, type=float)        # Std of Gaussian exploration noise
@@ -1433,6 +1434,7 @@ if __name__ == "__main__":
     expert_prob = args.expert_prob
     eval_freq = args.eval_freq
     eval_num = args.eval_num
+    start_episode = args.start_episode
 
     # Set the variation input type for evaluation
     if args.input_variations == "None" or args.input_variations is None:
@@ -1639,9 +1641,9 @@ if __name__ == "__main__":
         print("MODE: Evaluate")
         print("Policy: ", test_policy_path)
         print("Policy Name: ", test_policy_name)
-        print("Max episode: {}\nEvaluation Frequency: {}\nNumber of Evaluation Episodes: {}\nRegions of Interest: {}\n".format(max_episode,eval_freq,eval_num,regions_of_interest))
+        print("Start Episode: {}\nMax episode: {}\nEvaluation Frequency: {}\nNumber of Evaluation Episodes: {}\nRegions of Interest: {}\n".format(start_episode, max_episode,eval_freq,eval_num,regions_of_interest))
 
-        # Important command line args: --max_episode, --eval_freq, --eval_num, --regions_of_interest, --input_variations, --test_policy_path, --test_policy_name
+        # Important command line args: --max_episode, --start_episode, --eval_freq, --eval_num, --regions_of_interest, --input_variations, --test_policy_path, --test_policy_name
         # We get the policy from the test_policy_path
         # We SAVE the evaluation output in the area of the saving_dir
 
@@ -1669,7 +1671,7 @@ if __name__ == "__main__":
             policy_eval_points = np.array([0])
         else:
             num_policies = int(max_episode / eval_freq) + 1
-            policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
+            policy_eval_points = np.linspace(start=start_episode, stop=max_episode, num=num_policies, dtype=int)
 
         # All rewards (over each evaluation point) for each policy per variation type
         variation_rewards_per_policy = {}
@@ -1722,6 +1724,7 @@ if __name__ == "__main__":
 
                 for orientation in [variation_type["requested_orientation"]]:
                     for shape in variation_type["requested_shapes"]:
+                        print("\n**Evaluating the policy: {}\nVariation Input: {}\nOrientation: {}\nShape: {}".format(test_policy_name,variation_name,orientation,shape))
                         # Evaluate policy over certain number of episodes
                         eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=[shape], requested_orientation=orientation,
                                                controller_type=controller_type,  max_num_timesteps=max_num_timesteps, all_saving_dirs=variation_saving_dirs, eval_episodes=eval_num, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
@@ -1746,13 +1749,13 @@ if __name__ == "__main__":
                         dict_file.close()
 
                         # Generate heatmap plots based on each orientation type used in evaluation (and per coordinate frame - Local, Global, Local-->Global)
-                        generate_heatmaps_by_orientation_frame(variation_type, ep_num, all_hand_object_coords, variation_saving_dirs["heatmap_dir"])
+                        generate_heatmaps_by_orientation_frame(variation_type, shape, orientation, ["local"], ep_num, all_hand_object_coords, variation_saving_dirs["heatmap_dir"])
 
                         ## RENDER AND PLOT COORDINATES BY REGION
                         if regions_of_interest is not None:
                             evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_saving_dirs, regions_of_interest=regions_of_interest, controller_type=controller_type)
 
-        # Save reward data to file
+        # Save all reward data to file
         rewards_dict_save_file = saving_dir + "/" + str(test_policy_name) + "_policy_rewards.txt"
         with open(rewards_dict_save_file, 'w') as convert_file:
             convert_file.write(json.dumps(policy_rewards))

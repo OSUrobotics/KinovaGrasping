@@ -38,14 +38,16 @@ def sort_and_save_heatmap_coords(all_hand_object_coords, requested_shapes, reque
     """ Save heatmap coordinates split by success and orientation """
     for orientation in requested_orientations:
         for shape in requested_shapes:
+            print("Sorting and saving coordinates!\nOrientation: {}\nShape: {}\nFrame: {}".format(orientation,shape,frame))
             coord_save_dir = saving_dir + "/" + orientation + "/" + shape + "/" + frame
             success_coords, fail_coords = sort_coords_by_success(all_hand_object_coords, shape, orientation, frame)
             success_x, success_y, success_z, fail_x, fail_y, fail_z, total_x, total_y, total_z = coords_dict_to_array(success_coords,fail_coords)
             save_coordinates(success_x, success_y, success_z, coord_save_dir, "/success", episode_num)
             save_coordinates(fail_x, fail_y, fail_z, coord_save_dir, "/fail", episode_num)
             save_coordinates(total_x, total_y, total_z, coord_save_dir, "/total", episode_num)
+            print("Coordinates saved at: ",coord_save_dir)
 
-            print("Writing to heatmap coordinate info file...")
+            print("Writing to heatmap coordinate info file, located at: ",coord_save_dir)
             f = open(coord_save_dir + "/heatmap_info.txt", "w")
             save_text = "Heatmap Coords \nSaved at: "+coord_save_dir
             shape_text = "\nShape: " + str(shape)
