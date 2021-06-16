@@ -1260,7 +1260,7 @@ def test_policy_models_match(current_model, compare_model=None, compare_model_fi
             print('Models match perfectly!')
             return True
 
-def create_input_variation_reward_plot(policies, eval_freq, max_episode):
+def create_input_variation_reward_plot(policies, start_episode, eval_freq, max_episode):
     """ Plot the reward for each policy for each input variation (Baseline, Baseline + HOV, Shapes + HOV)"""
     policy_colors = {"Baseline": "#808080", "Baseline_HOV": "black", "Sizes_HOV": "blue", "Shapes_HOV": "red", "Orientations_HOV": "#ffd900"}
     # variation_input_policies format: For the current variation type, we get {policy_name: rewards}
@@ -1268,8 +1268,8 @@ def create_input_variation_reward_plot(policies, eval_freq, max_episode):
     if eval_freq == 0:
         policy_eval_points = np.array([0])
     else:
-        num_policies = int(max_episode / eval_freq) + 1
-        policy_eval_points = np.linspace(start=0, stop=max_episode, num=num_policies, dtype=int)
+        num_policies = int((max_episode-start_episode) / eval_freq) + 1
+        policy_eval_points = np.linspace(start=start_episode, stop=max_episode, num=num_policies, dtype=int)
 
     for policy_name, policy_filepath in policies.items():
         # Read reward data
@@ -1670,7 +1670,7 @@ if __name__ == "__main__":
         if eval_freq == 0:
             policy_eval_points = np.array([0])
         else:
-            num_policies = int(max_episode / eval_freq) + 1
+            num_policies = int((max_episode-start_episode) / eval_freq) + 1
             policy_eval_points = np.linspace(start=start_episode, stop=max_episode, num=num_policies, dtype=int)
 
         # All rewards (over each evaluation point) for each policy per variation type
@@ -1763,7 +1763,7 @@ if __name__ == "__main__":
         policies = {}
         policies[test_policy_name] = saving_dir
 
-        create_input_variation_reward_plot(policies, eval_freq, max_episode)
+        create_input_variation_reward_plot(policies, start_episode, eval_freq, max_episode)
 
     # Experiments for RL paper
     elif args.mode == "experiment":
