@@ -180,9 +180,9 @@ class KinovaGripper_Env(gym.Env):
 
         ## Nigel's Shapes ##
         # Hourglass
-        self.all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
-        self.all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
-        self.all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+        self.all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_HourB.xml"
+        self.all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_HourM.xml"
+        self.all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_HourS.xml"
         # Vase
         self.all_objects["VaseB"] =  "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
         self.all_objects["VaseM"] =  "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
@@ -865,7 +865,7 @@ class KinovaGripper_Env(gym.Env):
         z = size[-1]/2
         return rand_x, rand_y, z
 
-    def write_xml(self,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
+    def write_xml(self,new_wrist_pos,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
                                         #self.file_dir and self.filename to that rotation. It then sets up the simulator with the object
                                         #incredibly far from the hand to prevent collisions and recalculates the rotation matrices of the hand
         xml_file=open(self.file_dir+self.filename,"r")
@@ -882,13 +882,13 @@ class KinovaGripper_Env(gym.Env):
         starting_point=xml_contents.find('site name="local_origin_site" type="cylinder" size="0.0075 0.005" rgba="25 0.5 0.0 1"')
         site_point=xml_contents.find('pos=',starting_point)
         contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[starting_point:])
-        wrist_pose=self.wrist_pose
+        wrist_pose= self.wrist_pose #[-0.00364792, 0.01415926, 0.25653749]
         new_thing= str(wrist_pose[0]) + " " + str(wrist_pose[1]) + " " + str(wrist_pose[2])
         p1=str(new_rotation[0])
         p2=str(new_rotation[1])
         p3=str(new_rotation[2])
         xml_contents=xml_contents[:euler_point+c_start+7] + p1[0:min(5,len(p1))]+ " "+p2[0:min(5,len(p2))] +" "+ p3[0:min(5,len(p3))] \
-        + xml_contents[euler_point+c_end-1:]# + new_thing + xml_contents[site_point+c2_end:]
+        + xml_contents[euler_point+c_end-1:]# + new_thing #+ xml_contents[site_point+c2_end:]
         xml_file=open(self.file_dir+self.filename,"w")
         xml_file.write(xml_contents)
         xml_file.close()
@@ -1099,11 +1099,11 @@ class KinovaGripper_Env(gym.Env):
                 self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
         elif obj_params[0] == "Hour":
             if obj_params[1] == "B":
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_HourB.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_HourB.xml"
             elif obj_params[1] == "M":
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_HourM.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_HourM.xml"
             elif obj_params[1] == "S":
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_HourS.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_HourS.xml"
         if obj_params[0] == "Vase":
             if obj_params[1] == "B":
                 self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
@@ -1276,6 +1276,34 @@ class KinovaGripper_Env(gym.Env):
 
         return global_obj_x, global_obj_y, global_obj_z
 
+    def determine_wrist_pos_coords(self,orientation,shape):
+        """Determine the initial coodinate position of the wrist center [x,y,z] to start with based on the current orientation and shape"""
+        size = shape[-1]
+
+        if orientation == 'top':
+            # Small object
+            pos = [-0.00364792, 0.01415926, 0.25653749]
+
+            if size == 'M': # Medium object - add 0.01 to z
+                pos = pos[2] + 0.01
+            elif size == 'B': # Big object - add 0.02 to z
+                pos = pos[2] + 0.02
+
+        elif orientation == 'rotated':
+            # Small, Medium, Big objects (Cube, Cylinder, Vase, Cone) all have the same starting position for the hand
+            pos = [0.00071209, 0.1701473, 0.16491089]
+
+            # If the shape is a medium or big hourglass, set a different position for the hand
+            if shape.find("HourM") != -1:
+                pos = [0.00089011, 0.16768412, 0.18978861]
+            if shape.find("HourB") != -1:
+                pos = [0.00106814, 0.16522095, 0.21466633]
+
+        else: # Orientation is normal by default
+            pos = [0.0, 0.18, 0.0654]
+
+        return pos
+
     def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
@@ -1336,9 +1364,14 @@ class KinovaGripper_Env(gym.Env):
         # -1.57, 0, 0 is side tilted
         # 0,0,-1.57 is top down
 
+        # Kepp track of the hand orientation variation (hand orientation euler rotation) for recording purposes
         self.hand_orient_variation = new_rotation
-        # Writes the new hand orientation to the xml file to be simulated in the environment
-        self.write_xml(new_rotation)
+
+        # Determine the initial position of the wrist based on the orientation and shape/size
+        new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, random_shape)
+
+        # Writes the new hand orientation and wrist position to the xml file to be simulated in the environment
+        self.write_xml(new_wrist_pos, new_rotation)
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename
 
@@ -1517,8 +1550,12 @@ class KinovaGripper_Env(gym.Env):
                 hand_x = hand_rotation[0]
                 hand_y = hand_rotation[1]
                 hand_z = hand_rotation[2]
-                # Writes the new hand orientation to the xml file to be simulated in the environment
-                self.write_xml(hand_rotation)
+
+                # Determine the initial position of the wrist based on the orientation and shape/size
+                new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, random_shape)
+
+                # Writes the new hand orientation and wrist position to the xml file to be simulated in the environment
+                self.write_xml(new_wrist_pos, hand_rotation)
 
             elif len(start_pos)==3:
                 ######################################

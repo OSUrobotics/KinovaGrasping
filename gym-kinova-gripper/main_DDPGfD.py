@@ -1300,7 +1300,7 @@ def create_input_variation_reward_plot(policies, start_episode, eval_freq, max_e
         dict_file.close()
 
         # Create a reward plot for variation_input_name for evaluation of the policy over time
-        reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, eval_freq, max_episode, saving_dir)
+        reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, start_episode, eval_freq, max_episode, saving_dir)
 
 if __name__ == "__main__":
     # Set up environment based on command-line arguments or passed in arguments
@@ -1703,7 +1703,7 @@ if __name__ == "__main__":
                         eval_point_str = "/policy_" + str(ep_num) + "/"
 
                     eval_point_policy_path = test_policy_path + eval_point_str
-                    eval_point_saving_dir = saving_dir #+ eval_point_str
+                    eval_point_saving_dir = saving_dir
 
                     print("Loading policy: ",eval_point_policy_path)
                     policy.load(eval_point_policy_path)
@@ -1754,6 +1754,12 @@ if __name__ == "__main__":
                         ## RENDER AND PLOT COORDINATES BY REGION
                         if regions_of_interest is not None:
                             evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_saving_dirs, regions_of_interest=regions_of_interest, controller_type=controller_type)
+
+                # Once the evaluation of a certain variation is complete, save the reward to a text file
+                # Save all reward data to file
+                variation_reward_dict_save_file = variation_saving_dir + "/Var_Input_" + str(variation_name) + "_rewards.txt"
+                with open(variation_reward_dict_save_file, 'w') as convert_file:
+                    convert_file.write(json.dumps(policy_rewards[variation_name]))
 
         # Save all reward data to file
         rewards_dict_save_file = saving_dir + "/" + str(test_policy_name) + "_policy_rewards.txt"
