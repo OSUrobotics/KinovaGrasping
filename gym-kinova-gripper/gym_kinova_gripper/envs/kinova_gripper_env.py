@@ -581,6 +581,11 @@ class KinovaGripper_Env(gym.Env):
         arr = self._sim.data.get_geom_xpos("object")
         return arr
 
+    # Return the object coordinates, accessible by outside functions
+    def get_env_obj_coords(self):
+        env_obj_coords = self._sim.data.get_geom_xpos("object")
+        return env_obj_coords
+
     # Function to return the angles between the palm normal and the object location
     def _get_angles(self):
         #t=time.time()
@@ -1405,102 +1410,6 @@ class KinovaGripper_Env(gym.Env):
             if new_dir is not None:
                 new_path = Path(new_dir)
                 new_path.mkdir(parents=True, exist_ok=True)
-
-    def loop_through_coords(self,with_noise, hand_orientation):
-        # Input needed to determine the object-hand coordinates: random_shape, mode, orient_idx=orient_idx, with_noise=with_noise
-        # coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(mode)+"_coords/" + str(self.orientation) + "/" + random_shape + ".txt"
-        with_grasp = False
-        if with_noise is False:
-            noise_str = "no_noise/"
-        else:
-            noise_str = "with_noise/"
-        mode = "shape"
-        shape_keys = ["CubeM", "CubeS","CubeB","CylinderM", "Vase2M"] #["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
-        file_size = 5000
-
-        # Make the new VALID filtered corodinates filepath
-        filtered_all_coords_file = "./gym_kinova_gripper/envs/kinova_description/filtered_obj_hand_coords/"
-        self.create_paths([filtered_all_coords_file, filtered_all_coords_file + noise_str,
-                           filtered_all_coords_file + noise_str + str(mode) + "_coords/",
-                           filtered_all_coords_file + noise_str + str(mode) + "_coords/" + str(self.orientation)])
-        filtered_all_coords_filepath = filtered_all_coords_file + noise_str + str(mode) + "_coords/" + str(self.orientation)
-
-        # BAD coordinates filepath
-        bad_all_coords_file = "./gym_kinova_gripper/envs/kinova_description/bad_obj_hand_coords/"
-        self.create_paths([bad_all_coords_file, bad_all_coords_file + noise_str,
-                      bad_all_coords_file + noise_str + str(mode) + "_coords/",
-                      bad_all_coords_file + noise_str + str(mode) + "_coords/" + str(self.orientation)])
-        bad_all_coords_filepath = bad_all_coords_file + noise_str + str(mode) + "_coords/" + str(self.orientation)
-
-        for shape_name in shape_keys:
-            valid_data = []
-            bad_data =[]
-            valid_shape_coords_file = filtered_all_coords_filepath + "/" + shape_name + ".txt"
-            bad_shape_coords_file = bad_all_coords_filepath + "/" + shape_name + ".txt"
-            requested_shapes = [shape_name]
-
-            # Generate randomized list of objects to select from
-            self.Generate_Latin_Square(file_size, "eval_objects.csv", shape_keys=requested_shapes)
-
-            # Check each coordinate within the file
-            for orient_idx in range(file_size):
-                state = self.reset(shape_keys=requested_shapes, hand_orientation=hand_orientation, with_grasp=with_grasp, env_name="eval_env", mode=mode, orient_idx=orient_idx, with_noise=with_noise)
-
-                # Print which file you're running through
-                if orient_idx == 0:
-                    coords_file = self.get_coords_filename()
-                    print("Coords filename: ", coords_file)
-
-                # Get the current object coordinate and hand orientation pair
-                obj_coords = self.get_obj_coords()
-
-                before_obj_coords = obj_coords
-                before_env_obj_coords = self._sim.data.get_geom_xpos("object")
-                hand_orient_variation = self.hand_orient_variation
-
-                self.step(action=[0, 0, 0, 0])
-
-                # Object cooridnates after conductiing a step
-                after_obj_coords = self.get_obj_coords()
-                after_env_obj_coords = self._sim.data.get_geom_xpos("object")
-
-                # Check if the coordinate has moved after conducting an action
-                if before_env_obj_coords[0] == after_env_obj_coords[0] and before_env_obj_coords[1] == after_env_obj_coords[1] and before_env_obj_coords[2] == after_env_obj_coords[2]:
-                    #print("Coordinate is VALID!! Writing it to file: object x,y,z: {}, hov: {}".format(obj_coords,hand_orient_variation))
-                    # Append coordinate
-                    if with_noise is True:
-                        # Object x, y, z coordinates, followed by corresponding hand orientation x, y, z coords
-                        valid_data.append(
-                            [float(obj_coords[0]), float(obj_coords[1]), float(obj_coords[2]), float(hand_orient_variation[0]), float(hand_orient_variation[1]),
-                             float(hand_orient_variation[2])])
-                    else:
-                        # No hov coordinates are just the object coordinates (no change in the default hand orientation)
-                        valid_data.append([float(obj_coords[0]), float(obj_coords[1]), float(obj_coords[2])])
-                else:
-                    # if its not close: discard that datapoint, don't use it/ delete it/mark it.
-                    print("Invalid! object x,y,z: object x,y,z: {}, hov: {}".format(obj_coords,hand_orient_variation))
-                    # Append coordinate
-                    if with_noise is True:
-                        # Object x, y, z coordinates, followed by corresponding hand orientation x, y, z coords
-                        bad_data.append(
-                            [float(obj_coords[0]), float(obj_coords[1]), float(obj_coords[2]), float(hand_orient_variation[0]), float(hand_orient_variation[1]),
-                             float(hand_orient_variation[2])])
-                    else:
-                        # Hand orientation is set to (0, 0, 0) if no orientation is selected
-                         bad_data.append([float(obj_coords[0]), float(obj_coords[1]), float(obj_coords[2])])
-
-            # Write VALID filtered coordinate data to file
-            with open(valid_shape_coords_file, 'w', newline='') as outfile:
-                w_shapes = csv.writer(outfile, delimiter=' ')
-                for coord_values in valid_data:
-                    w_shapes.writerow(coord_values)
-
-            # Write BAD coordinate data to file
-            with open(bad_shape_coords_file, 'w', newline='') as outfile:
-                w_shapes = csv.writer(outfile, delimiter=' ')
-                for coord_values in bad_data:
-                    w_shapes.writerow(coord_values)
-        print("You made it to the end!! returning....")
 
 
     def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,hand_rotation=None,obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False):

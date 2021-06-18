@@ -229,9 +229,9 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, al
                     total_x = success_x + fail_x
                     total_y = success_y + fail_y
 
-                    create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, orientation,
-                                    wrist_coords=wrist_coords, finger_coords=finger_coords, state_rep=frame,
-                                    saving_dir=region_dir, title_str="Input Variation: " + variation_type["variation_name"] + ", " + frame.capitalize() + " coord. frame, Region: " + region_name.capitalize())
+                    create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, shape, orientation,
+                                    state_rep=frame, saving_dir=region_dir, wrist_coords=wrist_coords, finger_coords=finger_coords,
+                                    title_str="Input Variation: " + variation_type["variation_name"] + ", " + frame.capitalize() + " coord. frame, Region: " + region_name.capitalize())
 
 def local_to_global_transf(local_coords, Tfw):
     """ Convert coordinates from the local frame to the global frame """
@@ -309,7 +309,7 @@ def check_grasp(f_dist_old, f_dist_new):
         return 0
 
 
-def get_hand_object_coords_dict(env):
+def get_hand_object_coords_dict(curr_env):
     """Create dictionary containing info about the hand-object pose from a single episode"""
     # Global object and hand coordinates
     hand_object_coords = {"local_obj_coords": [], "global_obj_coords": [], "local_to_global_obj_coords": [],
@@ -317,25 +317,28 @@ def get_hand_object_coords_dict(env):
                           "global_to_local_transf": [], "shape": [], "orientation": [], "hand_orient_variation": [],
                           "local_finger_coords": [], "global_finger_coords": [], "local_to_global_finger_coords": [],
                           "local_coord_region": "None", "total_episode_reward": 0, "success": 0}
-    global_to_local_transf = env.Tfw
-    hand_orient_variation = env.hand_orient_variation
+    global_to_local_transf = curr_env.Tfw
+    hand_orient_variation = curr_env.hand_orient_variation
+
+    coords_file = curr_env.get_coords_filename()
+    coords_file_idx = curr_env.get_orientation_idx()
 
     # Local finger positions (within the state)
-    local_state = env.get_obs_from_coord_frame(coord_frame="local")
-    global_to_local_transf = env.Tfw
+    local_state = curr_env.get_obs_from_coord_frame(coord_frame="local")
+    global_to_local_transf = curr_env.Tfw
     local_finger_coords = local_state[0:18]  # Finger 1, 2, 3 proximal (x,y,z) coords, followed by distal coords
     local_wrist_coords = local_state[18:21]
     local_obj_coords = local_state[21:24]
 
     # Global hand and object positions
-    global_state = env.get_obs_from_coord_frame(coord_frame="global")
-    global_to_local_transf = env.Tfw
+    global_state = curr_env.get_obs_from_coord_frame(coord_frame="global")
+    global_to_local_transf = curr_env.Tfw
     global_finger_coords = global_state[0:18]
     global_wrist_coords = global_state[18:21]
     global_obj_coords = global_state[21:24]
 
-    orientation = env.get_orientation()
-    shape = env.get_random_shape()
+    orientation = curr_env.get_orientation()
+    shape = curr_env.get_random_shape()
 
     # Save the hand-object coordinates to track the transformations
     hand_object_coords["local_obj_coords"] = local_obj_coords
@@ -348,6 +351,8 @@ def get_hand_object_coords_dict(env):
     hand_object_coords["orientation"] = orientation
     hand_object_coords["shape"] = shape
     hand_object_coords["hand_orient_variation"] = hand_orient_variation
+    hand_object_coords["coords_file"] = coords_file
+    hand_object_coords["coords_file_idx"] = coords_file_idx
 
     # Local to Global coordinate conversion (from our observation)
     local_to_global_temp = np.append(local_obj_coords, 1)
@@ -451,8 +456,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # Render the performance
             if render_imgs is True:
                 action_str = "Grasping stage timestep: "+str(timestep)+"\nAction (rad/sec):\nWrist Velocity: {}\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[0], action[1], action[2], action[3])
-                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0], local_obj_coords[1], local_obj_coords[2], reward)
-                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=timestep,obj_coords=local_obj_coords, saving_dir=output_dir,final_episode_type=None)
+                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(hand_object_coords["local_obj_coords"][0], hand_object_coords["local_obj_coords"][1], hand_object_coords["local_obj_coords"][2], reward)
+                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=timestep,obj_coords=hand_object_coords["local_obj_coords"], saving_dir=output_dir,final_episode_type=None)
 
             # Set the previous state and the current state distal finger tips positions
             f_dist_old = state[9:17]
@@ -486,8 +491,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
             if render_imgs is True:
                 action_str = "Lifting stage timestep: "+str(lift_timestep)+"\nConstant lift action by controller"
-                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(local_obj_coords[0], local_obj_coords[1], local_obj_coords[2], reward)
-                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=(timestep+lift_timestep-1),obj_coords=local_obj_coords, saving_dir=output_dir,final_episode_type=final_success)
+                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(hand_object_coords["local_obj_coords"][0], hand_object_coords["local_obj_coords"][1], hand_object_coords["local_obj_coords"][2], reward)
+                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=(timestep+lift_timestep-1),obj_coords=hand_object_coords["local_obj_coords"], saving_dir=output_dir,final_episode_type=final_success)
 
                 if final_success is not None:
                     for metric_idx in range(0, 3):

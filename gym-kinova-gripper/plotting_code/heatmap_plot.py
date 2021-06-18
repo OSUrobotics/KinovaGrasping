@@ -14,6 +14,9 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
     total_y: Total initial object position y-coordinates
     plot_title, plot_name, fig_filename, saving_dir
     """
+    if hand_lines == None:
+        hand_lines = get_hand_lines(state_rep)
+
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
     x_min = -0.12
@@ -78,6 +81,9 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
     total_y: Total initial object position y-coordinates
     plot_title, plot_name, fig_filename, saving_dir
     """
+    if hand_lines == None:
+        hand_lines = get_hand_lines(state_rep)
+
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
     x_min = -0.12
@@ -130,6 +136,9 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
 def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
+
+    if hand_lines == None:
+        hand_lines = get_hand_lines(state_rep)
 
     x_min = -0.12
     x_max = 0.12
@@ -247,34 +256,8 @@ def change_image_transparency(image_filepath,alpha=0):
     img.putdata(newData)
     img.save(image_filepath, "PNG",transparent=True)
 
-
-def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,shape,orientation,state_rep,saving_dir,ep_num="",title_str="",wrist_coords=None,finger_coords=None):
-    """ Calls ferquency and success/fail heatmap plots 
-    success_x: Successful initial object position x-coordinates
-    success_y: Successful initial object position y-coordinates
-    fail_x: Fail initial object position x-coordinates
-    fail_y: Fail initial object position y-coordinates
-    total_x: Total initial object position x-coordinates
-    total_y: Total initial object position y-coordinates
-    saving_dir: Directory to save plot output to
-    """
-    # Create frequency and success_rate heatmap plot directories
-    heatmap_saving_dir = saving_dir + "heatmap_plots/"
-    if not os.path.isdir(heatmap_saving_dir):
-        os.mkdir(heatmap_saving_dir)
-
-    freq_saving_dir = saving_dir + "freq_plots/"
-    if not os.path.isdir(freq_saving_dir):
-        os.mkdir(freq_saving_dir)
-
-    if ep_num != "":
-        title_str = "\nEvaluated at Ep. " + str(ep_num)
-        ep_str = "_" + str(ep_num)
-    else:
-        ep_str = ""
-
-    title_str += ", " + shape + ", " + orientation.capitalize() + " Hand Orientation"
-
+def get_hand_lines(state_rep,wrist_coords=None,finger_coords=None):
+    """Get the lines that will be drawn on the plot based on the local or global coordinates"""
     if wrist_coords is None and finger_coords is None:
         if state_rep == "global" or state_rep == "local_to_global":
             # GLOBAL initial x,y coordinate positions of the hand
@@ -310,6 +293,38 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,shape,orie
     f2_line = [[palm_coords[0],f2_prox_coords[0],f2_dist_coords[0]], [palm_coords[1],f2_prox_coords[1],f2_dist_coords[1]]]
     f3_line = [[palm_coords[0], f3_prox_coords[0], f3_dist_coords[0]], [palm_coords[1], f3_prox_coords[1], f3_dist_coords[1]]]
     hand_lines = {"finger1":f1_line, "finger2":f2_line, "finger3":f3_line}
+
+    return hand_lines
+
+
+def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,shape,orientation,state_rep,saving_dir,ep_num="",title_str="",wrist_coords=None,finger_coords=None):
+    """ Calls ferquency and success/fail heatmap plots 
+    success_x: Successful initial object position x-coordinates
+    success_y: Successful initial object position y-coordinates
+    fail_x: Fail initial object position x-coordinates
+    fail_y: Fail initial object position y-coordinates
+    total_x: Total initial object position x-coordinates
+    total_y: Total initial object position y-coordinates
+    saving_dir: Directory to save plot output to
+    """
+    # Create frequency and success_rate heatmap plot directories
+    heatmap_saving_dir = saving_dir + "heatmap_plots/"
+    if not os.path.isdir(heatmap_saving_dir):
+        os.mkdir(heatmap_saving_dir)
+
+    freq_saving_dir = saving_dir + "freq_plots/"
+    if not os.path.isdir(freq_saving_dir):
+        os.mkdir(freq_saving_dir)
+
+    if ep_num != "":
+        title_str = "\nEvaluated at Ep. " + str(ep_num)
+        ep_str = "_" + str(ep_num)
+    else:
+        ep_str = ""
+
+    title_str += ", " + shape + ", " + orientation.capitalize() + " Hand Orientation"
+
+    hand_lines = get_hand_lines(state_rep,wrist_coords,finger_coords)
 
     # Plot frequency heatmap
     freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object\n" + title_str
