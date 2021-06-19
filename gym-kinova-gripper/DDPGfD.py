@@ -43,28 +43,41 @@ class Critic(nn.Module):
 		self.l3 = nn.Linear(300, 1)
 		torch.nn.init.kaiming_uniform_(self.l3.weight, a=0, mode='fan_in', nonlinearity='leaky_relu')
 
+		self.max_q_value = 50
+
 
 	def forward(self, state, action):
 		q = F.relu(self.l1(torch.cat([state, action], -1)))
 		q = F.relu(self.l2(q))
-		return self.l3(q)
+		return self.max_q_value * torch.sigmoid(self.l3(q))
+		#return self.l3(q)
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim, action_dim, max_action, n, discount=0.995, tau=0.0005, batch_size=64):
+	def __init__(self, state_dim=82, action_dim=3, max_action=0.8, n=5, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
 
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
-		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), weight_decay=1e-4)
+		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4, weight_decay=1e-4)
 
 		self.discount = discount
 		self.tau = tau
 		self.n = n
 		self.network_repl_freq = 10
 		self.total_it = 0
+		self.lambda_Lbc = 1
+
+		# Sample from the expert replay buffer, decaying the proportion expert-agent experience over time
+		self.initial_expert_proportion = expert_sampling_proportion
+		self.current_expert_proportion = expert_sampling_proportion
+		self.sampling_decay_rate = 0.2
+		self.sampling_decay_freq = 400
+
+		# Most recent evaluation reward produced by the policy within training
+		self.avg_evaluation_reward = 0
 
 		self.batch_size = batch_size
 
@@ -216,29 +229,40 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, episode_step, expert_replay_buffer, replay_buffer, num_trajectories, prob=0.3):
+	def train_batch(self, max_episode_num, episode_num, update_count, expert_replay_buffer, replay_buffer):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
+		agent_batch_size = 0
+		expert_batch_size = 0
 
 		# Sample replay buffer
 		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
 			#print("AGENT")
 			expert_or_random = "agent"
-			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
+			agent_batch_size = self.batch_size
+			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size)
 		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
 			#print("EXPERT")
 			expert_or_random = "expert"
-			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size,num_trajectories)
+			expert_batch_size = self.batch_size
+			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
-			# Get prob % of batch from expert and (1-prob) from agent
-			agent_batch_size = int(self.batch_size * (1 - prob))
-			expert_batch_size = self.batch_size - agent_batch_size
+
+			# Calculate proportion of expert sampling based on decay rate -- only calculate on the first update (to avoid repeats)
+			if (episode_num + 1) % self.sampling_decay_freq == 0 and update_count == 0:
+				prop_w_decay = self.initial_expert_proportion * pow((1 - self.sampling_decay_rate), int((episode_num + 1)/self.sampling_decay_freq))
+				self.current_expert_proportion = max(0, prop_w_decay)
+				print("In proportion calculation, episode_num + 1: {}, prop_w_decay: {}, self.current_expert_proportion: {}".format(episode_num + 1, prop_w_decay, self.current_expert_proportion))
+
+			# Sample from the expert and agent replay buffers
+			expert_batch_size = int(self.batch_size * self.current_expert_proportion)
+			agent_batch_size = self.batch_size - expert_batch_size
 			# Get batches from respective replay buffers
 			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
-			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size,num_trajectories)
+			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size)
 			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
-			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size,num_trajectories)
+			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size)
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
 			state = torch.cat((torch.squeeze(agent_state), torch.squeeze(expert_state)), 0)
@@ -273,7 +297,15 @@ class DDPGfD(object):
 		target_Q = self.critic_target(next_state[:, 0], self.actor_target(next_state[:, 0]))
 		#assert target_Q.shape == (assert_batch_size, 1)
 
-		target_Q = reward[:, 0] + (self.discount * target_Q).detach() #bellman equation
+		#print("Target Q: ",target_Q)
+		# If we're randomly sampling trajectories, we need to index based on the done signal
+		num_trajectories = len(not_done[:, 0])
+		for n in range(num_trajectories):
+			if not_done[n,0]: # NOT done
+				target_Q[n, 0] = reward[n, 0] + (self.discount * target_Q[n, 0]).detach() #bellman equation
+			else: # Final episode trajectory reward value
+				target_Q[n, 0] = reward[n, 0]
+
 		#print(target_Q.shape)
 		#print("target_Q: ",target_Q)
 		#assert target_Q.shape == (assert_batch_size, 1)
@@ -346,8 +378,19 @@ class DDPGfD(object):
 		critic_loss.backward()
 		self.critic_optimizer.step()
 
+		# Compute Behavior Cloning loss - state and action are from the expert
+		Lbc = 0
+		# If we are decaying the amount of expert experience, then decay the BC loss as well
+		if self.sampling_decay_rate != 0:
+			self.lambda_Lbc = self.current_expert_proportion
+		# Compute loss based on Mean Squared Error between the actor network's action and the expert's action
+		if expert_batch_size > 0:
+			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
+			Lbc = F.mse_loss(self.actor(expert_state), expert_action)
+		#print("self.lambda_Lbc: ", self.lambda_Lbc)
+
 		# Compute actor loss
-		actor_loss = -self.critic(state, self.actor(state)).mean()
+		actor_loss = -self.critic(state, self.actor(state)).mean() + self.lambda_Lbc * Lbc
 		#print("Actor loss: ")
 		#print(actor_loss.shape)
 		#print("actor_loss: ",actor_loss)
@@ -366,17 +409,49 @@ class DDPGfD(object):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
+	def copy(self, policy_to_copy_from):
+		""" Copy input policy to be set to another policy instance
+		policy_to_copy_from: policy that will be copied from
+        """
+		# Copy the actor and critic networks
+		self.actor = copy.deepcopy(policy_to_copy_from.actor)
+		self.actor_target = copy.deepcopy(policy_to_copy_from.actor_target)
+		self.actor_optimizer = copy.deepcopy(policy_to_copy_from.actor_optimizer)
 
+		self.critic = copy.deepcopy(policy_to_copy_from.critic)
+		self.critic_target = copy.deepcopy(policy_to_copy_from.critic_target)
+		self.critic_optimizer = copy.deepcopy(policy_to_copy_from.critic_optimizer)
+
+		self.discount = policy_to_copy_from.discount
+		self.tau = policy_to_copy_from.tau
+		self.n = policy_to_copy_from.n
+		self.network_repl_freq = policy_to_copy_from.network_repl_freq
+		self.total_it = policy_to_copy_from.total_it
+		self.lambda_Lbc = policy_to_copy_from.lambda_Lbc
+		self.avg_evaluation_reward = policy_to_copy_from.avg_evaluation_reward
+
+		# Sample from the expert replay buffer, decaying the proportion expert-agent experience over time
+		self.initial_expert_proportion = policy_to_copy_from.initial_expert_proportion
+		self.current_expert_proportion = policy_to_copy_from.current_expert_proportion
+		self.sampling_decay_rate = policy_to_copy_from.sampling_decay_rate
+		self.sampling_decay_freq = policy_to_copy_from.sampling_decay_freq
+		self.batch_size = policy_to_copy_from.batch_size
 
 	def save(self, filename):
 		torch.save(self.critic.state_dict(), filename + "_critic")
+		torch.save(self.critic_target.state_dict(), filename + "_critic_target")
 		torch.save(self.critic_optimizer.state_dict(), filename + "_critic_optimizer")
 		torch.save(self.actor.state_dict(), filename + "_actor")
+		torch.save(self.actor_target.state_dict(), filename + "_actor_target")
 		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
+		np.save(filename + "avg_evaluation_reward",np.array([self.avg_evaluation_reward]))
 
 
 	def load(self, filename):
-		self.critic.load_state_dict(torch.load(filename + "_critic"))
-		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer"))
-		self.actor.load_state_dict(torch.load(filename + "_actor"))
-		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer"))
+		self.critic.load_state_dict(torch.load(filename + "_critic", map_location=device))
+		self.critic_optimizer.load_state_dict(torch.load(filename + "_critic_optimizer", map_location=device))
+		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))
+		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=device))
+
+		self.critic_target = copy.deepcopy(self.critic)
+		self.actor_target = copy.deepcopy(self.actor)
