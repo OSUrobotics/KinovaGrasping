@@ -9,38 +9,50 @@ import json
 import time
 import numpy as np
 from state_metric import *
+from collections import OrderedDict
 
-class State_Space:
-    valid_state_names={'Position':Position, 'Distance':Distance, 'Angle':Angle, 'Ratio':Ratio, 'Vector':Vector, 'Dot_Product':Dot_Product,'Group':State_Group}
-    _sim=None
-    def __init__(self,path='state.json'):
+
+class StateSpace:
+    valid_state_names = {'Position': Position, 'Distance': Distance, 'Angle': Angle, 'Ratio': Ratio, 'Vector': Vector,
+                         'DotProduct': DotProduct, 'StateGroup': StateGroup}
+    _sim = None
+
+    def __init__(self, path='state.json'):
         with open(path) as f:
-            self.data=json.load(f)
-        for name,value in self.data.items():
-            for key in State_Space.valid_state_names.keys():
-                if key in name:
-                    self.data[name]=State_Space.valid_state_names[key]({name:value})
-                    
+            json_data = json.load(f)
+        self.data = OrderedDict()
+        for name, value in json_data.items():
+            state_name = name.split(sep='_')
+            try:
+                self.data[name] = eval(state_name[0] + '(value)')
+            except NameError:
+                print(state_name[0],'ya done messed up a-a-ron, valid state names are', [name for name in
+                                                                           StateSpace.valid_state_names.keys()])
+
     def get_full_arr(self):
-        arr=[]
-        for name,value in self.data.items():
-            temp=value.get_value()
-            print('contents of', name, len(temp),temp)
-            arr.extend(temp)
+        arr = []
+        for name, value in self.data.items():
+            temp = value.get_value()
+            try:
+                arr.extend(temp)
+            except TypeError:
+                arr.extend([temp])
         return arr
-        
-    def get_value(self,keys):
+
+    def get_value(self, keys):
         if type(keys) is str:
-            keys=[keys]
-        if len(keys)>1:
-            data=self.data[keys[0]].get_specific(keys[1:])
+            keys = [keys]
+        if len(keys) > 1:
+            data = self.data[keys[0]].get_specific(keys[1:])
         else:
-            data=self.data[keys[0]].get_value()
+            data = self.data[keys[0]].get_value()
         return data
 
     def update(self):
-        for name,value in self.data.items():
-            #print('updating ',name)
+        for name, value in self.data.items():
             self.data[name].update(name)
 
-a=State_Space()
+
+if __name__ == "__main__":
+    a = StateSpace()
+    print(a.get_full_arr())

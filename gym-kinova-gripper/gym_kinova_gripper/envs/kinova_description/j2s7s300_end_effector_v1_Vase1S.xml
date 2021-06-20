@@ -263,7 +263,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 				<jointpos joint='j2s7s300_joint_fingertip_3'/>
 
 				<!-- Distance data -->
-				<rangefinder name="palm" site='palm'/>
+				<rangefinder name="palm_center" site='palm'/>
 				<rangefinder name="palm_1" site='palm_1'/>
 				<rangefinder name="palm_2" site='palm_2'/>
 				<rangefinder name="palm_3" site='palm_3'/>
