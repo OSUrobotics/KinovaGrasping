@@ -1,0 +1,52 @@
+Name: Pretr_Critic_sigmoid_Random_4k_eps
+Date: _04_29_21_1230
+Saving Dir: Pretr_Critic_sigmoid_Random_4k_eps
+
+INPUT:
+Policy dir: ./policies/pre-train_policies/BC_4keps/
+Expert Replay Buffer: ./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/
+Agent Replay Buffer: None
+Initial Object/Hand Pose Coord. File (Controller): None
+Initial Object/Hand Pose Coord. File (Train): gym_kinova_gripper/envs/kinova_description/obj_hand_coords/no_noise/train_coords/normal/CubeS.txt
+Initial Object/Hand Pose Coord. File (Evaluation): gym_kinova_gripper/envs/kinova_description/obj_hand_coords/no_noise/train_coords/normal/CubeS.txt
+
+OUTPUT:
+Policy: ./policies/Pretr_Critic_sigmoid_Random_4k_eps/pre-train_DDPGfD_kinovaGrip_04_29_21_1230/
+Agent Replay Buffer: ./replay_buffer/Pretr_Critic_sigmoid_Random_4k_eps/replay_buffer_04_29_21_1230
+Output dir: ./output/Pretr_Critic_sigmoid_Random_4k_eps
+Output/ Tensorboard: ./kinova_gripper_strategy/Pretr_Critic_sigmoid_Random_4k
+Output/ Heatmap: ./output/Pretr_Critic_sigmoid_Random_4k_eps/heatmap/pre-train
+Output/ Results: ./output/Pretr_Critic_sigmoid_Random_4k_eps/results/pre-train
+---- SUCCESS INFO: ----
+# Success: 66
+# Failures: 66
+# Total: 132
+
+PARAMS: 
+Saving dir: Pretr_Critic_sigmoid_Random_4k_eps
+Tensorboard index: Pretr_Critic_sigmoid_Random_4k
+Policy: DDPGfD
+Requested_shapes: ['CubeS']
+Requested Hand orientation: normal
+Batch Size: 320
+Expert Sampling Probability: 0.7
+Grasp Reward: False
+Save frequency: 1000
+Policy update after: 100
+Policy update frequency: 1
+Policy update Amount: 100
+Generating 4000 episodes!
+TRAIN time: 
+Wall clock elapsed time: 126280.5909 seconds
+Process elapsed time: 3342633.2425 seconds
+
+REPLAY BUFFER: 
+filepath: ./expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/
+non_zero_reward: 12924
+finger_reward_count: 0
+grasp_reward_count: 0
+lift_reward_count: 12924
+num_rows: 20000
+replay_buffer.replay_ep_num: 19999
+replay_buffer.size: 423150
+replay_buffer.timesteps_count: 0

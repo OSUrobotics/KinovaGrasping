@@ -1,0 +1,17 @@
+Heatmap Coords 
+Saved at: ./output/Pretr_Critic_sigmoid_Random_4k_eps/heatmap/eval
+
+Total # Success: 40
+Total # Fail: 60
+
+Normal Orientation
+# Success: 40
+# Fail: 60
+
+Rotated Orientation
+# Success: 0
+# Fail: 0
+
+Top Orientation
+# Success: 0
+# Fail: 0
