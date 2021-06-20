@@ -36,6 +36,7 @@ import xml.etree.ElementTree as ET
 from classifier_network import LinearNetwork, ReducedLinearNetwork
 import re
 from scipy.stats import triang
+import copy # Used to copy coordinate values from the environment
 import csv
 import pandas as pd
 from pathlib import Path
@@ -583,7 +584,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Return the object coordinates, accessible by outside functions
     def get_env_obj_coords(self):
-        env_obj_coords = self._sim.data.get_geom_xpos("object")
+        env_obj_coords = copy.deepcopy(self._sim.data.get_geom_xpos("object"))
         return env_obj_coords
 
     # Function to return the angles between the palm normal and the object location

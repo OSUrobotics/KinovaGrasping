@@ -6,7 +6,7 @@ plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
 from heatmap_plot import heatmap_actual_coords
 
-def loop_through_coords(shape_keys, with_noise, hand_orientation, file_size):
+def loop_through_coords(shape_keys, with_noise, hand_orientation, render_coord, file_size, orient_idx=None):
     """Loop through each coordinate within the all_shapes file based on the given shape, hand orientation amd
        hand orientation variation.
     """
@@ -58,14 +58,20 @@ def loop_through_coords(shape_keys, with_noise, hand_orientation, file_size):
         global_bad_x = []
         global_bad_y = []
 
+        # If no desired file index is selected, loop through whole file
+        if orient_idx is None:
+            indexes = range(file_size)
+        else:
+            indexes = [orient_idx]
+
         # Check each coordinate within the file
-        for orient_idx in range(file_size):
-            print("Coord File Idx: ", orient_idx)
+        for curr_orient_idx in indexes:
+            print("Coord File Idx: ", curr_orient_idx)
             state = env.reset(shape_keys=requested_shapes, hand_orientation=hand_orientation, with_grasp=with_grasp,
-                               env_name="env", mode=mode, orient_idx=orient_idx, with_noise=with_noise)
+                               env_name="env", mode=mode, orient_idx=curr_orient_idx, with_noise=with_noise)
 
             # Print which file you're running through
-            if orient_idx == 0:
+            if curr_orient_idx == 0:
                 coords_file = env.get_coords_filename()
                 print("Coords filename: ", coords_file)
 
@@ -76,12 +82,18 @@ def loop_through_coords(shape_keys, with_noise, hand_orientation, file_size):
 
             before_env_obj_coords = env.get_env_obj_coords()
             hand_orient_variation = env.hand_orient_variation
+            env.render()
 
             # Take a step in the simulation (with no action) to see if the object moves based on a collision with the hand
-            env.step(action=[0, 0, 0, 0])
-
-            # Object cooridnates after conducting a step
-            after_env_obj_coords = env.get_env_obj_coords() #env._sim.data.get_geom_xpos("object")
+            if render_coord is True:
+                done = False
+                while not done:
+                    obs, reward, done, _ = env.step(action=[0, 0, 0, 0])
+                    after_env_obj_coords = env.get_env_obj_coords()
+            else:
+                env.step(action=[0, 0, 0, 0])
+                # Object cooridnates after conducting a step
+                after_env_obj_coords = env.get_env_obj_coords()
 
             # Check if the coordinate has moved after conducting an action
             if before_env_obj_coords[0] == after_env_obj_coords[0] and before_env_obj_coords[1] == after_env_obj_coords[1] and before_env_obj_coords[2] == after_env_obj_coords[2]:
@@ -106,7 +118,7 @@ def loop_through_coords(shape_keys, with_noise, hand_orientation, file_size):
             else:
                 # if its not close: discard that datapoint, don't use it/ delete it/mark it.
                 print("Invalid! object x,y,z: object x,y,z: {}, hov: {}".format(obj_coords, hand_orient_variation))
-                bad_coordinate = True  # Signal that the current coordinate is bad
+
                 # Add coordinated to bad (x,y) coordinate list for plotting
                 local_bad_x.append(local_obj_coords[0])
                 local_bad_y.append(local_obj_coords[1])
