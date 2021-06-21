@@ -21,9 +21,10 @@ def create_boxplot(orientation,saving_dir,data,labels,filename):
     #boxplot = sns.swarmplot(data=data) # Alternate boxplot style
 
     boxplot.set(xlabel=labels["x_label"], ylabel=labels["y_label"], title=labels["title"])
-    plt.locator_params(axis='x', nbins=len(labels["freq_vals"]))
-    locs, labl = plt.xticks()
-    plt.xticks(locs, labels["freq_vals"])
+    if labels["freq_vals"] is not None:
+        plt.locator_params(axis='x', nbins=len(labels["freq_vals"]))
+        locs, labl = plt.xticks()
+        plt.xticks(locs, labels["freq_vals"])
 
     if saving_dir is None:
         print("Showing boxplot...")
@@ -36,7 +37,30 @@ def create_boxplot(orientation,saving_dir,data,labels,filename):
     plt.clf()
 
 
-def get_boxplot_data(data_dir,filename,tot_episodes,saving_freq):
+def create_std_dev_bar_plot(x,y,deviation,labels,saving_dir,filename):
+    """ Creates a plot that shows the input data points (x,y) and the deviation (deviation)
+    x: x coordinate value (Episode)
+    y: y coordinate value (Average Reward)
+    deviation: Standard deviation per x,y point
+    labels: Plot labels (Frequency x tick marks)
+    saving_dir: Directory to save plot in
+    filename: File name for the saved plot
+    """
+    plt.errorbar(x, y, deviation, linestyle='None', marker='^')
+
+    plt.locator_params(axis='x', nbins=len(labels["freq_vals"]))
+    locs, labl = plt.xticks()
+    plt.xticks(locs, labels["freq_vals"])
+    plt.title(labels["title"])
+
+    if saving_dir is None:
+        print("Showing standard deviation bar plot...")
+        plt.show()
+    else:
+        plt.savefig(saving_dir+"/"+filename)
+        print("Standard deviation bar plot saved at: ",saving_dir+"/"+filename)
+
+def get_boxplot_data(plot_type, data_dir,filename,tot_episodes,saving_freq):
     """Get boxplot data from saved numpy arrays
     data_dir: Directory location of data file
     filename: Name of data file
@@ -44,22 +68,36 @@ def get_boxplot_data(data_dir,filename,tot_episodes,saving_freq):
     saving_freq: Frequency in which the data files were saved
     """
     data = []
-    for ep_num in np.linspace(start=saving_freq, stop=tot_episodes, num=int(tot_episodes/saving_freq), dtype=int):
-        data_str = data_dir+filename+"_"+str(ep_num)+".npy"
+    if plot_type == "eval":
+        for ep_num in np.linspace(start=0, stop=tot_episodes, num=int(tot_episodes / saving_freq)+1, dtype=int):
+            data_str = data_dir+filename+"_"+str(ep_num)+".npy"
+            my_file = Path(data_str)
+            if my_file.is_file():
+                print("Eval file: ", data_str)
+                data_file = np.load(data_str)[0]
+
+                for eval_data in data_file:
+                    data.append(eval_data)
+            else:
+                print("Boxplot file not found! file: ", data_str)
+    else:
+        data_str = data_dir + filename + ".npy"
         my_file = Path(data_str)
         if my_file.is_file():
-            print("Eval file: ", data_str)
+            print("Boxplot reward file: ", data_str)
             data_file = np.load(data_str)[0]
 
             for eval_data in data_file:
                 data.append(eval_data)
         else:
             print("Boxplot file not found! file: ", data_str)
+    if len(data) == 0:
+        data = None
 
     return data
 
 
-def generate_reward_boxplots(orientation, data_dir, saving_dir, file_list=["finger_reward", "grasp_reward", "lift_reward", "total_reward"], tot_episodes=20000, saving_freq=1000, eval_freq=200):
+def generate_reward_boxplots(plot_type, orientation, data_dir, saving_dir, file_list=["finger_reward", "grasp_reward", "lift_reward", "total_reward"], tot_episodes=20000, saving_freq=1000, eval_freq=200):
     """Create finger, grasp, lift, total reward evaluation boxplots
     data_dir: Directory location of data file
     saving_dir: Directory to save boxplots at
@@ -72,16 +110,38 @@ def generate_reward_boxplots(orientation, data_dir, saving_dir, file_list=["fing
     plot_save_path = Path(saving_dir)
     plot_save_path.mkdir(parents=True, exist_ok=True)
 
+    # Get each of the reward files
     for file in file_list:
-        boxplot_data = get_boxplot_data(data_dir, file, tot_episodes, saving_freq)
+        if plot_type == "eval":
+            boxplot_data = get_boxplot_data(plot_type, data_dir, file, tot_episodes, saving_freq)
 
-        freq_vals = np.arange(0,tot_episodes,2000)
+            freq_vals = np.arange(0,tot_episodes+1,200)
 
-        boxplot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
-                          "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials, " + orientation + " Orientation", "freq_vals": freq_vals}
+            avgs = []
+            std_devs = []
+            if boxplot_data is not None:
+                for row in boxplot_data:
+                    #"row: ",row)
+                    avgs.append(np.average(row))
+                    std_devs.append(np.std(row))
+                x = np.arange(0, len(avgs))
 
-        if len(boxplot_data) > 0:
-            create_boxplot(saving_dir, boxplot_data, boxplot_labels, "Eval_Boxplot_"+str(file)+".png")
+            plot_labels = {"x_label": "Evaluation Episode", "y_label": "Total Avg. Reward",
+                              "title": str(file)+" Avg. Reward per " + str(eval_freq) + " Grasp Trials, " + orientation + " Orientation", "freq_vals": freq_vals}
+
+            if boxplot_data is not None:
+                if len(boxplot_data) > 0:
+                    create_boxplot(orientation,saving_dir, boxplot_data, plot_labels, "Eval_Boxplot_"+str(file)+".png")
+                    create_std_dev_bar_plot(x, avgs, std_devs, plot_labels, saving_dir, "Eval_Std_Dev_plot_"+str(file)+".png")
+
+        else:
+            boxplot_data = get_boxplot_data(plot_type, data_dir, file, tot_episodes, saving_freq)
+            freq_vals = np.arange(0, tot_episodes + 1, 200)
+            plot_labels = {"x_label": "Episode", "y_label": "Total Avg. Reward",
+                           "title": str(file) + " Avg. Reward" + orientation + " Orientation", "freq_vals": freq_vals}
+
+            if boxplot_data is not None:
+                create_boxplot(orientation, saving_dir, boxplot_data, plot_labels, "Boxplot_" + str(file) + ".png")
 
 
 if __name__ ==  "__main__":
