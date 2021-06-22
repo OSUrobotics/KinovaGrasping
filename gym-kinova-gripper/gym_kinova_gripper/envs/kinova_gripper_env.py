@@ -88,30 +88,10 @@ class KinovaGripper_Env(gym.Env):
         # Parameters for cost function
         self.state_des = 0.20
         self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
+        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
         self.const_T=np.array([[0,-1,0,0],[0,0,-1,0],[1,0,0,0],[0,0,0,1]])  #Transfer matrix from world frame to un-modified hand frame
         self.all_states = None  # This is the varriable we use to save the states before they are sent to the simulator when we are resetting.
         self.state_rep = "local" # change accordingly
-        # Originally used for defining min/max ranges of state input (currently not being used)
-        min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0]
-        min_obj_xyz = [-0.1, -0.01, 0.0]
-        min_joint_states = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        min_obj_size = [0.0, 0.0, 0.0]
-        min_finger_obj_dist = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        min_obj_dot_prod = [0.0]
-        min_f_dot_prod = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-
-        max_hand_xyz = [0.1, 0.1, 0.5, 0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5]
-        max_obj_xyz = [0.1, 0.7, 0.5]
-        max_joint_states = [0.2, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
-        max_obj_size = [0.5, 0.5, 0.5]
-        max_finger_obj_dist = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-        max_obj_dot_prod = [1.0]
-        max_f_dot_prod = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-
-        ## ACTION
-        self.action_scale = 0.0333
-        # Parameters for cost function
-        self.action_space = spaces.Box(low=np.array([-0.8, -0.8, -0.8, -0.8]), high=np.array([0.8, 0.8, 0.8, 0.8]), dtype=np.float32)  # Velocity action space
 
         ## REWARD
         self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
@@ -128,6 +108,8 @@ class KinovaGripper_Env(gym.Env):
         self.orientation_idx = 0 # Default index for orientation data files (coords and noise) based on hand pose
         self.obj_coord_region = None # Region to sample initial object coordinates from within the hand (left, center, right, target, origin)
         self.all_objects = {} # Dictionary containing all possible objects and their xml files
+        self.hand_orient_variation = np.array([0,0,0]) # Hand orientation variation
+
         # Cube
         self.all_objects["CubeS"] = "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
         self.all_objects["CubeM"] = "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
@@ -159,9 +141,9 @@ class KinovaGripper_Env(gym.Env):
 
         ## Nigel's Shapes ##
         # Hourglass
-        self.all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
-        self.all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
-        self.all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+        self.all_objects["HourB"] =  "/kinova_description/j2s7s300_end_effector_v1_HourB.xml"
+        self.all_objects["HourM"] =  "/kinova_description/j2s7s300_end_effector_v1_HourM.xml"
+        self.all_objects["HourS"] =  "/kinova_description/j2s7s300_end_effector_v1_HourS.xml"
         # Vase
         self.all_objects["VaseB"] =  "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
         self.all_objects["VaseM"] =  "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
@@ -192,6 +174,9 @@ class KinovaGripper_Env(gym.Env):
 
         ## GRASP CLASSIFIER
         self.Grasp_net = pickle.load(open(self.file_dir+'/kinova_description/gc_model.pkl', "rb"))
+        self.starting_coords = [10, 10, 10]
+        self.prev_pose = [10, 10, 10]
+
         #self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_05_28_20_2105local.pt"
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_01_23_20_2052local.pt"
@@ -201,412 +186,31 @@ class KinovaGripper_Env(gym.Env):
         #self.Grasp_net.load_state_dict(model)
         #self.Grasp_net.eval()
 
-
-    ##### METHODS: SPLIT INTO MUJOCO, OPENAI GYM, STATE, ACTION, REWARD, ENVIRONMENT SETUP
-    def get_sim(self):
-        return self._sim
-    ########## ENVIRONMENT CLASS: METHODS ###########
-    # Other Environment setup methods
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
-    ## MUJOCO - ENVIRONMENT
-    # SET DATA; Send data to --> Simulator
-    def set_sim_state(self,qpos,obj_state):#this just sets all the qpos of the simulation manually. Is it bad? Probably. Do I care at this point? Not really
-        self._sim.data.set_joint_qpos("object", [obj_state[0], obj_state[1], obj_state[2], 1.0, 0.0, 0.0, 0.0])
-        for i in range(len(self._sim.data.qpos)):
-            self._sim.data.qpos[i]=qpos[i]
-        self._sim.forward()
-
-    # only set proximal joints, cuz this is an underactuated hand
-    #we have a problem here (a binomial in the denomiator)
-    #ill use the quotient rule
-    def _set_state(self, states):
-        #print('sensor data',self._sim.data.sensordata[0:9])
-        #print('qpos',self._sim.data.qpos[0:9])
-        #print('states',states)
-        self._sim.data.qpos[0] = states[0]
-        self._sim.data.qpos[1] = states[1]
-        self._sim.data.qpos[2] = states[2]
-        self._sim.data.qpos[3] = states[3]
-        self._sim.data.qpos[5] = states[4]
-        self._sim.data.qpos[7] = states[5]
-        self._sim.data.set_joint_qpos("object", [states[6], states[7], states[8], 1.0, 0.0, 0.0, 0.0])
-        self._sim.forward()
-
-    def write_xml(self,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
-                                        #self.file_dir and self.filename to that rotation. It then sets up the simulator with the object
-                                        #incredibly far from the hand to prevent collisions and recalculates the rotation matrices of the hand
-        xml_file=open(self.file_dir+self.filename,"r")
-        xml_contents=xml_file.read()
-        xml_file.close()
-        starting_point=xml_contents.find('<body name="j2s7s300_link_7"')
-        euler_point=xml_contents.find('euler=',starting_point)
-        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[euler_point:])
-        c_start=contents.start()
-        c_end=contents.end()
-        starting_point=xml_contents.find('joint name="j2s7s300_joint_7" type')
-        axis_point=xml_contents.find('axis=',starting_point)
-        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[axis_point:])
-        starting_point=xml_contents.find('site name="local_origin_site" type="cylinder" size="0.0075 0.005" rgba="25 0.5 0.0 1"')
-        site_point=xml_contents.find('pos=',starting_point)
-        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[starting_point:])
-        wrist_pose=self.wrist_pose
-        new_thing= str(wrist_pose[0]) + " " + str(wrist_pose[1]) + " " + str(wrist_pose[2])
-        p1=str(new_rotation[0])
-        p2=str(new_rotation[1])
-        p3=str(new_rotation[2])
-        xml_contents=xml_contents[:euler_point+c_start+7] + p1[0:min(5,len(p1))]+ " "+p2[0:min(5,len(p2))] +" "+ p3[0:min(5,len(p3))] \
-        + xml_contents[euler_point+c_end-1:]# + new_thing + xml_contents[site_point+c2_end:]
-        xml_file=open(self.file_dir+self.filename,"w")
-        xml_file.write(xml_contents)
-        xml_file.close()
-        self._model = load_model_from_path(self.file_dir + self.filename)
-        self._sim = MjSim(self._model)
-        self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
-        self._get_trans_mat_wrist_pose()
-
-    # MUJOCO SIMULATION RENDERING
-    #Function to display the current state in a video. The video is always paused when it first starts up.
-    def render(self, mode='human'): #TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        setPause=False
-        if self._viewer is None:
-            self._viewer = MjViewer(self._sim)
-            self._viewer._paused = setPause
-        self._viewer.render()
-        if setPause:
-            self._viewer._paused=True
-
-    def render_img(self, episode_num, timestep_num, obj_coords, dir_name, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',final_episode_type=None):
-        # print("In render_img")
-        if self._viewer is None:
-            self._viewer = MjViewer(self._sim)
-
-        video_dir = "./video/"
-        if not os.path.isdir(video_dir):
-           os.mkdir(video_dir)
-
-        output_dir = os.path.join(video_dir, dir_name + "/")
-        if not os.path.isdir(output_dir):
-           os.mkdir(output_dir)
-
-        success_dir = os.path.join(output_dir, "Success/")
-        if not os.path.isdir(success_dir):
-           os.mkdir(success_dir)
-
-        fail_dir = os.path.join(output_dir, "Fail/")
-        if not os.path.isdir(fail_dir):
-           os.mkdir(fail_dir)
-
-        episode_coords = "obj_coords_" + str(obj_coords) + "/"
-        episode_dir = os.path.join(output_dir, episode_coords)
-        if not os.path.isdir(episode_dir):
-            os.mkdir(episode_dir)
-
-        source = episode_dir
-        if final_episode_type != None:
-            if final_episode_type == 'success':
-                destination = os.path.join(success_dir,episode_coords)
-            else:
-                destination = os.path.join(fail_dir,episode_coords)
-            if not os.path.isdir(destination):
-                dest = shutil.move(source, destination)
-        else:
-            self._viewer._record_video = True
-            self._viewer._video_path = video_dir + "video_1.mp4"
-            a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
-
-            # Just keep rgb values, so image is shape (w,h), make to be numpy array
-            a_rgb = a[0]
-            a_rgb = np.asarray(a_rgb, dtype=np.uint8)
-            img = Image.fromarray(a_rgb, 'RGB')
-
-            # Overlay text string
-            if text_overlay != None:
-                ImageDraw.Draw(img).text((0, 1),text_overlay,(255,255,255),size=24)
-
-            # Save image
-            img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
-
-            return a_rgb
-
-    #Function to close the rendering window
-    def close(self): #This doesn't work right now
-        if self._viewer is not None:
-            self._viewer = None
-
-    #Function to pause the rendering video
-    def pause(self):
-        self._viewer._paused=True
-
-    # Add bright lines in the simulator for viewing coordinate locations
-    def add_site(self,world_site_coords,keep_sites=False):
-        if not(keep_sites):
-            self.site_count=0
-        xml_file=open(self.file_dir+self.filename,"r")
-        xml_contents=xml_file.read()
-        xml_file.close()
-        a=xml_contents.find('<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n')
-        if a!=-1:
-            starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
-            site_point=xml_contents.find('\n',starting_point)
-            site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
-            self.site_count+=1
-            second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
-            self.site_count+=1
-            new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
-            new_thing=new_thing+xml_contents[site_point+1:]
-            xml_file=open(self.file_dir+self.filename,"w")
-            xml_file.write(new_thing)
-            xml_file.close()
-
-            self._model = load_model_from_path(self.file_dir + self.filename)
-            self._sim = MjSim(self._model)
-            object_location=self._get_obj_size()
-            states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
-            self._set_state(np.array(states))
-            self._get_trans_mat_wrist_pose()
-
-    ## OPEN AI GYM -- ENVIRONMENT CLASS
-    # Reset the environment to its initial values; sample new object/hand pose
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,obj_params=None, qpos=None, obj_coord_region=None, with_noise=True):
-        """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
-        shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
-        hand_orientation: Orientation of the hand relative to the object
-        with_grasp: Set to True to include the grasp classifier reward within the reward calculation
-        env_name: Name of the current environment; "env" for training and "eval_env" for evaluation
-        mode: Mode for current run - Ex: "train", "test"
-        start_pos: Specific initial starting coordinate location for the object for testing purposes - default to None
-        obj_params: Specific shape and size of object for testing purposes [shape_name, size] (Ex: [Cube, S]) - default to None
-        qpos: Specific initial starting qpos value for hand joint values for testing purposes - default to None
-        obj_coord_region: Specific region to sample initial object coordinate location from for testing purposes - default to None
-        with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
-        returns the state (current state representation after reset of the environment)
-        """
-        # All possible shape keys - default shape keys will be used for expert data generation
-        # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
-
-        self.set_with_grasp_reward(with_grasp) # If True, use Grasp Reward from grasp classifier in reward calculation
-        self.set_obj_coord_region(obj_coord_region) # Set the region from where the initial x,y object coordinate will be sampled from
-        shape_keys=['HourS']
-        # Determine object to be used within current environment
-        random_shape = self.select_object(env_name, shape_keys, obj_params)
-        self.set_random_shape(random_shape)
-
-        # Determine hand orientation to be used within current environment
-        orientation = self.select_orienation(random_shape, hand_orientation)
-        self.set_orientation(orientation)
-
-        # Determine location of x, y, z joint locations and proximal finger locations of the hand
-        xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
-
-        # STEPH Use pre-set qpos (joint velocities?) and pre-set initial object initial object position
-        if qpos is None:
-            if start_pos is None:
-                # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
-                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, with_noise=with_noise)
-                self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
-                self.set_coords_filename(coords_filename)
-
-            elif len(start_pos)==3:
-                ######################################
-                ## TO Test Real world data Uncomment##
-                ######################################
-                #start_pos.append(1)
-                #self._get_trans_mat_wrist_pose()
-                #temp_start_pos = np.matmul(self.Twf, start_pos)
-                #obj_x, obj_y, obj_z = temp_start_pos[0], temp_start_pos[1], temp_start_pos[2]
-
-                ##Comment this to Test real world data
-                obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
-            elif len(start_pos)==2:
-                obj_x, obj_y = start_pos[0], start_pos[1]
-                obj_z = self._get_obj_size()[-1]
-            else:
-                xloc,yloc,zloc,f1prox,f2prox,f3prox=start_pos[0], start_pos[1], start_pos[2],start_pos[3], start_pos[4], start_pos[5]
-                obj_x, obj_y, obj_z = start_pos[6], start_pos[7], start_pos[8]
-
-            # all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,obj_x,obj_y,obj_z]
-            self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x, obj_y, obj_z])
-            #if coords=='local':
-            #    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
-            #    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
-            self.Grasp_Reward=False
-            self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
-            self.all_states = [self.all_states_1 , self.all_states_2]
-
-            self._set_state(self.all_states[0])
-        else:
-            self.set_sim_state(qpos,start_pos)
-            obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
-
-        states = self._get_obs()
-        obj_pose=self._get_obj_pose()
-        deltas=[obj_x-obj_pose[0],obj_y-obj_pose[1],obj_z-obj_pose[2]]
-
-        if np.linalg.norm(deltas)>0.05:
-            self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x+deltas[0], obj_y+deltas[1], obj_z+deltas[2]])
-            self.all_states=[self.all_states_1,self.all_states_2]
-            self._set_state(self.all_states[0])
-            states = self._get_obs()
-
-        #These two varriables are used when the action space is in joint states
-        self.t_vel = 0
-        self.prev_obs = []
-
-        # Sets the object coordinates for heatmap tracking and plotting
-        self.set_obj_coords(obj_x, obj_y, obj_z)
-        self._get_trans_mat_wrist_pose()
-
-        ##Testing Code
-        '''
-        if test:
-            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]:
-                if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
-                    print("Reset function is working Properly Check the render")
-                    self.render()
-            else:
-                print("Reset function is not working Properly Check the render")
-                self.render()
-        '''
-        return states
-
-    #Function to step the simulator forward in time
-    def step(self, action, graspnetwork=False): #TODO: fix this so that we can rotate the hand
-        """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
-            action: array of finger joint velocity values (finger1, finger1, finger3)
-            graspnetwork: bool, set True to use grasping network to determine reward value
-        """
-        total_reward = 0
-        self._get_trans_mat_wrist_pose()
-        if len(action)==4:
-            action=[0,0,action[0],action[1],action[2],action[3]]
-        #if action[0]==0:
-        #    self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
-        #if action[1]==0:
-        #    self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
-        #if action[2]==0:
-        #    self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
-        if self.arm_or_hand=="hand":
-            mass=0.733
-            gear=25
-            stuff=np.matmul(self.Tfw[0:3,0:3],[0,0,mass*10/gear])
-            stuff[0]=-stuff[0]
-            stuff[1]=-stuff[1]
-            for _ in range(self.frame_skip):
-                if self.step_coords=='global':
-                    slide_vector=np.matmul(self.Tfw[0:3,0:3],action[0:3])
-                    if (self.orientation == 'rotated') & (action[2]<=0):
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
-                    else:
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
-                else:
-                    if (self.orientation == 'rotated')&(action[2]<=0):
-                        slide_vector=[-slide_vector[0],-slide_vector[1],slide_vector[2]]
-                    else:
-                        slide_vector=[-action[0],-action[1],action[2]]
-                for i in range(3):
-                    self._sim.data.ctrl[(i)*2] = slide_vector[i]
-                    if self.step_coords=='rotated':
-                        self._sim.data.ctrl[i+6] = action[i+3]+0.05
-                    else:
-                        self._sim.data.ctrl[i+6] = action[i+3]
-                    self._sim.data.ctrl[i*2+1]=stuff[i]
-                self._sim.step()
-        else:
-            for _ in range(self.frame_skip):
-                joint_velocities = action[0:7]
-                finger_velocities=action[7:]
-                for i in range(len(joint_velocities)):
-                    self._sim.data.ctrl[i+10] = joint_velocities[i]
-                for i in range(len(finger_velocities)):
-                    self._sim.data.ctrl[i+7] = finger_velocities[i]
-                self._sim.step()
-        obs = self._get_obs()
-
-        if not graspnetwork:
-            total_reward, info, done = self._get_reward(self.with_grasp_reward)
-        else:
-            ### Get this reward for grasp classifier collection ###
-            total_reward, info, done = self._get_reward_DataCollection()
-        return obs, total_reward, done, info
-
-    # Environment (simulation) testing
-    def test_self(self):
-        shapes=['Cube','Cylinder','Cone1','Cone2','Bowl','Rbowl','Bottle','TBottle','Hour','Vase','Lemon']
-        sizes=['S','M','B']
-        keys=["CubeS","CubeB","CylinderS","CylinderB","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
-        key=random.choice(keys)
-        self.reset(obj_params=[key[0:-1],key[-1]])
-        print('testing shape',key)
-        self._get_obs()
-        x=threading.Thread(target=self.obs_test)
-        x.start()
-        while x.is_alive():
-            self.render()
-        print('')
-        print('testing step in global coords')
-        action=[0,0,0,0]
-        self.step_coords='global'
-        start_obs=self._get_obs(state_rep='global')
-        for i in range(150):
-            action[0]=np.random.rand()-0.2
-            self.step(action)
-        end_obs=self._get_obs(state_rep='global')
-        if (abs(start_obs[18]-end_obs[18])>0.001)|(abs(start_obs[19]-end_obs[19])>0.001):
-            print('test failed. x/y position changed when it should not have, check step function')
-        else:
-            print('test passed')
-        print('printing test step in local coords')
-        self.reset(obj_params=[key[0:-1],key[-1]])
-        self.step_coords='local'
-        start_obs=self._get_obs()
-        for i in range(150):
-            action[0]=np.random.rand()-0.2
-            self.step(action)
-        end_obs=self._get_obs()
-        if (abs(start_obs[18]-end_obs[18])>0.001)|(abs(start_obs[19]-end_obs[19])>0.001):
-            print('test failed. x/y position changed when it should not have, check step function')
-        else:
-            print('test passed')
-        print('no current test for 6 axis motion, step tests finished.')
-        print('begining shape test')
-        bad_shapes=[]
-        for shape in shapes:
-            for size in sizes:
-                self.reset(obj_params=[shape,size])
-                self.render()
-                a=input('obj shape and size',shape,size,'. Is this correct y/n?')
-                if a.lower()=='y':
-                    print('shape passed')
-                else:
-                    print('shape failed. recording')
-                    bad_shapes.append([shape,size])
-        if bad_shapes==[]:
-            print('all shapes and sizes are accurate, tests finished')
-        else:
-            print('the following are shapes that were not correct. Look at the xml files.')
-            print(bad_shapes)
-
-    ########## END of ENVIRONMENT CLASS ###########
-
-    ## STATE
-    def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
-        self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
-        Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
-        temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
-        temp=np.transpose(temp)
-        Tfa=np.zeros([4,4])
-        Tfa[0:3,0:3]=temp
-        Tfa[3,3]=1
-        Tfw=np.zeros([4,4])
-        Tfw[0:3,0:3]=temp
-        Tfw[3,3]=1
-        self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
-        Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
-        self.Tfw=Tfw
-        self.Twf=np.linalg.inv(Tfw)
+    # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
+    def _get_trans_mat_wrist_pose(self):  # WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
+        center_pose = self._sim.data.get_site_xpos('palm')
+        xpos = self._sim.data.get_site_xpos('palm_3')
+        zpos = self._sim.data.get_site_xpos('palm_1')
+        xvec = xpos - center_pose
+        zvec = zpos - center_pose
+        yvec = np.cross(zvec, xvec)
+        xvec = xvec / np.linalg.norm(xvec)
+        yvec = yvec / np.linalg.norm(yvec)
+        zvec = zvec / np.linalg.norm(zvec)
+        rotation_matrix = np.array([xvec, yvec, zvec])
+        # print("rotation matrix from cindy's method", rotation_matrix)
+        self.wrist_pose = np.copy(self._sim.data.get_geom_xpos('palm'))
+        Rfa = np.copy(self._sim.data.get_geom_xmat('palm'))
+        temp = np.matmul(Rfa, np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]]))
+        temp = np.transpose(temp)
+        Tfw = np.zeros([4, 4])
+        Tfw[0:3, 0:3] = rotation_matrix
+        Tfw[3, 3] = 1
+        # self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+        self.wrist_pose = self.wrist_pose + np.matmul(Tfw[0:3, 0:3], [-0.0062, 0.048, 0.0])
+        Tfw[0:3, 3] = np.matmul(-(Tfw[0:3, 0:3]), np.transpose(self.wrist_pose))
+        self.Tfw = Tfw
+        self.Twf = np.linalg.inv(Tfw)
 
     def experimental_sensor(self,rangedata,finger_pose,gravity):
         #print('flimflam')
@@ -662,6 +266,16 @@ class KinovaGripper_Env(gym.Env):
             top_part=np.abs(obj_size[0]*obj_size[2])/top_area
 
         return sensor_pose,front_part, top_part
+
+
+    def get_sim_state(self): #this gives you the whole damn qpos
+        return np.copy(self._sim.data.qpos)
+
+    def set_sim_state(self,qpos,obj_state):#this just sets all the qpos of the simulation manually. Is it bad? Probably. Do I care at this point? Not really
+        self._sim.data.set_joint_qpos("object", [obj_state[0], obj_state[1], obj_state[2], 1.0, 0.0, 0.0, 0.0])
+        for i in range(len(self._sim.data.qpos)):
+            self._sim.data.qpos[i]=qpos[i]
+        self._sim.forward()
 
     # Function to get the state of all the joints, including sliders
     def _get_joint_states(self):
@@ -743,6 +357,11 @@ class KinovaGripper_Env(gym.Env):
         for i in range(6):
             print(finger_joints[i], 'pose:',tests_passed[i+1])
 
+    def get_obs_from_coord_frame(self, coord_frame=None):
+        """ Get the current observation of the environment based on the input coordinate frame representation. """
+        obs = self._get_obs(coord_frame)
+        return obs
+
     # Function to return global or local transformation matrix
     def _get_obs(self, state_rep=None):  #TODO: Add or subtract elements of this to match the discussions with Ravi and Cindy
         '''
@@ -775,7 +394,7 @@ class KinovaGripper_Env(gym.Env):
         (2,) X and Z angle                                      48-49
         (17,) Rangefinder data                                  50-66
         '''
-        #print(self._model)
+
         if state_rep == None:
             state_rep = self.state_rep
         # states rep
@@ -874,6 +493,11 @@ class KinovaGripper_Env(gym.Env):
         arr = self._sim.data.get_geom_xpos("object")
         return arr
 
+    # Return the object coordinates, accessible by outside functions
+    def get_env_obj_coords(self):
+        env_obj_coords = self._sim.data.get_geom_xpos("object")
+        return env_obj_coords
+
     # Function to return the angles between the palm normal and the object location
     def _get_angles(self):
         #t=time.time()
@@ -916,112 +540,8 @@ class KinovaGripper_Env(gym.Env):
         dot_prod = np.dot(obj_unit_vec, center_unit_vec)
         return dot_prod**20 # cuspy to get distinct reward
 
-    # Function to get the dimensions of the object
-    def _get_obj_size(self):
-        #TODO: fix this shit
-        num_of_geoms=np.shape(self._sim.model.geom_size)
-        #print(self._sim.data.geom_xpos)
-        #print('geom sizes',self._sim.model.geom_size)
-        #print('object top',self._sim.data.get_geom_xpos('object_top'))
-        #print('object middle',self._sim.data.get_geom_xpos('object'))
-        #print('object bottom',self._sim.data.get_geom_xpos('object_bottom'))
-        final_size=[0,0,0]
-        #print(self._sim.model.geom_size)
-        #print(num_of_geoms[0]-8)
-        for i in range(num_of_geoms[0]-8):
-            size=np.copy(self._sim.model.geom_size[-1-i])
-            diffs=[0,0,0]
-            if size[2]==0:
-                size[2]=size[1]
-                size[1]=size[0]
-            diffs[0]=abs(size[0]-size[1])
-            diffs[1]=abs(size[1]-size[2])
-            diffs[2]=abs(size[0]-size[2])
-            if ('lemon' in self.filename)|(np.argmin(diffs)!=0):
-                temp=size[0]
-                size[0]=size[2]
-                size[2]=temp
 
-            if 'Bowl' in self.filename:
-                if 'Rect' in self.filename:
-                    final_size[0]=0.17
-                    final_size[1]=0.17
-                    final_size[2]=0.075
-                else:
-                    final_size[0]=0.175
-                    final_size[1]=0.175
-                    final_size[2]=0.07
-                if self.obj_size=='m':
-                    for j in range(3):
-                        final_size[j]=final_size[j]*0.85
-                elif self.obj_size=='s':
-                    for j in range(3):
-                        final_size[j]=final_size[j]*0.7
-            else:
-                final_size[0]=max(size[0],final_size[0])
-                final_size[1]=max(size[1],final_size[1])
-                final_size[2]+=size[2]
-        #print(final_size)
-        return final_size
-
-    ## ACTION
-    ###################################################
-    ##### ---- Action space : Joint Angle ---- ########
-    ###################################################
-    # def step(self, action):
-    #     total_reward = 0
-    #     for _ in range(self.frame_skip):
-    #         self.pos_control(action)
-    #         self._sim.step()
-
-    #     obs = self._get_obs()
-    #     total_reward, info, done = self._get_reward()
-    #     self.t_vel += 1
-    #     self.prev_obs.append(obs)
-    #     # print(self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5])
-    #     return obs, total_reward, done, info
-
-    # def pos_control(self, action):
-    #     # position
-    #     # print(action)
-
-    #     self._sim.data.ctrl[0] = (action[0] / 1.5) * 0.2
-    #     self._sim.data.ctrl[1] = action[1]
-    #     self._sim.data.ctrl[2] = action[2]
-    #     self._sim.data.ctrl[3] = action[3]
-    #     # velocity
-    #     if abs(action[0] - 0.0) < 0.0001:
-    #         self._sim.data.ctrl[4] = 0.0
-    #     else:
-    #         self._sim.data.ctrl[4] = 0.1
-    #         # self._sim.data.ctrl[4] = (action[0] - self.prev_action[0] / 25)
-
-    #     if abs(action[1] - 0.0) < 0.001:
-    #         self._sim.data.ctrl[5] = 0.0
-    #     else:
-    #         self._sim.data.ctrl[5] = 0.01069
-    #         # self._sim.data.ctrl[5] = (action[1] - self.prev_action[1] / 25)
-
-    #     if abs(action[2] - 0.0) < 0.001:
-    #         self._sim.data.ctrl[6] = 0.0
-    #     else:
-    #         self._sim.data.ctrl[6] = 0.01069
-    #         # self._sim.data.ctrl[6] = (action[2] - self.prev_action[2] / 25)
-
-    #     if abs(action[3] - 0.0) < 0.001:
-    #         self._sim.data.ctrl[7] = 0.0
-    #     else:
-    #         self._sim.data.ctrl[7] = 0.01069
-    #         # self._sim.data.ctrl[7] = (action[3] - self.prev_action[3] / 25)
-
-        # self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
-        # self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
-
-    #####################################################
-
-    ## REWARD
-    # Function to get rewards based only on the lift reward.
-    # This is primarily used to generate data for the grasp classifier
+    # Function to get rewards based only on the lift reward. This is primarily used to generate data for the grasp classifier
     def _get_reward_DataCollection(self):
         obj_target = 0.2
         obs = self._get_obs(state_rep="global")
@@ -1098,13 +618,65 @@ class KinovaGripper_Env(gym.Env):
 
         return reward, info, done
 
-    def get_with_grasp_reward(self):
-        return self.with_grasp_reward
+    # only set proximal joints, cuz this is an underactuated hand
+    #we have a problem here (a binomial in the denomiator)
+    #ill use the quotient rule
+    def _set_state(self, states):
+        #print('sensor data',self._sim.data.sensordata[0:9])
+        #print('qpos',self._sim.data.qpos[0:9])
+        #print('states',states)
+        self._sim.data.qpos[0] = states[0]
+        self._sim.data.qpos[1] = states[1]
+        self._sim.data.qpos[2] = states[2]
+        self._sim.data.qpos[3] = states[3]
+        self._sim.data.qpos[5] = states[4]
+        self._sim.data.qpos[7] = states[5]
+        self._sim.data.set_joint_qpos("object", [states[6], states[7], states[8], 1.0, 0.0, 0.0, 0.0])
+        self._sim.forward()
 
-    def set_with_grasp_reward(self,with_grasp):
-        self.with_grasp_reward=with_grasp
+    # Function to get the dimensions of the object
+    def _get_obj_size(self):
+        #TODO: fix this shit
+        num_of_geoms=np.shape(self._sim.model.geom_size)
+        final_size=[0,0,0]
+        #print(self._sim.model.geom_size)
+        #print(num_of_geoms[0]-8)
+        for i in range(num_of_geoms[0]-8):
+            size=np.copy(self._sim.model.geom_size[-1-i])
+            diffs=[0,0,0]
+            if size[2]==0:
+                size[2]=size[1]
+                size[1]=size[0]
+            diffs[0]=abs(size[0]-size[1])
+            diffs[1]=abs(size[1]-size[2])
+            diffs[2]=abs(size[0]-size[2])
+            if ('lemon' in self.filename)|(np.argmin(diffs)!=0):
+                temp=size[0]
+                size[0]=size[2]
+                size[2]=temp
 
-    ## EXPERIMENT SETUP CLASS (Object-Hand Pose)
+            if 'Bowl' in self.filename:
+                if 'Rect' in self.filename:
+                    final_size[0]=0.17
+                    final_size[1]=0.17
+                    final_size[2]=0.075
+                else:
+                    final_size[0]=0.175
+                    final_size[1]=0.175
+                    final_size[2]=0.07
+                if self.obj_size=='m':
+                    for j in range(3):
+                        final_size[j]=final_size[j]*0.85
+                elif self.obj_size=='s':
+                    for j in range(3):
+                        final_size[j]=final_size[j]*0.7
+            else:
+                final_size[0]=max(size[0],final_size[0])
+                final_size[1]=max(size[1],final_size[1])
+                final_size[2]+=size[2]
+        #print(final_size)
+        return final_size
+
     def set_obj_coords(self,x,y,z):
         self.obj_coords[0] = x
         self.obj_coords[1] = y
@@ -1145,6 +717,12 @@ class KinovaGripper_Env(gym.Env):
     def set_orientation(self, orientation):
         self.orientation = orientation
 
+    def get_with_grasp_reward(self):
+        return self.with_grasp_reward
+
+    def set_with_grasp_reward(self,with_grasp):
+        self.with_grasp_reward=with_grasp
+
     def get_coords_filename(self):
         """ Returns the initial object and hand pose coordinate file name sampled from in the current environment """
         return self.coords_filename
@@ -1159,6 +737,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to run all the experiments for RL training
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
+        self.objects = {}
 
         for key in shape_keys:
             self.objects[key] = self.all_objects[key]
@@ -1202,6 +781,39 @@ class KinovaGripper_Env(gym.Env):
         z = size[-1]/2
         return rand_x, rand_y, z
 
+    def write_xml(self,new_wrist_pos,new_rotation):   #This function takes in a rotation vector [roll, pitch, yaw] and sets the hand rotation in the
+                                        #self.file_dir and self.filename to that rotation. It then sets up the simulator with the object
+                                        #incredibly far from the hand to prevent collisions and recalculates the rotation matrices of the hand
+        xml_file=open(self.file_dir+self.filename,"r")
+        xml_contents=xml_file.read()
+        xml_file.close()
+        starting_point=xml_contents.find('<body name="j2s7s300_link_7"')
+        euler_point=xml_contents.find('euler=',starting_point)
+        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[euler_point:])
+        c_start=contents.start()
+        c_end=contents.end()
+        starting_point=xml_contents.find('joint name="j2s7s300_joint_7" type')
+        axis_point=xml_contents.find('axis=',starting_point)
+        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[axis_point:])
+        starting_point=xml_contents.find('site name="local_origin_site" type="cylinder" size="0.0075 0.005" rgba="25 0.5 0.0 1"')
+        site_point=xml_contents.find('pos=',starting_point)
+        contents=re.search("[^\s]+\s[^\s]+\s[^>]+",xml_contents[starting_point:])
+        wrist_pose= self.wrist_pose #[-0.00364792, 0.01415926, 0.25653749]
+        new_thing= str(wrist_pose[0]) + " " + str(wrist_pose[1]) + " " + str(wrist_pose[2])
+        p1=str(new_rotation[0])
+        p2=str(new_rotation[1])
+        p3=str(new_rotation[2])
+        xml_contents=xml_contents[:euler_point+c_start+7] + p1[0:min(5,len(p1))]+ " "+p2[0:min(5,len(p2))] +" "+ p3[0:min(5,len(p3))] \
+        + xml_contents[euler_point+c_end-1:]# + new_thing #+ xml_contents[site_point+c2_end:]
+        xml_file=open(self.file_dir+self.filename,"w")
+        xml_file.write(xml_contents)
+        xml_file.close()
+        self._model = load_model_from_path(self.file_dir + self.filename)
+        self._sim = MjSim(self._model)
+        self._set_state(np.array([0, 0, 0, 0, 0, 0, 10, 10, 10]))
+        self._get_trans_mat_wrist_pose()
+
+    # Steph Added
     def check_obj_file_empty(self,filename):
         if os.path.exists(filename) == False:
             return False
@@ -1321,7 +933,6 @@ class KinovaGripper_Env(gym.Env):
                 writer.writerow(key)
 
         # Load model
-        print('model to be loaded',self.file_dir + self.objects[random_shape])
         self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
         self._sim = MjSim(self._model)
 
@@ -1337,6 +948,8 @@ class KinovaGripper_Env(gym.Env):
                 delim=','
             else:
                 delim=' '
+        # Go back to the top of the file after checking for the delimiter
+        with open(coords_filename) as csvfile:
             reader = csv.reader(csvfile, delimiter=delim)
             for i in reader:
                 if with_noise is True:
@@ -1403,11 +1016,11 @@ class KinovaGripper_Env(gym.Env):
                 self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
         elif obj_params[0] == "Hour":
             if obj_params[1] == "B":
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_HourB.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_HourB.xml"
             elif obj_params[1] == "M":
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_HourM.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_HourM.xml"
             elif obj_params[1] == "S":
-                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_shg.xml"
+                self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_HourS.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_HourS.xml"
         if obj_params[0] == "Vase":
             if obj_params[1] == "B":
                 self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
@@ -1513,42 +1126,106 @@ class KinovaGripper_Env(gym.Env):
         if random_shape.find("RBowl") != -1:
             # Rotated orientation is > 0.333
             # Top orientation is > 0.667
-            if hand_orientation == 'random':
-                orientation_type = np.random.uniform(0.333,1)
+            orientation_type = np.random.uniform(0.333,1)
 
         # If the shape is Lemon, only do normal and top orientations
         elif random_shape.find("Lemon") != -1:
             # Rotated orientation is > 0.333
             # Top orientation is > 0.667
-            if hand_orientation == 'random':
-                Choice1 = np.random.uniform(0, 0.333)
-                Choice2 = np.random.uniform(0.667, 1)
-                orientation_type = np.random.choice([Choice1, Choice2])
-
-        # For all other shapes, given a random hand orientation
-        elif hand_orientation == 'random':
+            Choice1 = np.random.uniform(0, 0.333)
+            Choice2 = np.random.uniform(0.667, 1)
+            orientation_type = np.random.choice([Choice1, Choice2])
+        else:
             orientation_type = np.random.rand()
 
-        # Determine orientation type based on random selection
-        if orientation_type < 0.333:
+        if hand_orientation == 'random':
+            # Determine orientation type based on random selection
+            if orientation_type < 0.333:
+                # Normal (0 deg) Orientation
+                orientation = 'normal'
+            elif orientation_type > 0.667:
+                # Top (90 deg) Orientation
+                orientation = 'top'
+            else:
+                # Rotated (67 deg) orientation
+                orientation = 'rotated'
+
+        # For all other shapes, determine the hand orientation by the desired input
+        if hand_orientation == 'normal':
             # Normal (0 deg) Orientation
             orientation = 'normal'
-        elif orientation_type > 0.667:
+        elif hand_orientation == 'top':
             # Top (90 deg) Orientation
             orientation = 'top'
-        else:
-            # Rotated (45 deg) orientation
+        elif hand_orientation == 'rotated':
+            # Rotated (67 deg) orientation
             orientation = 'rotated'
 
         return orientation
 
-    def determine_obj_hand_coords(self, random_shape, mode, with_noise=True):
+    def convert_local_obj_coord_to_global(self,local_obj_x,local_obj_y,local_obj_z=None):
+        """ Convert a specific local x,y,(z is optional) object coordinate to the global representation. This allows
+        for local coordinates saved for plotting purposes to be re-represented in the simulation.
+        local_obj_x,local_obj_y,local_obj_z: Object x, y, z coordinate values in their local representation
+        return global_obj_x, global_obj_y, global_obj_z in their global coordinate representation
+        """
+
+        if local_obj_z is None:
+            # Obj_z is already in the global coordinate frame, so put 0 as the placeholder
+            obj_local = [local_obj_x,local_obj_y,0]
+        else:
+            obj_local = [local_obj_x, local_obj_y, local_obj_z]
+
+        # Convert local coordinate x,y values (saved for heatmap plotting) to their global representation
+        obj_coords = np.append(obj_local,1)
+        obj_coords = np.linalg.solve(self.Tfw,obj_coords)
+        global_obj_coords = obj_coords[0:3]
+
+        global_obj_x = global_obj_coords[0]
+        global_obj_y = global_obj_coords[1]
+        global_obj_z = global_obj_coords[2]
+
+        if local_obj_z is None:
+            # Get global object z coordinate value based on the orientation (no noise)
+            _, _, global_obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
+
+        return global_obj_x, global_obj_y, global_obj_z
+
+    def determine_wrist_pos_coords(self,orientation,shape):
+        """Determine the initial coodinate position of the wrist center [x,y,z] to start with based on the current orientation and shape"""
+        size = shape[-1]
+
+        if orientation == 'top':
+            # Small object
+            pos = [-0.00364792, 0.01415926, 0.25653749]
+
+            if size == 'M': # Medium object - add 0.01 to z
+                pos = pos[2] + 0.01
+            elif size == 'B': # Big object - add 0.02 to z
+                pos = pos[2] + 0.02
+
+        elif orientation == 'rotated':
+            # Small, Medium, Big objects (Cube, Cylinder, Vase, Cone) all have the same starting position for the hand
+            pos = [0.00071209, 0.1701473, 0.16491089]
+
+            # If the shape is a medium or big hourglass, set a different position for the hand
+            if shape.find("HourM") != -1:
+                pos = [0.00089011, 0.16768412, 0.18978861]
+            if shape.find("HourB") != -1:
+                pos = [0.00106814, 0.16522095, 0.21466633]
+
+        else: # Orientation is normal by default
+            pos = [0.0, 0.18, 0.0654]
+
+        return pos
+
+    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
         with_noise: Set to True if coordinates to be used are selected from the object/hand coordinate files with positional noise added
+        orient_idx:  Line number (index) within the coordinate files from which the object position is selected from
         returns object and hand coordinates along with the cooresponding orientation index
         """
-        orient_idx = None # Line number (index) within the coordinate files from which the object position is selected from
         if with_noise is True:
             noise_file = 'with_noise/'
             hand_x = 0
@@ -1558,13 +1235,13 @@ class KinovaGripper_Env(gym.Env):
             noise_file = 'no_noise/'
 
         # Expert data generation, pretraining and training will have the same coordinate files
-        if mode != "test":
+        if mode != "test" and mode != "eval" and mode != "shape":
             mode = "train"
 
         # Hand and object coordinates filename
         coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(mode)+"_coords/" + str(self.orientation) + "/" + random_shape + ".txt"
         if self.check_obj_file_empty(coords_filename) == False:
-            obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(coords_filename, with_noise=with_noise, orient_idx=None, region=self.obj_coord_region)
+            obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(coords_filename, with_noise=with_noise, orient_idx=orient_idx, region=self.obj_coord_region)
         else:
             # If coordinate file is empty or does not exist, randomly generate coordinates
             obj_x, obj_y, obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
@@ -1573,7 +1250,6 @@ class KinovaGripper_Env(gym.Env):
         # Use the exact hand orientation from the coordinate file
         if with_noise:
             new_rotation = np.array([hand_x, hand_y, hand_z])
-
         # Otherwise generate hand coordinate value based on desired orientation
         elif self.filename=="/kinova_description/j2s7s300_end_effector.xml": # Default xml file
             if self.orientation == 'normal':
@@ -1582,6 +1258,9 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation=np.array([0,0,0]) # Top
             else:
                 new_rotation=np.array([1.2,0,0]) # Rotated
+            hand_x = new_rotation[0]
+            hand_y = new_rotation[1]
+            hand_z = new_rotation[2]
         else:
             # All other xml simulation files
             if self.orientation == 'normal':
@@ -1591,14 +1270,23 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation=np.array([0,0,0]) # Top
             else:
                 new_rotation=np.array([-1.2,0,0]) # Rotated
+            hand_x = new_rotation[0]
+            hand_y = new_rotation[1]
+            hand_z = new_rotation[2]
 
         # Hand orientation values, for reference:
         # -1.57,0,-1.57 is side normal
         # -1.57, 0, 0 is side tilted
         # 0,0,-1.57 is top down
 
-        # Writes the new hand orientation to the xml file to be simulated in the environment
-        self.write_xml(new_rotation)
+        # Kepp track of the hand orientation variation (hand orientation euler rotation) for recording purposes
+        self.hand_orient_variation = new_rotation
+
+        # Determine the initial position of the wrist based on the orientation and shape/size
+        new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, random_shape)
+
+        # Writes the new hand orientation and wrist position to the xml file to be simulated in the environment
+        self.write_xml(new_wrist_pos, new_rotation)
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename
 
@@ -1624,6 +1312,431 @@ class KinovaGripper_Env(gym.Env):
             xloc,yloc,zloc,f1prox,f2prox,f3prox=-temp[0],-temp[1],temp[2],0,0,0
 
         return xloc,yloc,zloc,f1prox,f2prox,f3prox
+
+    def create_paths(self, dir_list):
+        """ Create directories if they do not exist already, given path """
+        for new_dir in dir_list:
+            if new_dir is not None:
+                new_path = Path(new_dir)
+                new_path.mkdir(parents=True, exist_ok=True)
+
+
+    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,hand_rotation=None,obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False):
+        """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
+        shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
+        hand_orientation: Orientation of the hand relative to the object
+        with_grasp: Set to True to include the grasp classifier reward within the reward calculation
+        env_name: Name of the current environment; "env" for training and "eval_env" for evaluation
+        mode: Mode for current run - Ex: "train", "test"
+        start_pos: Specific initial starting coordinate location for the object for testing purposes - default to None
+        obj_params: Specific shape and size of object for testing purposes [shape_name, size] (Ex: [Cube, S]) - default to None
+        qpos: Specific initial starting qpos value for hand joint values for testing purposes - default to None
+        obj_coord_region: Specific region to sample initial object coordinate location from for testing purposes - default to None
+        with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
+        returns the state (current state representation after reset of the environment)
+        """
+        # All possible shape keys - default shape keys will be used for expert data generation
+        # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+
+        self.set_with_grasp_reward(with_grasp) # If True, use Grasp Reward from grasp classifier in reward calculation
+        self.set_obj_coord_region(obj_coord_region) # Set the region from where the initial x,y object coordinate will be sampled from
+
+        # Determine object to be used within current environment
+        random_shape = self.select_object(env_name, shape_keys, obj_params)
+        self.set_random_shape(random_shape)
+
+        # Determine hand orientation to be used within current environment
+        orientation = self.select_orienation(random_shape, hand_orientation)
+        self.set_orientation(orientation)
+
+        # Determine location of x, y, z joint locations and proximal finger locations of the hand
+        xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
+
+        # STEPH Use pre-set qpos (joint velocities?) and pre-set initial object initial object position
+        if qpos is None:
+            if start_pos is None:
+                # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
+                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(random_shape, mode, orient_idx=orient_idx, with_noise=with_noise)
+                self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
+                self.set_coords_filename(coords_filename)
+
+            elif len(start_pos)==3 and hand_rotation is not None:
+                # Use a pre-set object position and hand orientation rotation
+                obj_x = start_pos[0]
+                obj_y = start_pos[1]
+                obj_z = start_pos[2]
+                hand_x = hand_rotation[0]
+                hand_y = hand_rotation[1]
+                hand_z = hand_rotation[2]
+
+                # Determine the initial position of the wrist based on the orientation and shape/size
+                new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, random_shape)
+
+                # Writes the new hand orientation and wrist position to the xml file to be simulated in the environment
+                self.write_xml(new_wrist_pos, hand_rotation)
+
+            elif len(start_pos)==3:
+                ######################################
+                ## TO Test Real world data Uncomment##
+                ######################################
+                #start_pos.append(1)
+                #self._get_trans_mat_wrist_pose()
+                #temp_start_pos = np.matmul(self.Twf, start_pos)
+                #obj_x, obj_y, obj_z = temp_start_pos[0], temp_start_pos[1], temp_start_pos[2]
+
+                ##Comment this to Test real world data
+                obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
+            elif len(start_pos)==2:
+                obj_x, obj_y = start_pos[0], start_pos[1]
+                obj_z = self._get_obj_size()[-1]
+            else:
+                xloc,yloc,zloc,f1prox,f2prox,f3prox=start_pos[0], start_pos[1], start_pos[2],start_pos[3], start_pos[4], start_pos[5]
+                obj_x, obj_y, obj_z = start_pos[6], start_pos[7], start_pos[8]
+
+            # all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,obj_x,obj_y,obj_z]
+            self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x, obj_y, obj_z])
+            #if coords=='local':
+            #    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
+            #    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
+            self.Grasp_Reward=False
+            self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
+            self.all_states = [self.all_states_1 , self.all_states_2]
+
+            self._set_state(self.all_states[0])
+        else:
+            self.set_sim_state(qpos,start_pos)
+            obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
+
+        states = self._get_obs()
+        obj_pose=self._get_obj_pose()
+        deltas=[obj_x-obj_pose[0],obj_y-obj_pose[1],obj_z-obj_pose[2]]
+
+        if np.linalg.norm(deltas)>0.05:
+            self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x+deltas[0], obj_y+deltas[1], obj_z+deltas[2]])
+            self.all_states=[self.all_states_1,self.all_states_2]
+            self._set_state(self.all_states[0])
+            states = self._get_obs()
+
+        #These two varriables are used when the action space is in joint states
+        self.t_vel = 0
+        self.prev_obs = []
+
+        # Sets the object coordinates for heatmap tracking and plotting
+        self.set_obj_coords(obj_x, obj_y, obj_z)
+        self._get_trans_mat_wrist_pose()
+
+        ##Testing Code
+        '''
+        if test:
+            if [xloc, yloc, zloc, f1prox, f2prox, f3prox] == [0,0,0,0,0,0]:
+                if coords_filename == "gym_kinova_gripper/envs/kinova_description/"+mode+"_coords/Normal/" + random_shape + ".txt":
+                    print("Reset function is working Properly Check the render")
+                    self.render()
+            else:
+                print("Reset function is not working Properly Check the render")
+                self.render()
+        '''
+        return states
+
+
+    #Function to display the current state in a video. The video is always paused when it first starts up.
+    def render(self, mode='human'): #TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
+        setPause=True
+        if self._viewer is None:
+            self._viewer = MjViewer(self._sim)
+            self._viewer._paused = setPause
+        self._viewer.render()
+        if setPause:
+            self._viewer._paused=True
+
+
+    def render_img(self, episode_num, timestep_num, obj_coords, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',saving_dir=None,final_episode_type=None):
+        if self._viewer is None:
+            self._viewer = MjViewer(self._sim)
+
+        if saving_dir is None:
+            saving_dir = "./"
+
+        output_dir = saving_dir
+
+        success_dir = os.path.join(output_dir, "Success/")
+        new_path = Path(success_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
+
+        fail_dir = os.path.join(output_dir, "Fail/")
+        new_path = Path(fail_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
+
+        x_str = str(obj_coords[0])[:8]
+        y_str = str(obj_coords[1])[:8]
+        episode_coords = "obj_{}_{}".format(x_str,y_str)
+        episode_dir = os.path.join(output_dir,episode_coords+"/")
+        new_path = Path(episode_dir)
+        new_path.mkdir(parents=True, exist_ok=True)
+
+        source = episode_dir
+        destination = episode_dir
+        if final_episode_type != None:
+            if final_episode_type > 0: # If lift success
+                os.path.join(success_dir,episode_coords)
+                final_dir = success_dir
+            else:
+                os.path.join(fail_dir,episode_coords)
+                final_dir = fail_dir
+
+            if not os.path.isdir(final_dir + episode_coords):
+                shutil.move(source, final_dir)
+        else:
+            final_dir = output_dir
+            self._viewer._record_video = True
+            self._viewer._video_path = output_dir + "video_1.mp4"
+            a = self._sim.render(width=w, height=h, depth=True, mode='offscreen')
+
+            # Just keep rgb values, so image is shape (w,h), make to be numpy array
+            a_rgb = a[0]
+            a_rgb = np.asarray(a_rgb, dtype=np.uint8)
+            img = Image.fromarray(a_rgb, 'RGB')
+
+            # Overlay text string
+            if text_overlay != None:
+                draw = ImageDraw.Draw(img)
+                font = ImageFont.truetype(r'/kinova_description/fonts/arial.ttf', 26)
+                draw.text((0, h-(h/4)), text_overlay, (255,255,255), font=font)
+
+            # Save image
+            img.save(episode_dir + 'timestep_'+str(timestep_num)+'.png')
+
+        final_destination = final_dir + episode_coords
+
+        return final_destination
+
+    #Function to close the rendering window
+    def close(self): #This doesn't work right now
+        if self._viewer is not None:
+            self._viewer = None
+
+    #Function to pause the rendering video
+    def pause(self):
+        self._viewer._paused=True
+
+
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
+        return [seed]
+
+    ###################################################
+    ##### ---- Action space : Joint Velocity ---- #####
+    ###################################################
+    #Function to step the simulator forward in time
+    def step(self, action, graspnetwork=False):  # TODO: fix this so that we can rotate the hand
+        """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
+            action: array of finger joint velocity values (finger1, finger1, finger3)
+            graspnetwork: bool, set True to use grasping network to determine reward value
+        """
+        total_reward = 0
+        self._get_trans_mat_wrist_pose()
+        if len(action) == 4:
+            action = [0, 0, action[0], action[1], action[2], action[3]]
+        # if action[0]==0:
+        #    self._sim.data.set_joint_qvel('j2s7s300_slide_x',0)
+        # if action[1]==0:
+        #    self._sim.data.set_joint_qvel('j2s7s300_slide_y',0)
+        # if action[2]==0:
+        #    self._sim.data.set_joint_qvel('j2s7s300_slide_z',0)
+
+        if self.arm_or_hand == "hand":
+            error = [0, 0, 0]
+            if all([action[i] == 0 for i in range(3)]) & (self.starting_coords[0] != 10):
+                error = self.starting_coords - self.wrist_pose
+            kp = 50
+            mass = 0.733
+            gear = 25
+            stuff = np.matmul(self.Tfw[0:3, 0:3], [kp * error[0], kp * error[1], kp * error[2] + mass * 10 / gear])
+            stuff[0] = -stuff[0]
+            stuff[1] = -stuff[1]
+
+            self.prev_pose = np.copy(self.wrist_pose)
+            for _ in range(self.frame_skip):
+                if self.step_coords == 'global':
+                    slide_vector = np.matmul(self.Tfw[0:3, 0:3], action[0:3])
+                    if (self.orientation == 'rotated') & (action[2] <= 0):
+                        slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
+                    else:
+                        slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
+                else:
+                    if (self.orientation == 'rotated') & (action[2] <= 0):
+                        slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
+                    else:
+                        slide_vector = [-action[0], -action[1], action[2]]
+                for i in range(3):
+                    self._sim.data.ctrl[(i) * 2] = slide_vector[i]
+                    if self.step_coords == 'rotated':
+                        self._sim.data.ctrl[i + 6] = action[i + 3] + 0.05
+                    else:
+                        self._sim.data.ctrl[i + 6] = action[i + 3]
+                    self._sim.data.ctrl[i * 2 + 1] = stuff[i]
+                self._sim.step()
+
+        else:
+            for _ in range(self.frame_skip):
+                joint_velocities = action[0:7]
+                finger_velocities = action[7:]
+                for i in range(len(joint_velocities)):
+                    self._sim.data.ctrl[i + 10] = joint_velocities[i]
+                for i in range(len(finger_velocities)):
+                    self._sim.data.ctrl[i + 7] = finger_velocities[i]
+                self._sim.step()
+        obs = self._get_obs()
+        self._get_trans_mat_wrist_pose()
+        if self.starting_coords[0] == 10:
+            self.starting_coords = np.copy(self.wrist_pose)
+        if not graspnetwork:
+            total_reward, info, done = self._get_reward(self.with_grasp_reward)
+        else:
+            ### Get this reward for grasp classifier collection ###
+            total_reward, info, done = self._get_reward_DataCollection()
+        return obs, total_reward, done, info
+
+    def add_site(self,world_site_coords,keep_sites=False):
+        if not(keep_sites):
+            self.site_count=0
+        xml_file=open(self.file_dir+self.filename,"r")
+        xml_contents=xml_file.read()
+        xml_file.close()
+        a=xml_contents.find('<site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n')
+        if a!=-1:
+            starting_point=xml_contents.find('<body name="root" pos="0 0 0">')
+            site_point=xml_contents.find('\n',starting_point)
+            site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 0 0"/>\n'
+            self.site_count+=1
+            second_site_text=f'            <site name="site{self.site_count}" type="cylinder" size="0.001 0.2" rgba="25 0.5 0.7 1" pos="{world_site_coords[0]} {world_site_coords[1]} {world_site_coords[2]}" euler="0 1.5707963267948966 0"/>\n'
+            self.site_count+=1
+            new_thing=xml_contents[0:site_point+1]+site_text+second_site_text
+            new_thing=new_thing+xml_contents[site_point+1:]
+            xml_file=open(self.file_dir+self.filename,"w")
+            xml_file.write(new_thing)
+            xml_file.close()
+
+            self._model = load_model_from_path(self.file_dir + self.filename)
+            self._sim = MjSim(self._model)
+            object_location=self._get_obj_size()
+            states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
+            self._set_state(np.array(states))
+            self._get_trans_mat_wrist_pose()
+
+    def test_self(self):
+        shapes=['Cube','Cylinder','Cone1','Cone2','Bowl','Rbowl','Bottle','TBottle','Hour','Vase','Lemon']
+        sizes=['S','M','B']
+        keys=["CubeS","CubeB","CylinderS","CylinderB","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+        key=random.choice(keys)
+        self.reset(obj_params=[key[0:-1],key[-1]])
+        print('testing shape',key)
+        self._get_obs()
+        x=threading.Thread(target=self.obs_test)
+        x.start()
+        while x.is_alive():
+            self.render()
+        print('')
+        print('testing step in global coords')
+        action=[0,0,0,0]
+        self.step_coords='global'
+        start_obs=self._get_obs(state_rep='global')
+        for i in range(150):
+            action[0]=np.random.rand()-0.2
+            self.step(action)
+        end_obs=self._get_obs(state_rep='global')
+        if (abs(start_obs[18]-end_obs[18])>0.001)|(abs(start_obs[19]-end_obs[19])>0.001):
+            print('test failed. x/y position changed when it should not have, check step function')
+        else:
+            print('test passed')
+        print('printing test step in local coords')
+        self.reset(obj_params=[key[0:-1],key[-1]])
+        self.step_coords='local'
+        start_obs=self._get_obs()
+        for i in range(150):
+            action[0]=np.random.rand()-0.2
+            self.step(action)
+        end_obs=self._get_obs()
+        if (abs(start_obs[18]-end_obs[18])>0.001)|(abs(start_obs[19]-end_obs[19])>0.001):
+            print('test failed. x/y position changed when it should not have, check step function')
+        else:
+            print('test passed')
+        print('no current test for 6 axis motion, step tests finished.')
+        print('begining shape test')
+        bad_shapes=[]
+        for shape in shapes:
+            for size in sizes:
+                self.reset(obj_params=[shape,size])
+                self.render()
+                a=input('obj shape and size',shape,size,'. Is this correct y/n?')
+                if a.lower()=='y':
+                    print('shape passed')
+                else:
+                    print('shape failed. recording')
+                    bad_shapes.append([shape,size])
+        if bad_shapes==[]:
+            print('all shapes and sizes are accurate, tests finished')
+        else:
+            print('the following are shapes that were not correct. Look at the xml files.')
+            print(bad_shapes)
+    #TODO: Make a config file that makes it easy to switch action spaces and set global varriables correctly
+
+    #####################################################
+
+    ###################################################
+    ##### ---- Action space : Joint Angle ---- ########
+    ###################################################
+    # def step(self, action):
+    #     total_reward = 0
+    #     for _ in range(self.frame_skip):
+    #         self.pos_control(action)
+    #         self._sim.step()
+
+    #     obs = self._get_obs()
+    #     total_reward, info, done = self._get_reward()
+    #     self.t_vel += 1
+    #     self.prev_obs.append(obs)
+    #     # print(self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5])
+    #     return obs, total_reward, done, info
+
+    # def pos_control(self, action):
+    #     # position
+    #     # print(action)
+
+    #     self._sim.data.ctrl[0] = (action[0] / 1.5) * 0.2
+    #     self._sim.data.ctrl[1] = action[1]
+    #     self._sim.data.ctrl[2] = action[2]
+    #     self._sim.data.ctrl[3] = action[3]
+    #     # velocity
+    #     if abs(action[0] - 0.0) < 0.0001:
+    #         self._sim.data.ctrl[4] = 0.0
+    #     else:
+    #         self._sim.data.ctrl[4] = 0.1
+    #         # self._sim.data.ctrl[4] = (action[0] - self.prev_action[0] / 25)
+
+    #     if abs(action[1] - 0.0) < 0.001:
+    #         self._sim.data.ctrl[5] = 0.0
+    #     else:
+    #         self._sim.data.ctrl[5] = 0.01069
+    #         # self._sim.data.ctrl[5] = (action[1] - self.prev_action[1] / 25)
+
+    #     if abs(action[2] - 0.0) < 0.001:
+    #         self._sim.data.ctrl[6] = 0.0
+    #     else:
+    #         self._sim.data.ctrl[6] = 0.01069
+    #         # self._sim.data.ctrl[6] = (action[2] - self.prev_action[2] / 25)
+
+    #     if abs(action[3] - 0.0) < 0.001:
+    #         self._sim.data.ctrl[7] = 0.0
+    #     else:
+    #         self._sim.data.ctrl[7] = 0.01069
+    #         # self._sim.data.ctrl[7] = (action[3] - self.prev_action[3] / 25)
+
+        # self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
+        # self.prev_action = np.array([self._sim.data.qpos[0], self._sim.data.qpos[1], self._sim.data.qpos[3], self._sim.data.qpos[5]])
+
+    #####################################################
+
 
 class GraspValid_net(nn.Module):
     def __init__(self, state_dim):

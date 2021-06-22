@@ -12,7 +12,7 @@ class ReplayBuffer_Queue(object):
 		self.size = 0				# Full size of the replay buffer (number of entries over all episodes)
 		self.episodes_count = 0		# Number of episodes that have occurred (may be more than max replay buffer side)
 		self.replay_ep_num = 0		# Number of episodes currently in the replay buffer
-		self.episodes = []		# Keep track of episode start/finish indexes
+		self.episodes = [[]]		# Keep track of episode start/finish indexes
 		self.timesteps_count = 0		# Keeps track of the number of timesteps within an episode for sampling purposed
 
 		# each of these are a queue
@@ -45,24 +45,6 @@ class ReplayBuffer_Queue(object):
 		self.size += 1
 		self.timesteps_count += 1
 
-		# if episode has terminated
-		if done:
-			# increment episode count
-			self.episodes_count += 1
-			self.replay_ep_num += 1
-			# print("ADDED DONE BIT")
-
-			# Append empty list to start new row for an episode
-			self.state.append([])
-			self.action.append([])
-			self.next_state.append([])
-			self.reward.append([])
-			self.not_done.append([])
-
-			# If over max number of episodes for replay buffer
-			if self.replay_ep_num >= self.max_episode:
-				self.remove_episode()
-
 	def remove_episode(self, idx=0):
 		"""
 		Remove the oldest episode from the replay buffer (FIFO)
@@ -85,20 +67,12 @@ class ReplayBuffer_Queue(object):
 		"""
 		# call it when each episode starts
 		if start:
-			if self.replay_ep_num == 0:
-				self.episodes.append([self.timesteps_count])
-			else:
-				self.episodes[-1].append(self.timesteps_count)
+			self.episodes[-1].append(self.timesteps_count)
 		# call it when each episode ends
 		else:
-			if self.replay_ep_num == 0:
-				self.episodes.append(self.timesteps_count)
-				self.episodes.append([])
-				self.timesteps_count = 0  # Reset count of timesteps within an episode
-			else:
-				self.episodes[-1].append(self.timesteps_count)
-				self.episodes.append([])
-				self.timesteps_count = 0  # Reset count of timesteps within an episode
+			self.episodes[-1].append(self.timesteps_count)
+			self.episodes.append([])
+			self.timesteps_count = 0  # Reset count of timesteps within an episode
 		return
 
 	def add_orientation_idx_to_replay(self, idx):
@@ -111,59 +85,6 @@ class ReplayBuffer_Queue(object):
 		# Choose one random episode between [0,episode_count)
 		episode_idx = random.choice(np.arange(0, self.replay_ep_num))
 
-		## STEPH TEST
-		"""
-		non_zero_count = 0
-		num_rows = 0
-		i = 0
-		success_idx = []
-		for row in self.reward:
-			num_rows += 1
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-			if row[-1] > 0:
-				success_idx.append(i)
-			i += 1
-		episode_idx = random.sample(success_idx, 1)  # Just successful indexes
-		episode_idx = episode_idx[0]
-		"""
-		"""
-		non_zero_count = 0
-		finger_reward_count = 0
-		grasp_reward_count = 0
-		lift_reward_count = 0
-		test_lift_reward_count = 0
-		num_rows = 0
-		i = 0
-		success_idx = []
-		for row in self.reward:
-			num_rows += 1
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-					if elem < 5:
-						finger_reward_count += 1
-					elif elem < 10:
-						grasp_reward_count += 1
-					elif elem > 49:
-						test_lift_reward_count += 1
-					elif elem >= 10:
-						print("IN OG SAMPLE, ELEM >= 10: ",elem)
-						lift_reward_count += 1
-			i += 1
-		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
-		print("IN OG SAMPLE: non_zero_reward: ",non_zero_count)
-		print("IN OG SAMPLE: finger_reward_count: ", finger_reward_count)
-		print("IN OG SAMPLE: grasp_reward_count: ", grasp_reward_count)
-		print("IN OG SAMPLE: lift_reward_count: ", lift_reward_count)
-		print("IN OG SAMPLE: test_lift_reward_count: ", test_lift_reward_count)
-		print("IN OG SAMPLE: num_rows: ", num_rows)
-		print("IN OG SAMPLE: replay_buffer.replay_ep_num: ", self.replay_ep_num)
-		print("IN OG SAMPLE: replay_buffer.size: ", self.size)
-		print("IN OG SAMPLE: replay_buffer.timesteps_count: ", self.timesteps_count)
-		"""
-
 		# Get the beginning timestep index and the ending timestep index within an episode
 		selected_indexes = np.arange(self.episodes[episode_idx][0], self.episodes[episode_idx][1])
 
@@ -175,70 +96,8 @@ class ReplayBuffer_Queue(object):
 			torch.FloatTensor([self.not_done[episode_idx][x] for x in selected_indexes]).to(self.device)
 		)
 
-	"""
-	## OLD WORKING ** OPTIMIZED VERSION ** ##
-	def sample_batch_nstep(self,batch_size,replay_type):
-		# Samples batch size of replay buffer trajectories for learning using n-step returns
-		# Initialize arrays
-		state_trajectory_batch = []
-		action_trajectory_batch = []
-		next_state_trajectory_batch = []
-		reward_trajectory_batch = []
-		not_done_trajectory_batch = []
-
-		# List of randomly-selected episode indices based on current number of episodes
-		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
-
-		# Check if any episodes are invalid (episode length less than n_steps)
-		invalid_state_idx = list(filter(lambda x: len(self.state[x]) - self.n_steps <= 1, episode_idx_arr))
-		if len(invalid_state_idx) > 0:
-			print("len(replay_buffer.reward): ",len(self.reward))
-			print("self.replay_ep_num - 1: ",self.replay_ep_num - 1)
-			print("There are len(invalid_state_idx) invalid indexes!!: ", len(invalid_state_idx))
-			print("invalid_state_idx: ", invalid_state_idx)
-			bad_idx = invalid_state_idx[0]
-			print("len(self.state[bad_idx]): ", len(self.state[bad_idx]))
-			print("bad_idx: ",bad_idx)
-			# Resample
-			episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
-
-		if batch_size > 0:
-			idx_states = [self.state[i] for i in episode_idx_arr]
-			idx_actions = [self.action[i] for i in episode_idx_arr]
-			idx_next_states = [self.next_state[i] for i in episode_idx_arr]
-			idx_rewards = [self.reward[i] for i in episode_idx_arr]
-			idx_not_dones = [self.not_done[i] for i in episode_idx_arr]
-
-			# get the ceiling idx. note the stagger b/c of n steps. the 1 is so that we don't pick 0 as an index (see next part)
-			ceiling_indexes = list(map(lambda x: np.random.randint(1, len(x[:-self.n_steps])+2), idx_states))
-			# ceiling = np.random.randint(1, (episode_len - self.n_steps) + 2)
-
-			# Get random index within valid starting indexes
-			start_indexes = list(map(lambda x: np.random.randint(x), ceiling_indexes))
-
-			# Get the trajectory indexes from starting index to n_steps later
-			trajectory_arr_indexes = list(map(lambda x: np.arange(x, x + self.n_steps), start_indexes))
-
-			# Get all trajectories
-			state_trajectory_batch = [np.asarray(state)[idx] for state, idx in zip(idx_states, trajectory_arr_indexes)]
-			action_trajectory_batch = [np.asarray(action)[idx] for action, idx in zip(idx_actions, trajectory_arr_indexes)]
-			next_state_trajectory_batch = [np.asarray(next_state)[idx] for next_state, idx in zip(idx_next_states, trajectory_arr_indexes)]
-			reward_trajectory_batch = [np.asarray(reward)[idx] for reward, idx in zip(idx_rewards, trajectory_arr_indexes)]
-			not_done_trajectory_batch = [np.asarray(not_done)[idx] for not_done, idx in zip(idx_not_dones, trajectory_arr_indexes)]
-
-		return (
-			torch.FloatTensor(state_trajectory_batch).to(self.device),
-			torch.FloatTensor(action_trajectory_batch).to(self.device),
-			torch.FloatTensor(next_state_trajectory_batch).to(self.device),
-			torch.FloatTensor(reward_trajectory_batch).to(self.device),
-			torch.FloatTensor(not_done_trajectory_batch).to(self.device)
-		)
-	"""
-
-
-	# WORKING VERSION
-	def sample_batch_nstep(self,batch_size,num_ts_from_ep=5):
-		# Samples batch size of replay buffer trajectories for learning using n-step returns
+	def sample_batch_nstep(self,batch_size):
+		""" Samples batch size of replay buffer trajectories for learning using n-step returns """
 		# Initialize arrays
 		state_arr = []
 		action_arr = []
@@ -246,7 +105,7 @@ class ReplayBuffer_Queue(object):
 		reward_arr = []
 		not_done_arr = []
 
-		if batch_size < 1:
+		if batch_size == 0 or self.replay_ep_num == 0 or self.replay_ep_num < batch_size:
 			return (
 				torch.FloatTensor(state_arr).to(self.device),
 				torch.FloatTensor(action_arr).to(self.device),
@@ -256,14 +115,7 @@ class ReplayBuffer_Queue(object):
 			)
 
 		# List of randomly-selected episode indices based on current number of episodes
-		episode_idx_arr = np.random.randint(self.replay_ep_num - 1, size=batch_size)
-
-		# Check if any episodes are invalid (episode length less than n_steps)
-		#invalid_state_idx = list(filter(lambda x: len(self.state[x]) - self.n_steps <= 1, episode_idx_arr))
-		#if len(invalid_state_idx) > 0:
-		#	print("There are len(invalid_state_idx) invalid indexes!!: ", len(invalid_state_idx))
-		#	print("invalid_state_idx: ", invalid_state_idx)
-		#	print("len(self.state[0]): ", len(self.state[0]))
+		episode_idx_arr = np.random.randint(max(1,self.replay_ep_num - 1), size=batch_size)
 
 		for idx in episode_idx_arr:
 			# Get episode length (number of time steps)
@@ -275,15 +127,12 @@ class ReplayBuffer_Queue(object):
 			# Get the trajectory from starting index to n_steps later
 			trajectory_arr_idx = []
 
-			num_ts_from_ep = ceiling
-			for num in range(num_ts_from_ep-1):
-				start_idx = np.random.randint(ceiling)
+			for num in range(ceiling-1):
+				start_idx = num #np.random.randint(ceiling)
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
 			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
 
-			# quick hack - we'll fix this later with for loops. we're gonna use
-			# double the space rn to just make our indexing work with numpy slicing.
 			temp_state = np.array(self.state[idx])
 			temp_action = np.array(self.action[idx])
 			temp_next_state = np.array(self.next_state[idx])
@@ -314,11 +163,16 @@ class ReplayBuffer_Queue(object):
 		@param done: The updated done bit value
 		"""
 
+		# Current episode index
+		episode_idx = self.replay_ep_num
+		if len(self.reward[episode_idx]) == 0:
+			print("We cannot replace the reward as for this episode as we have not done any transitions!")
+			return 0
+
 		if not done:
 			print("Can only replace last time step of the latest episode")
 			raise ValueError
 
-		episode_idx = self.replay_ep_num
 		idx = len(self.reward[episode_idx]) - 1
 		old_reward = self.reward[episode_idx][idx]
 		self.reward[episode_idx][idx] = reward
@@ -365,6 +219,47 @@ class ReplayBuffer_Queue(object):
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
 		# replay_ep_num: Number of episodes currently in the replay buffer
 		return save_filepath
+
+	def evaluate_replay_reward(self,reward):
+		""" Check the contents of the reward values stored within the replay buffer
+		replay_buffer: replay buffer to evaluate
+		filepath: filepath where replay buffer is stored (for recording purposes)
+		returns: Text to describe the reward contents (recorded in the info.txt file)
+		"""
+		non_zero_count = 0
+		finger_reward_count = 0
+		grasp_reward_count = 0
+		lift_reward_count = 0
+		num_rows = 0
+		i = 0
+
+		in_check = 0
+
+		for row in reward:
+			num_rows += 1
+			for elem in row:
+				if elem != 0:
+					non_zero_count += 1
+					if elem < 5:
+						finger_reward_count += 1
+					elif elem < 10:
+						grasp_reward_count += 1
+					elif elem > 49:
+						lift_reward_count += 1
+
+			#print("in_check: ",in_check)
+
+			i += 1
+		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+
+		text = "\nnon_zero_reward: "+str(non_zero_count)
+		text += "\nfinger_reward_count: "+str(finger_reward_count)
+		text += "\ngrasp_reward_count: "+str(grasp_reward_count)
+		text += "\nlift_reward_count: "+str(lift_reward_count)
+		text += "\nnum_rows: "+str(num_rows)
+
+		return text
+
 
 	def store_saved_data_into_replay(self, filepath):
 		""" Restore replay buffer from saved location """
@@ -417,39 +312,17 @@ class ReplayBuffer_Queue(object):
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
 		# replay_ep_num: Number of episodes currently in the replay buffer
 
-		non_zero_count = 0
-		finger_reward_count = 0
-		grasp_reward_count = 0
-		lift_reward_count = 0
-		test_lift_reward_count = 0
-		num_rows = 0
-		i = 0
-		success_idx = []
-		for row in self.reward:
-			num_rows += 1
-			for elem in row:
-				if elem != 0:
-					non_zero_count += 1
-					if elem < 5:
-						finger_reward_count += 1
-					elif elem < 10:
-						grasp_reward_count += 1
-					elif elem > 49:
-						lift_reward_count += 1
+		print("before evaluate replay reward")
 
-			i += 1
-		#episode_idx_arr = random.sample(success_idx, 200) # Just successful indexes
+		reward_text = self.evaluate_replay_reward(self.reward)
+
 		text = ""
 		text += "\nREPLAY BUFFER: "
 		text += "\nfilepath: " + filepath
-		text += "\nnon_zero_reward: "+str(non_zero_count)
-		text += "\nfinger_reward_count: "+str(finger_reward_count)
-		text += "\ngrasp_reward_count: "+str(grasp_reward_count)
-		text += "\nlift_reward_count: "+str(lift_reward_count)
-		text += "\nnum_rows: "+str(num_rows)
 		text += "\nreplay_buffer.replay_ep_num: "+str(self.replay_ep_num)
 		text += "\nreplay_buffer.size: "+str(self.size)
 		text += "\nreplay_buffer.timesteps_count: "+str(self.timesteps_count)
+		text += reward_text
 
 		print(text)
 
