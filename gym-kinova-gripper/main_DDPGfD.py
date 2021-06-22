@@ -741,7 +741,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         if controller_type != "policy":
             # If at the final episode, save all coordinates
             if episode_num + 1 == num_episodes:
-                sort_and_save_heatmap_coords(all_hand_object_coords, requested_shapes, requested_orientation_list, episode_num="", saving_dir=all_saving_dirs["heatmap_dir"])
+                sort_and_save_heatmap_coords(all_hand_object_coords, requested_shapes, requested_orientation_list, episode_num=None, saving_dir=all_saving_dirs["heatmap_dir"])
 
                 # Records the number of successful and failed coordinates over all episodes
                 num_fail = args.max_episode - num_success
@@ -1506,7 +1506,6 @@ if __name__ == "__main__":
         expert_replay_file_path = args.expert_replay_file_path
     else:
         expert_replay_file_path = experiment_dir + "naive/" + noise_str + "/" + with_grasp_str + "/"
-    print("** expert_replay_file_path: ", expert_replay_file_path)
 
     ## Agent Replay Buffer ##
     agent_replay_file_path = args.agent_replay_buffer_path # FILL WITH AGENT REPLAY FROM PRETRAINING
@@ -1743,7 +1742,7 @@ if __name__ == "__main__":
                         all_hand_object_coords = eval_ret["all_hand_object_coords"]
 
                         # Sorts coordinates by success/failure per hand orientation
-                        sort_and_save_heatmap_coords(all_hand_object_coords, [shape], [orientation], episode_num="", saving_dir=variation_saving_dirs["heatmap_dir"])
+                        sort_and_save_heatmap_coords(all_hand_object_coords, [shape], [orientation], episode_num=None, saving_dir=variation_saving_dirs["heatmap_dir"])
 
                         # Save the hand and object coordinates -- within the current policy's variation folder (Ex: Policy_0/Baseline/)
                         dict_file = open(variation_saving_dirs["output_dir"]+"/all_hand_object_coords.csv", "w", newline='')
