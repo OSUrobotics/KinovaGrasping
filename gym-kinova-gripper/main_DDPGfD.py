@@ -611,7 +611,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
     critic_LNloss = 0
 
     # Tensorboard writer
-    writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
+    if controller_type == "policy":
+        writer = SummaryWriter(logdir=all_saving_dirs["tensorboard_dir"])
 
     env = gym.make(args.env_name)
     # Max number of time steps to match the expert replay grasp trials
