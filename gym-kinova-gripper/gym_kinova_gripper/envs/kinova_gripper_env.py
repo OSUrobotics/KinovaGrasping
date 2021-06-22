@@ -8,148 +8,108 @@
 
 ###############
 
-#TODO: Remove unecesssary commented lines
-#TODO: Make a brief description of each function commented at the top of it
+import os, sys
 
+# Open AI Gym packages
 from gym import utils, spaces
 import gym
-from gym import wrappers # Used to get Monitor wrapper to save rendering video
-import glfw
 from gym.utils import seeding
-# from gym.envs.mujoco import mujoco_env
-import numpy as np
+
+# Mujoco_py packages
 from mujoco_py import MjViewer, load_model_from_path, MjSim #, MjRenderContextOffscreen
 import mujoco_py
-# from PID_Kinova_MJ import *
-import math
-import matplotlib.pyplot as plt
-import time
-import os, sys
-from scipy.spatial.transform import Rotation as R
+
+# Data manipulation and metric calculations
+import numpy as np
 import random
 import pickle
-import pdb
+import re
+from scipy.stats import triang
+
+# Pytorch RL network libraries
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# File I/O, plotting libraries
+import csv
+from pathlib import Path
+import shutil
+from PIL import Image, ImageFont, ImageDraw # Used to save images from rendering simulation
+
+# Program execution
+import threading
+
+## TO BE REMOVED (IMPORTS) -- REVIEW
+import matplotlib.pyplot as plt
+import time
+from scipy.spatial.transform import Rotation as R
+# from PID_Kinova_MJ import *
+import math
+import pandas as pd
 import xml.etree.ElementTree as ET
 from classifier_network import LinearNetwork, ReducedLinearNetwork
-import re
-from scipy.stats import triang
-import copy # Used to copy coordinate values from the environment
-import csv
-import pandas as pd
-from pathlib import Path
-import threading #oh boy this might get messy
-from PIL import Image, ImageFont, ImageDraw # Used to save images from rendering simulation
-import shutil
+import pdb
+from gym import wrappers # Used to get Monitor wrapper to save rendering video
+import glfw
 
+# Select device to run pytorch on (checks for gpu)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-
 class KinovaGripper_Env(gym.Env):
-    metadata = {'render.modes': ['human']}
-    def __init__(self, arm_or_end_effector="hand", frame_skip=15):
+    def __init__(self, frame_skip=15):
         self.file_dir = os.path.dirname(os.path.realpath(__file__))
-        self.arm_or_hand=arm_or_end_effector
-        if arm_or_end_effector == "arm":
-            self._model = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300.xml")
-            full_path = self.file_dir + "/kinova_description/j2s7s300.xml"
-            self.filename= "/kinova_description/j2s7s300.xml"
-        elif arm_or_end_effector == "hand":
-            pass
-            self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
-            #self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcyl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbox.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bbox.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_shg.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mhg.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mhg.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bhg.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bhg.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_svase.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_svase.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mvase.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mvase.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bvase.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bvase.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcap.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bcap.xml"
-            #full_path = file_dir + "/kinova_description/j2s7s300_end_effector_v1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_blemon.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_blemon.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bRectBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bRoundBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_bbottle.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"), 'b',"/kinova_description/j2s7s300_end_effector_v1_btbottle.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_slemon.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_slemon.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sRoundBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_sbottle.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"), 's',"/kinova_description/j2s7s300_end_effector_v1_stbottle.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mlemon.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mbottle.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_mtbottle.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_msphere.xml"), 'm',"/kinova_description/j2s7s300_end_effector_v1_sphere.xml"
-            #self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone1.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone1.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"),'b',"/kinova_description/j2s7s300_end_effector_v1_bcone2.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcone2.xml"
-            #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scone2.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scone2.xml"
 
-        else:
-            print("CHOOSE EITHER HAND OR ARM")
-            raise ValueError
+        ##### VARIABLES: SPLIT INTO MUJOCO, OPENAI GYM, STATE, ACTION, REWARD, ENVIRONMENT SETUP, CONTROLLER, GRASP CLASSIFIER
 
-        self._sim = MjSim(self._model)   # The simulator. This holds all the information about object locations and orientations
-        self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
-        self.with_grasp_reward=False   # Set to True to use grasp reward from grasp classifier, otherwise grasp reward is 0
-        self.coords_filename=None   # Name of the file used to sample initial object and hand pose coordinates from (Ex: noisy coordinates text file)
-                                    # coords_filename is default to None to randomly generate coordinate values
-        self.orientation='normal' # Stores string of exact hand orientation type (normal, rotated, top)
-        self.hand_orient_variation = np.array([0,0,0]) # Hand orientation variation
-        self._viewer = None   # The render window
-        self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
+        ########## ENVIRONMENT CLASS: VARIABLES ###########
+        ## MUJOCO SIMULATOR - ENVIRONMENT
+        self._model, self.obj_size, self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+        self._sim = MjSim(self._model)  # The simulator. This holds all the information about object locations and orientations
+        self._viewer = None  # The render window
+        self.contacts = self._sim.data.ncon  # The number of contacts in the simulation environment
+        self._timestep = self._sim.model.opt.timestep
+        self.site_count=0 # Xml file
+        self._simulator = "Mujoco"
+        self.step_coords='global' # Might not be needed but CHECK! for simulation needs - referenced in Step() to determine coordinates
+
+        ## OPEN AI GYM - ENVIRONMENT
+        self.max_episode_steps = 30 # Maximum RL ime steps (Step() calls) within an episode
+        self.frame_skip = frame_skip # Number of simulation frames run per RL time step
+        self._numSteps = 0 # Count of Step() method calls
+        self.arm_or_hand = "hand" # Remove after testing Step() function !!
+
+        ########## End of ENVIRONMENT CLASS: VARIABLES ###########
+
+        ## STATE
         self.Tfw=np.zeros([4,4])   # The trasfer matrix that gets us from the world frame to the local frame
         self.wrist_pose=np.zeros(3)  # The wrist position in world coordinates
         self.thetas=[0,0,0,0,0,0,0] # The angles of the joints of a real robot arm used for calculating the jacobian of the hand
-        self._timestep = self._sim.model.opt.timestep
-        self.pid=False
-        self.step_coords='global'
-        self._torque = [0,0,0,0] #Unused
-        self._velocity = [0,0,0,0] #Unused
-        self._jointAngle = [5,0,0,0] #Usused
-        self._positions = [] # ??
-        self._numSteps = 0
-        self._simulator = "Mujoco"
-        self.action_scale = 0.0333
-        self.max_episode_steps = 30
-        self.site_count=0
         # Parameters for cost function
         self.state_des = 0.20
         self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
         self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
         self.const_T=np.array([[0,-1,0,0],[0,0,-1,0],[1,0,0,0],[0,0,0,1]])  #Transfer matrix from world frame to un-modified hand frame
-        self.frame_skip = frame_skip # Used in step. Number of frames you go through before you reach the next step
         self.all_states = None  # This is the varriable we use to save the states before they are sent to the simulator when we are resetting.
-
         self.state_rep = "local" # change accordingly
 
-        # Object data
-        self.obj_coords = [0,0,0]
-        self.objects = {}
-        self.obj_keys = list()
+        ## REWARD
+        self.Grasp_Reward=False   #This varriable says whether or not a grasp reward has  been given this run
+        self.with_grasp_reward=False   # Set to True to use grasp reward from grasp classifier, otherwise grasp reward is 0
 
-        # Shape data for determining correct expert data to retrieve for sampling
-        self.random_shape = 'CubeS'
+        ## EXPERIMENT SETUP (OBJECT/HAND POSE)
+        self.coords_filename=None   # Name of the file used to sample initial object and hand pose coordinates from (Ex: noisy coordinates text file)
+                                    # coords_filename is default to None to randomly generate coordinate values
+        self.orientation='normal' # Stores string of exact hand orientation type (normal, rotated, top)
+        self.obj_coords = [0,0,0] # Object center x,y,z coordinates
+        self.objects = {} # Current set of objects requested (out of all objects)
+        self.obj_keys = list() # List of keys (to the all_objects dictionary) for the current set of objects
+        self.random_shape = 'CubeS' # Shape data for determining correct expert data to retrieve for sampling
+        self.orientation_idx = 0 # Default index for orientation data files (coords and noise) based on hand pose
+        self.obj_coord_region = None # Region to sample initial object coordinates from within the hand (left, center, right, target, origin)
+        self.all_objects = {} # Dictionary containing all possible objects and their xml files
+        self.hand_orient_variation = np.array([0,0,0]) # Hand orientation variation
 
-        # Default index for orientation data files (coords and noise) based on hand pose
-        self.orientation_idx = 0
-
-        # Region to sample initial object coordinates from within the hand (left, center, right, target, origin)
-        self.obj_coord_region = None
-
-        # Dictionary containing all possible objects and their xml file
-        self.all_objects = {}
         # Cube
         self.all_objects["CubeS"] = "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
         self.all_objects["CubeM"] = "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
@@ -209,48 +169,14 @@ class KinovaGripper_Env(gym.Env):
         self.all_objects["RBowlM"] =  "/kinova_description/j2s7s300_end_effector_v1_mRectBowl.xml"
         self.all_objects["RBowlS"] =  "/kinova_description/j2s7s300_end_effector_v1_sRectBowl.xml"
 
-        # Originally used for defining min/max ranges of state input (currently not being used)
-        min_hand_xyz = [-0.1, -0.1, 0.0, -0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0,-0.1, -0.1, 0.0, -0.1, -0.1, 0.0]
-        min_obj_xyz = [-0.1, -0.01, 0.0]
-        min_joint_states = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        min_obj_size = [0.0, 0.0, 0.0]
-        min_finger_obj_dist = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
-        min_obj_dot_prod = [0.0]
-        min_f_dot_prod = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        ## CONTROLLER
+        self.pid=False
 
-        max_hand_xyz = [0.1, 0.1, 0.5, 0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5,0.1, 0.1, 0.5, 0.1, 0.1, 0.5]
-        max_obj_xyz = [0.1, 0.7, 0.5]
-        max_joint_states = [0.2, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
-        max_obj_size = [0.5, 0.5, 0.5]
-        max_finger_obj_dist = [0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1]
-        max_obj_dot_prod = [1.0]
-        max_f_dot_prod = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        # print()
-        if self.state_rep == "global" or self.state_rep == "local":
-
-            obs_min = min_hand_xyz + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_obj_dot_prod #+ min_f_dot_prod
-            obs_min = np.array(obs_min)
-            # print(len(obs_min))
-
-            obs_max = max_hand_xyz + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_obj_dot_prod #+ max_f_dot_prod
-            obs_max = np.array(obs_max)
-            # print(len(obs_max))
-
-            self.observation_space = spaces.Box(low=obs_min , high=obs_max, dtype=np.float32)
-        elif self.state_rep == "metric":
-            obs_min = list(np.zeros(17)) + [-0.1, -0.1, 0.0] + min_obj_xyz + min_joint_states + min_obj_size + min_finger_obj_dist + min_dot_prod
-            obs_max = list(np.full(17, np.inf)) + [0.1, 0.1, 0.5] + max_obj_xyz + max_joint_states + max_obj_size + max_finger_obj_dist + max_dot_prod
-            self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
-
-        elif self.state_rep == "joint_states":
-            obs_min = min_joint_states + min_obj_xyz + min_obj_size + min_dot_prod
-            obs_max = max_joint_states + max_obj_xyz + max_obj_size + max_dot_prod
-            self.observation_space = spaces.Box(low=np.array(obs_min) , high=np.array(obs_max), dtype=np.float32)
-        # <---- end of unused section
+        ## GRASP CLASSIFIER
         self.Grasp_net = pickle.load(open(self.file_dir+'/kinova_description/gc_model.pkl', "rb"))
         self.starting_coords = [10, 10, 10]
         self.prev_pose = [10, 10, 10]
-        
+
         #self.Grasp_net = LinearNetwork().to(device) # This loads the grasp classifier
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_05_28_20_2105local.pt"
         #trained_model = "/home/orochi/KinovaGrasping/gym-kinova-gripper/trained_model_01_23_20_2052local.pt"
@@ -259,20 +185,6 @@ class KinovaGripper_Env(gym.Env):
         #model = torch.load(trained_model)
         #self.Grasp_net.load_state_dict(model)
         #self.Grasp_net.eval()
-
-
-        obj_list=['Coords_try1.txt','Coords_CubeM.txt','Coords_try1.txt','Coords_CubeB.txt','Coords_CubeM.txt','Coords_CubeS.txt']
-        self.random_poses=[[],[],[],[],[],[]]
-        for i in range(len(obj_list)):
-            random_poses_file=open("./shape_orientations/"+obj_list[i],"r")
-            #temp=random_poses_file.read()
-            lines_list = random_poses_file.readlines()
-            temp = [[float(val) for val in line.split()] for line in lines_list[1:]]
-            self.random_poses[i]=temp
-            random_poses_file.close()
-        self.instance=0#int(np.random.uniform(low=0,high=100))
-
-
 
     # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
     def _get_trans_mat_wrist_pose(self):  # WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
@@ -373,7 +285,6 @@ class KinovaGripper_Env(gym.Env):
         arr[0]=-arr[0]
         arr[1]=-arr[1]
         return arr # it is a list
-
 
     def obs_test(self):
         obj_pose = self._get_obj_pose()
@@ -584,7 +495,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Return the object coordinates, accessible by outside functions
     def get_env_obj_coords(self):
-        env_obj_coords = copy.deepcopy(self._sim.data.get_geom_xpos("object"))
+        env_obj_coords = self._sim.data.get_geom_xpos("object")
         return env_obj_coords
 
     # Function to return the angles between the palm normal and the object location
@@ -647,7 +558,6 @@ class KinovaGripper_Env(gym.Env):
 
         info = {"lift_reward":lift_reward}
         return lift_reward, info, done
-
 
     # Function to get rewards for RL training
     def _get_reward(self,with_grasp_reward=False): # TODO: change obs[23] and obs[5] to the simulator height object and stop using _get_obs
@@ -1003,6 +913,7 @@ class KinovaGripper_Env(gym.Env):
                 row = ''.join(row)
                 self.obj_keys.append(row)
         #print('LAST OBJECT KEYS',self.obj_keys)
+
     def get_obj_keys(self):
         return self.obj_keys
 
@@ -1170,7 +1081,6 @@ class KinovaGripper_Env(gym.Env):
             self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/DisplayStuff.xml"),'s',"/kinova_description/DisplayStuff.xml"
         return obj_params[0]+obj_params[1]
 
-
     def select_object(self,env_name, shape_keys, obj_params):
         """ Determine object based on input parameters (shape, size)
         env_name: Training loop environment (env) or evaluation environment (eval_env)
@@ -1200,7 +1110,6 @@ class KinovaGripper_Env(gym.Env):
             random_shape = self.obj_shape_generator(obj_params)
 
         return random_shape
-
 
     def select_orienation(self, random_shape, hand_orientation):
         """ Determine hand orientation based on shape and desired hand orientation selection type (normal or random)
@@ -1380,7 +1289,6 @@ class KinovaGripper_Env(gym.Env):
         self.write_xml(new_wrist_pos, new_rotation)
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename
-
 
     def determine_hand_location(self):
         """ Determine location of x, y, z joint locations and proximal finger locations of the hand """
