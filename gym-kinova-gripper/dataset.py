@@ -216,6 +216,7 @@ if __name__ == '__main__':
     # TODO: Check for no repititions in test and train - DONE
     # TODO: Branch out for noisy poses- DONE
 
+    """
     gui = {"Data set": {'Train': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['S', 'B']},
                                                                 "Cylinder": {"Sizes": ['S']}}},
                                           "Top": {"Shapes": {"Cone1": {"Sizes": ['S']}}}},
@@ -228,15 +229,27 @@ if __name__ == '__main__':
                                  "Noise": True,
                                  "Data Points": 5000,
                                  "Controller": 'Policy'}}}
+    """
 
-    # gui = {"Data set": {'Train': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['S']}}}},
-    #                               "Noise": True,
-    #                               "Data Points": 5500,
-    #                               "Controller": 'Policy'},
-    #                     'Test': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['S']}}}},
-    #                              "Noise": True,
-    #                              "Data Points": 3000,
-    #                              "Controller": 'Policy'}}}
+    """
+    gui = {"Data set": {'Train': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['M']}}}},
+                                  "Noise": False,
+                                  "Data Points": 10000,
+                                  "Controller": 'policy'},
+                        'Test': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['M']}}}},
+                                 "Noise": False,
+                                 "Data Points": 5000,
+                                 "Controller": 'policy'}}}
+    """
+
+    gui = {"Data set": {'Train': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['M']}}}},
+                                  "Noise": True,
+                                  "Data Points": 5000,
+                                  "Controller": 'position-dependent'},
+                        'Test': {"Orn": {"Normal": {"Shapes": {"Cube": {"Sizes": ['M']}}}},
+                                 "Noise": True,
+                                 "Data Points": 5000,
+                                 "Controller": 'position-dependent'}}}
 
     exp1 = Dataset(gui)
     train_file = 'new_train.txt'

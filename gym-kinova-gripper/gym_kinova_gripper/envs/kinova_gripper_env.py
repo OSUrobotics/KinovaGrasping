@@ -40,6 +40,9 @@ from PIL import Image, ImageFont, ImageDraw # Used to save images from rendering
 # Program execution
 import threading
 
+# Metadata generation
+from RLExpSetup import *
+
 ## TO BE REMOVED (IMPORTS) -- REVIEW
 import matplotlib.pyplot as plt
 import time
@@ -367,59 +370,59 @@ class KinovaGripper_Env(gym.Env):
             self._get_trans_mat_wrist_pose()
 
     ## OPEN AI GYM -- ENVIRONMENT CLASS
-    # Reset the environment to its initial values; sample new object/hand pose
-    """
-    def reset(self,shape_keys,hand_orientation,with_grasp=False,env_name="env",mode="train",start_pos=None,hand_rotation=None,obj_params=None, qpos=None, orient_idx=None, with_noise=False):
-        # Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
-        shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
-        hand_orientation: Orientation of the hand relative to the object
-        with_grasp: Set to True to include the grasp classifier reward within the reward calculation
-        env_name: Name of the current environment; "env" for training and "eval_env" for evaluation
-        mode: Mode for current run - Ex: "train", "test"
-        start_pos: Specific initial starting coordinate location for the object for testing purposes - default to None
-        obj_params: Specific shape and size of object for testing purposes [shape_name, size] (Ex: [Cube, S]) - default to None
-        qpos: Specific initial starting qpos value for hand joint values for testing purposes - default to None
-        with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
-        returns the state (current state representation after reset of the environment)
-        # All possible shape keys - default shape keys will be used for expert data generation
-        # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
-    """
-    def reset(self, metadata=None):
-        metadata = {"idx": 0, "Noise": True, "Orn": "normal", "Orn_Values": [-1.4283855744105678,0.17262245904047213,-1.3724587109745958], "Shape": "CubeM", "Start_Values": [-0.04351,0.025261,0.0654], "xml_file": "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"}
+    def reset(self, env_name):
+        """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set
+        to their initial values; Sample new object/hand pose
+        env_name: Name of the current environment; "env" for training and "eval_env" for evaluation/testing
+        """
+        # Use for quick metadata testing
+        #meta_data = {"idx": 0, "Noise": True, "Orn": "normal", "Orn_Values": [-1.4283855744105678,0.17262245904047213,-1.3724587109745958], "Shape": "CubeM", "Start_Values": [-0.04351,0.025261,0.0654], "xml_file": "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"}
 
-        ### Start of data provided by metadata ###
-        random_shape = metadata["Shape"]
+        # Select the training or test coordinate set based on the environment name (eval_env --> test, env --> train)
+        if env_name == "eval_env":
+            mode = "eval"
+            coords_filename = "new_test.txt"
+            test = RLExpSetup(coords_filename)
+            meta_data = test.get_data_next_episode()
+        else:
+            mode = "train"
+            coords_filename = "new_train.txt"
+            train = RLExpSetup(coords_filename)
+            meta_data = train.get_data_next_episode()
+
+        ### Start of data provided by meta_data ###
+
+        # Current object (Shape/Size) Ex: CubeM
+        random_shape = meta_data["Shape"]
         self.set_random_shape(random_shape)
-        orientation = metadata["Orn"]
+
+        # Hand orientation (normal, roatated, top)
+        orientation = meta_data["Orn"]
         self.set_orientation(orientation)
 
         # Position of the object center (x,y,z)
-        obj_coords = metadata["Start_Values"]  # obj_x, obj_y, obj_z
+        obj_coords = meta_data["Start_Values"]  # obj_x, obj_y, obj_z
 
         # Euler angle rotation of the hand (x rot, y rot, z rot)
-        hand_orientation = metadata["Orn_Values"]
+        hand_orientation = meta_data["Orn_Values"]
 
-        self.filename = metadata["xml_file"]
-        ### End of data provided by metadata ###
+        # XML file used to produce the simulation - specific to each Object (shape/size)
+        self.filename = meta_data["xml_file"]
 
-        # Need to be added to metadata!
-        env_name = "env" # Environment type
-        mode = "train"
+        # Originally used for getting the HOV dataset - only used for old 'determine hand coords' functions
+        with_noise = meta_data["Noise"]
 
-        orient_idx = None # Used to sample a specific coordinate and keep track of object-hand pose used (in old implementation)
-        with_grasp = False  # Reward class - determines whether or not we use the grasp classifier reward
-        with_noise = False # Originally used for getting the HOV dataset - only used for old 'determine hand coords' functions
-        if with_noise is True:
-            noise_file = 'with_noise/'
-        else:
-            noise_file = 'no_noise/'
-        coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(mode) + "_coords/" + str(self.orientation) + "/" + self.random_shape + ".txt"
+        ### End of data provided by meta_data ###
 
-        ############################
+        # Used to keep track a specific file line index to keep track of object-hand pose used (in old implementation)
+        orient_idx = None
+
+        # Reward class - determines whether or not we use the grasp classifier reward
+        with_grasp = False
 
         self.set_with_grasp_reward(with_grasp) # If True, use Grasp Reward from grasp classifier in reward calculation
         self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
-        self.set_coords_filename(coords_filename)
+        self.set_coords_filename(coords_filename) # Used for recording purposes with all_hand_object_coords dict
 
         # Determine location of x, y, z joint locations and proximal finger locations of the hand
         xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
@@ -436,6 +439,7 @@ class KinovaGripper_Env(gym.Env):
         # Set the Mujoco simulation state
         self._set_state(self.new_state)
 
+        # Get the current state observed from the simulation
         states = self._get_obs()
         obj_pose=self._get_obj_pose()
         deltas=[obj_coords[0]-obj_pose[0],obj_coords[1]-obj_pose[1],obj_coords[2]-obj_pose[2]]
