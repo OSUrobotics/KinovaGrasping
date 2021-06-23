@@ -261,8 +261,11 @@ class ReplayBuffer_Queue(object):
 		return text
 
 
-	def store_saved_data_into_replay(self, filepath):
-		""" Restore replay buffer from saved location """
+	def store_saved_data_into_replay(self, filepath, sample_size=None):
+		""" Restore replay buffer from saved location
+		filepath: Filepath of the stored replay buffer
+		sample_size: Number of episodes to get from the end of the replay buffer (most recent experience)
+		"""
 		if filepath is None or os.path.isdir(filepath) is False:
 			print("Replay buffer not found!! filepath: ", filepath)
 			quit()
@@ -283,6 +286,16 @@ class ReplayBuffer_Queue(object):
 		if orient_file.is_file():
 			expert_orientation_indexes = np.load(filepath + "orientation_indexes.npy", allow_pickle=True).astype('object')
 			self.orientation_indexes = expert_orientation_indexes.tolist()
+
+		if sample_size is not None:
+			expert_state = expert_state[-sample_size:]
+			expert_action = expert_action[-sample_size:]
+			expert_next_state = expert_next_state[-sample_size:]
+			expert_reward = expert_reward[-sample_size:]
+			expert_not_done = expert_not_done[-sample_size:]
+			expert_episodes = expert_episodes[-sample_size:]
+			expert_episodes_info = expert_episodes_info[-sample_size:]
+			expert_orientation_indexes = expert_orientation_indexes[-sample_size:]
 
 		# If first replay buffer is being added, set to exact values
 		if self.size == 0:
@@ -312,8 +325,7 @@ class ReplayBuffer_Queue(object):
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
 		# replay_ep_num: Number of episodes currently in the replay buffer
 
-		print("before evaluate replay reward")
-
+		# Print out the values stored within the reward array of the replay buffer
 		reward_text = self.evaluate_replay_reward(self.reward)
 
 		text = ""

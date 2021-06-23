@@ -1598,7 +1598,7 @@ if __name__ == "__main__":
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
         if agent_replay_file_path is not None:
             # Fill experience from previous stage into replay buffer
-            replay_buffer.store_saved_data_into_replay(agent_replay_file_path)
+            replay_buffer.store_saved_data_into_replay(agent_replay_file_path,sample_size=100)
         else:
             print("Using an empty agent replay buffer!!")
 
