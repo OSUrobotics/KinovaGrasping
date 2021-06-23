@@ -398,7 +398,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode="eval",env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+        #state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode="eval",env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+        state = eval_env.reset()
+        done = 0  # done is originally set to False
 
         # Initialize the controller if the controller type is not a policy
         if controller_type != "policy":
@@ -625,8 +627,10 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
             env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
 
         # Reset the environment
-        state, done = env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,env_name="env", hand_orientation=requested_orientation,
-                                mode=args.mode, with_noise=with_orientation_noise), False
+        #state, done = env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,env_name="env", hand_orientation=requested_orientation,
+        #                        mode=args.mode, with_noise=with_orientation_noise), False
+        state = env.reset()
+        done = 0  # done is originally set to False
 
         # If we are not using a policy, intialize the controller
         if controller_type != "policy":
