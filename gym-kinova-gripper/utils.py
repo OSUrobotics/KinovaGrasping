@@ -164,7 +164,7 @@ class ReplayBuffer_Queue(object):
 		"""
 
 		# Current episode index
-		episode_idx = self.replay_ep_num
+		episode_idx = self.replay_ep_num - 1
 		if len(self.reward[episode_idx]) == 0:
 			print("We cannot replace the reward as for this episode as we have not done any transitions!")
 			return 0
@@ -231,6 +231,7 @@ class ReplayBuffer_Queue(object):
 		grasp_reward_count = 0
 		lift_reward_count = 0
 		num_rows = 0
+		num_elems = 0
 		i = 0
 
 		in_check = 0
@@ -238,6 +239,7 @@ class ReplayBuffer_Queue(object):
 		for row in reward:
 			num_rows += 1
 			for elem in row:
+				num_elems += 1
 				if elem != 0:
 					non_zero_count += 1
 					if elem < 5:
@@ -258,7 +260,7 @@ class ReplayBuffer_Queue(object):
 		text += "\nlift_reward_count: "+str(lift_reward_count)
 		text += "\nnum_rows: "+str(num_rows)
 
-		return text
+		return text, num_elems
 
 
 	def store_saved_data_into_replay(self, filepath, sample_size=None):
@@ -315,18 +317,24 @@ class ReplayBuffer_Queue(object):
 			self.not_done.extend(expert_not_done.tolist())
 			self.episodes.extend(expert_episodes.tolist())
 
-		self.max_episode += expert_episodes_info[0]
-		self.size += expert_episodes_info[1]
-		self.episodes_count += expert_episodes_info[2]
-		self.replay_ep_num += expert_episodes_info[3]
+		# Print out the values stored within the reward array of the replay buffer
+		reward_text, num_elems = self.evaluate_replay_reward(self.reward)
+
+		if sample_size is not None:
+			self.max_episode += sample_size
+			self.size += num_elems
+			self.episodes_count += sample_size
+			self.replay_ep_num += sample_size
+		else:
+			self.max_episode += expert_episodes_info[0]
+			self.size += expert_episodes_info[1]
+			self.episodes_count += expert_episodes_info[2]
+			self.replay_ep_num += expert_episodes_info[3]
 
 		# max_episode: Maximum number of episodes, limit to when we remove old episodes
 		# size: Full size of the replay buffer (number of entries over all episodes)
 		# episodes_count: Number of episodes that have occurred (may be more than max replay buffer side)
 		# replay_ep_num: Number of episodes currently in the replay buffer
-
-		# Print out the values stored within the reward array of the replay buffer
-		reward_text = self.evaluate_replay_reward(self.reward)
 
 		text = ""
 		text += "\nREPLAY BUFFER: "
