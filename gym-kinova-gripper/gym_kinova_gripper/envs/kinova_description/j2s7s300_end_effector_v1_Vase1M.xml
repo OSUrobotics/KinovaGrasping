@@ -28,7 +28,9 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 				<mesh name="Medium_hourglass" file="Medium_hglass.STL" scale="0.001 0.001 0.001"/>
 				<mesh name="Small_hourglass" file="Small_hglass.STL" scale="0.001 0.001 0.001"/>
 				<!-- Object -->
-				<mesh name="Vase1M" file="Vase1M.stl" scale="0.001 0.001 0.001"/>
+				<mesh name="Vase1MT" file="Vase1BTop.stl" scale="0.00085 0.00085 0.00085"/>
+				<mesh name="Vase1MM" file="Vase1BMid.stl" scale="0.00085 0.00085 0.00085"/>
+				<mesh name="Vase1MB" file="Vase1BBot.stl" scale="0.00085 0.00085 0.00085"/>
 		<texture type="skybox" builtin="gradient" rgb1=".4 .5 .6" rgb2="1 1 1" width="100" height="100"/>
 		<texture name="groundplane" type="2d" builtin="checker" rgb1=".25 .26 .25"
 			rgb2=".22 .22 .22" width="100" height="100" mark="none" markrgb=".8 .8 .8"/>
@@ -149,7 +151,15 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<!-- <include file="/objects.xml"/> -->
 		<body name="object" pos="0 0 0">
 			<joint name="object" type="free" />
-			<geom mass="0.1" name="object" type="mesh" rgba="1 0 0 1" mesh="Vase1M" euler="0 0 0"/>
+			<geom mass="0.02" name="object" type="mesh" rgba="1 0 0 1" mesh="Vase1MM" euler="0 0 0"/>
+			<body name="object_top" pos="0 0 0">
+				<geom mass="0.04" name="object_top" type="mesh" rgba="1 0 0 1" mesh="Vase1MT" euler="0 0 0"/>
+			</body>
+
+			<body name="object_bottom" pos="0 0 0">
+				<geom mass="0.04" name="object_bottom" type="mesh" rgba="1 0 0 1" mesh="Vase1MB" euler="0 0 0"/>
+			</body>
+
 		</body>
 		</worldbody>
 
