@@ -109,6 +109,9 @@ class KinovaGripper_Env(gym.Env):
         self.hand_orient_variation = np.array([0,0,0]) # Hand orientation variation
         self._viewer = None   # The render window
         self.contacts=self._sim.data.ncon   # The number of contacts in the simulation environment
+        self.model = self._sim.model    # Reference to the current model within the simulator - used for collision detection
+        self.data = self._sim.data  # Reference to the current data from the simulation - used for collision detectiongit
+        self.contact_arr = self._sim.data.contact # Array of the contacts
         self.Tfw=np.zeros([4,4])   # The trasfer matrix that gets us from the world frame to the local frame
         self.wrist_pose=np.zeros(3)  # The wrist position in world coordinates
         self.thetas=[0,0,0,0,0,0,0] # The angles of the joints of a real robot arm used for calculating the jacobian of the hand
@@ -355,6 +358,12 @@ class KinovaGripper_Env(gym.Env):
 
         return sensor_pose,front_part, top_part
 
+    def update_sim_data(self):
+        """ Update simulation data so info about the model and contact points match the current state of the simulator - used for collision detection"""
+        self.contacts= self._sim.data.ncon   # The number of contacts in the simulation environment
+        self.contact_arr = self._sim.data.contact # Array of the info on the geoms in contact
+        self.model = self._sim.model
+        self.data = self._sim.data
 
     def get_sim_state(self): #this gives you the whole damn qpos
         return np.copy(self._sim.data.qpos)
@@ -584,8 +593,20 @@ class KinovaGripper_Env(gym.Env):
 
     # Return the object coordinates, accessible by outside functions
     def get_env_obj_coords(self):
-        env_obj_coords = copy.deepcopy(self._sim.data.get_geom_xpos("object"))
+        env_obj_coords = np.copy(self._sim.data.get_geom_xpos("object"))
         return env_obj_coords
+
+    # Return the object coordinates, accessible by outside functions
+    def get_env_hand_coords(self):
+        wrist_pose = np.copy(self._sim.data.get_geom_xpos('palm'))
+        finger_joints = ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]
+        joint_poses = np.array([])
+        for joint in finger_joints:
+            joint_pos = np.copy(self._sim.data.get_geom_xpos(joint))
+            joint_poses = np.append(joint_poses, joint_pos)
+
+        env_hand_coords = np.concatenate((wrist_pose, joint_pos))
+        return env_hand_coords
 
     # Function to return the angles between the palm normal and the object location
     def _get_angles(self):
