@@ -259,7 +259,7 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, fil
 
 
 if __name__ == "__main__":
-    shape_keys = ["CubeM", "CubeS" ,"CubeB" ,"CylinderM", "Vase1M"]  # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    shape_keys = ["CubeB"] #["CubeM", "CubeS" ,"CubeB" ,"CylinderM", "Vase1M"]  # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
     file_size = 5000
-    coord_check_loop(shape_keys=shape_keys, with_noise=True, orient_idx=None, hand_orientation="normal", file_size=file_size, render_coord=False)
+    coord_check_loop(shape_keys=shape_keys, with_noise=False, orient_idx=None, hand_orientation="normal", file_size=file_size, render_coord=False)
     print("Done looping through coords - Quitting")
