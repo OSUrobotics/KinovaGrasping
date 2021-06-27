@@ -148,6 +148,20 @@ def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,cur
 
     return has_collision, local_obj_coords, obj_coords, hand_orient_variation
 
+def check_within_range(obj_coords):
+    """ Checks if the coordinate is within the range (minimum/maximum x and y coordinate ranges)
+    Determines using the global representation of the object coordinates (obj_coords)
+    """
+    x_min = -0.09
+    x_max = 0.09
+    y_min = -0.01
+
+    # check if the object coord is within range
+    if x_min <= obj_coords[0] <= x_max and obj_coords[1] >= y_min:
+        return True
+    else:
+        return False
+
 def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, file_size, orient_idx=None):
     """Loop through each coordinate within the all_shapes file based on the given shape, hand orientation amd
        hand orientation variation.
@@ -194,8 +208,11 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, fil
             # Returns True is there is a collision
             has_collision, local_obj_coords, obj_coords, hand_orient_variation = check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,curr_orient_idx,with_noise,render_coord)
 
+            # Returns True if the coordinate is within the min and max x,y coordinate ranges
+            within_range = check_within_range(obj_coords)
+
             # Check if the coordinate has moved after conducting an action
-            if has_collision is False:
+            if has_collision is False and within_range is True:
                 #print("Coordinate is VALID!! Writing it to file: object x,y,z: {}, hov: {}".format(obj_coords,hand_orient_variation))
 
                 # Add coordinated to valid (x,y) coordinate list for plotting
@@ -251,15 +268,32 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, fil
 
         print("Generating heatmap plots for the object coordinates in the local and global frame....")
         actual_plot_title = "Initial Coordinate Position of the Object\n"
+        # Valid coordinates
         heatmap_actual_coords(total_x=local_valid_x, total_y=local_valid_y, plot_title="Local Frame: Valid "+actual_plot_title, fig_filename='valid_coords_local_actual_heatmap.png', saving_dir=valid_shape_coords_file, hand_lines=None, state_rep="local")
         heatmap_actual_coords(total_x=global_valid_x, total_y=global_valid_y, plot_title="Global Frame: Valid "+actual_plot_title, fig_filename='valid_coords_global_actual_heatmap.png', saving_dir=valid_shape_coords_file, hand_lines=None, state_rep="global")
-        
+
+        # Bad coordinates
         heatmap_actual_coords(total_x=local_bad_x, total_y=local_bad_y, plot_title="Local Frame: Bad"+actual_plot_title, fig_filename='bad_coords_local_actual_heatmap.png', saving_dir=bad_shape_coords_file, hand_lines=None, state_rep="local")
         heatmap_actual_coords(total_x=global_bad_x, total_y=global_bad_y, plot_title="Global Frame: Bad"+actual_plot_title, fig_filename='bad_coords_global_actual_heatmap.png', saving_dir=bad_shape_coords_file, hand_lines=None, state_rep="global")
 
+        # All coordinates
+        all_coords_local_x = np.append(local_valid_x,local_bad_x)
+        all_coords_local_y = np.append(local_valid_y, local_bad_y)
+        all_coords_global_x = np.append(global_valid_x, global_bad_x)
+        all_coords_global_y = np.append(global_valid_y, global_bad_y)
+
+        heatmap_actual_coords(total_x=all_coords_local_x, total_y=all_coords_local_y,
+                              plot_title="Local Frame: ALL " + actual_plot_title,
+                              fig_filename='all_coords_local_actual_heatmap.png', saving_dir=valid_shape_coords_file,
+                              hand_lines=None, state_rep="local")
+        heatmap_actual_coords(total_x=all_coords_global_x, total_y=all_coords_global_y,
+                              plot_title="Global Frame: ALL " + actual_plot_title,
+                              fig_filename='all_coords_global_actual_heatmap.png', saving_dir=valid_shape_coords_file,
+                              hand_lines=None, state_rep="global")
+
 
 if __name__ == "__main__":
-    shape_keys = ["CubeB"] #["CubeM", "CubeS" ,"CubeB" ,"CylinderM", "Vase1M"]  # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    shape_keys = ["CubeM","CubeS","CubeB","CylinderM","Vase1M"]  # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
     file_size = 5000
     coord_check_loop(shape_keys=shape_keys, with_noise=False, orient_idx=None, hand_orientation="normal", file_size=file_size, render_coord=False)
     print("Done looping through coords - Quitting")
