@@ -848,7 +848,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to run all the experiments for RL training
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
-        self.objects = {}
+        #self.objects = {}
 
         for key in shape_keys:
             self.objects[key] = self.all_objects[key]
@@ -1043,10 +1043,11 @@ class KinovaGripper_Env(gym.Env):
                 writer.writerow(key)
 
         # Load model
-        self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
+        object_file = copy.deepcopy(self.experiment([random_shape]))
+        self._model = load_model_from_path(self.file_dir + object_file[random_shape])
         self._sim = MjSim(self._model)
 
-        return random_shape, self.objects[random_shape]
+        return random_shape, object_file[random_shape]
 
     # Get the initial object position
     def sample_initial_object_hand_pos(self,coords_filename,with_noise=True,orient_idx=None,region=None):
