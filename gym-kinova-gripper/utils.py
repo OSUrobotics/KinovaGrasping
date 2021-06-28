@@ -173,7 +173,7 @@ class ReplayBuffer_Queue(object):
 
 		# Current episode index
 		episode_idx = self.replay_ep_num - 1
-		if len(self.reward[episode_idx]) == 0:
+		if len(self.reward) == 0 or len(self.reward[-1]) == 0:
 			print("We cannot replace the reward as for this episode as we have not done any transitions!")
 			return 0
 
