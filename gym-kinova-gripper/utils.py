@@ -36,6 +36,14 @@ class ReplayBuffer_Queue(object):
 		"""
 		Assume there's a numpy array
 		"""
+		# We want to add to a list
+		if len(self.state) == 0:
+			self.state.append([])
+			self.action.append([])
+			self.next_state.append([])
+			self.reward.append([])
+			self.not_done.append([])
+
 		self.state[-1].append(state)
 		self.action[-1].append(action)
 		self.next_state[-1].append(next_state)
