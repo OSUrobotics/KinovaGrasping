@@ -702,7 +702,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
             f_dist_new = next_state[9:17]
 
             # Check if the movement in the distal finger tips give a grasping position
-            ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+            if timestep >= replay_buffer.n_steps:
+                ready_for_lift = check_grasp(f_dist_old, f_dist_new)
 
             state = next_state
             timestep = timestep + 1
