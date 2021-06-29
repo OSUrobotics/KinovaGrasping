@@ -36,14 +36,6 @@ class ReplayBuffer_Queue(object):
 		"""
 		Assume there's a numpy array
 		"""
-		# We want to add to a list
-		if len(self.state) == 0:
-			self.state.append([])
-			self.action.append([])
-			self.next_state.append([])
-			self.reward.append([])
-			self.not_done.append([])
-
 		self.state[-1].append(state)
 		self.action[-1].append(action)
 		self.next_state[-1].append(next_state)
@@ -67,6 +59,16 @@ class ReplayBuffer_Queue(object):
 			self.orientation_indexes.pop(idx)
 
 		self.replay_ep_num -= 1
+
+		# If we have popped off the final episode, initialize the arrays as a nested list
+		if len(self.state) == 0:
+			self.state = [[]]
+			self.action = [[]]
+			self.next_state = [[]]
+			self.reward = [[]]
+			self.not_done = [[]]
+			self.episodes = [[]]  # Keep track of episode start/finish indexes
+			self.orientation_indexes = []
 
 	def add_episode(self, start):
 		"""
