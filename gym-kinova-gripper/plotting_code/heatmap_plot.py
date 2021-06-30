@@ -8,7 +8,7 @@ import os
 import argparse
 from pathlib import Path
 
-def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir):
+def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,x_min=-0.12,x_max=0.12,y_min=0,y_max=0.09):
     """ Create heatmap displaying the actual locations of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -19,10 +19,6 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
 
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_min = -0.12
-    x_max = 0.12
-    y_min = 0
-    y_max = 0.09
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
