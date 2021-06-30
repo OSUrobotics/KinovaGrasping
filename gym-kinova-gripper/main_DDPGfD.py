@@ -127,7 +127,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=30, regions_of_interest=None, controller_type="policy"):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, sample_size=5, regions_of_interest=None, controller_type="policy"):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -464,7 +464,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             f_dist_new = next_state[9:17]
 
             # Check if the movement in the distal finger tips give a grasping position
-            ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+            if timestep >= replay_buffer.n_steps:
+                ready_for_lift = check_grasp(f_dist_old, f_dist_new)
 
             state = next_state
             timestep = timestep + 1
