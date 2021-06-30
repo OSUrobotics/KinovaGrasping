@@ -369,7 +369,7 @@ def get_hand_object_coords_dict(curr_env):
     return hand_object_coords
 
 # Runs policy for X episodes and returns average reward -- evaluate the policy per shape and per hand orientation
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Initial (timestep = 1) transformation matrices (from Global to Local) for each episode
@@ -464,7 +464,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             f_dist_new = next_state[9:17]
 
             # Check if the movement in the distal finger tips give a grasping position
-            if timestep >= replay_buffer.n_steps:
+            if timestep >= n_steps:
                 ready_for_lift = check_grasp(f_dist_old, f_dist_new)
 
             state = next_state
