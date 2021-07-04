@@ -4,83 +4,95 @@ from pathlib import Path
 # Add heatmap initial object coordinates to dictionary, filter by success/fail
 # and orientation type, then save in appropriate directory
 
+def sort_coords_by_region(dict_list):
+    """ Sort the input coordinates dictionaries by region and return the updated dictionaries with a new 'region' entry
+    based on the global object coordinate location """
+    # Definition of coordinate sampling regions within the graspable space within the hand
+    grasping_regions = {"extreme_left": [-0.12, -0.055], "mid_left": [-0.055, -0.03], "center": [-0.03,0.03], "mid_right": [0.03,0.055], "extreme_right":[0.055,0.12]}
 
-def add_heatmap_coords(success_coords, fail_coords, orientation, obj_coords, success):
-    """ Add object coordinates to success/failed coordinates dictionary for heatmaps  """
-    # Get object coordinates, transform to array
-    x_val = obj_coords[0]
-    y_val = obj_coords[1]
-    x_val = np.asarray(x_val).reshape(1)
-    y_val = np.asarray(y_val).reshape(1)
+    for d in dict_list:
+        coords = d["local_obj_coords"]
+        if grasping_regions["extreme_left"][0] <= coords[0] <= grasping_regions["extreme_left"][1]:
+            d["local_coord_region"] = "extreme_left"
+        elif grasping_regions["mid_left"][0] < coords[0] <= grasping_regions["mid_left"][1]:
+            d["local_coord_region"] = "mid_left"
+        elif grasping_regions["center"][0] < coords[0] < grasping_regions["center"][1]:
+            d["local_coord_region"] = "center"
+        elif grasping_regions["mid_right"][0] <= coords[0] < grasping_regions["mid_right"][1]:
+            d["local_coord_region"] = "mid_right"
+        elif grasping_regions["extreme_right"][0] <= coords[0] <= grasping_regions["extreme_right"][1]:
+            d["local_coord_region"] = "extreme_right"
 
-    # Heatmap postion data - get starting object position and mark success/fail based on lift reward
-    if success:
-        # Append initial object coordinates to Successful coordinates array
-        success_coords["x"] = np.append(success_coords["x"], x_val)
-        success_coords["y"] = np.append(success_coords["y"], y_val)
-        success_coords["orientation"] = np.append(success_coords["orientation"], orientation)
-    else:
-        # Append initial object coordinates to Failed coordinates array
-        fail_coords["x"] = np.append(fail_coords["x"], x_val)
-        fail_coords["y"] = np.append(fail_coords["y"], y_val)
-        fail_coords["orientation"] = np.append(fail_coords["orientation"], orientation)
+    return dict_list
 
-    ret = {"success_coords": success_coords, "fail_coords": fail_coords}
-    return ret
+def sort_coords_by_success(all_hand_object_coords, shape, orientation, frame="local"):
+    """Sort the hand-object pose coordinates by success or failure per shape and per orientation"""
+    # Just take out the successful local coordinates for plotting
+    success_coords = [d[frame + "_obj_coords"] for d in all_hand_object_coords if d["success"] is True and d["shape"] == shape and d["orientation"] == orientation]
+    fail_coords = [d[frame + "_obj_coords"] for d in all_hand_object_coords if d["success"] is False and d["shape"] == shape and d["orientation"] == orientation]
 
+    return success_coords, fail_coords
 
-# Coordinate Saving Step 1: Filter heatmap coordinates by success/fail, orientation
-def filter_heatmap_coords(success_coords, fail_coords, episode_num, saving_dir):
+# Coordinate Saving Step 1: Filter heatmap coordinates by success/fail, orientation, and shape
+def sort_and_save_heatmap_coords(all_hand_object_coords, requested_shapes, requested_orientations, episode_num, saving_dir, frame="local"):
     """ Save heatmap coordinates split by success and orientation """
+    for orientation in requested_orientations:
+        for shape in requested_shapes:
+            print("Sorting and saving coordinates!\nOrientation: {}\nShape: {}\nFrame: {}".format(orientation,shape,frame))
+            coord_save_dir = saving_dir + "/" + orientation + "/" + shape + "/" + frame
+            success_coords, fail_coords = sort_coords_by_success(all_hand_object_coords, shape, orientation, frame)
+            success_x, success_y, success_z, fail_x, fail_y, fail_z, total_x, total_y, total_z = coords_dict_to_array(success_coords,fail_coords)
+            save_coordinates(success_x, success_y, success_z, coord_save_dir, "/success", episode_num)
+            save_coordinates(fail_x, fail_y, fail_z, coord_save_dir, "/fail", episode_num)
+            save_coordinates(total_x, total_y, total_z, coord_save_dir, "/total", episode_num)
+            print("Coordinates saved at: ",coord_save_dir)
 
-    success_normal_idxs = [i for i, x in enumerate(success_coords["orientation"]) if x == "normal"]
-    success_rotated_idxs = [i for i, x in enumerate(success_coords["orientation"]) if x == "rotated"]
-    success_top_idxs = [i for i, x in enumerate(success_coords["orientation"]) if x == "top"]
-
-    fail_normal_idxs = [i for i, x in enumerate(fail_coords["orientation"]) if x == "normal"]
-    fail_rotated_idxs = [i for i, x in enumerate(fail_coords["orientation"]) if x == "rotated"]
-    fail_top_idxs = [i for i, x in enumerate(fail_coords["orientation"]) if x == "top"]
-
-    success_coords_idxs = [success_normal_idxs, success_rotated_idxs, success_top_idxs]
-    fail_coords_idxs = [fail_normal_idxs, fail_rotated_idxs, fail_top_idxs]
-
-    for index_list in success_coords_idxs:
-        if len(index_list) > 0:
-            coords_dict_to_array(success_coords, index_list, "/success", episode_num, saving_dir)
-            coords_dict_to_array(success_coords, index_list, "/total", episode_num, saving_dir)
-
-    for index_list in fail_coords_idxs:
-        if len(index_list) > 0:
-            coords_dict_to_array(fail_coords, index_list, "/fail", episode_num, saving_dir)
-            coords_dict_to_array(fail_coords, index_list, "/total", episode_num, saving_dir)
-
-    print("Writing to heatmap info file...")
-    f = open(saving_dir + "/heatmap_info.txt", "w")
-    total_text = "Heatmap Coords \nSaved at: "+saving_dir+"\n\nTotal # Success: "+str(len(success_coords["x"]))+"\nTotal # Fail: "+str(len(fail_coords["x"]))+"\n"
-    normal_text = "\nNormal Orientation\n# Success: "+str(len(success_normal_idxs))+"\n# Fail: "+str(len(fail_normal_idxs))+"\n"
-    rotated_text = "\nRotated Orientation\n# Success: " + str(len(success_rotated_idxs)) + "\n# Fail: " + str(len(fail_rotated_idxs)) + "\n"
-    top_text = "\nTop Orientation\n# Success: " + str(len(success_top_idxs)) + "\n# Fail: " + str(len(fail_top_idxs)) + "\n"
-    text = total_text + normal_text + rotated_text + top_text
-    f.write(text)
-    f.close()
+            print("Writing to heatmap coordinate info file, located at: ",coord_save_dir)
+            f = open(coord_save_dir + "/heatmap_info.txt", "w")
+            save_text = "Heatmap Coords \nSaved at: "+coord_save_dir
+            shape_text = "\nShape: " + str(shape)
+            orientation_text = "\n"+str(orientation).capitalize()+" Orientation\n# Success: "+str(len(success_x))+"\n# Fail: "+str(len(fail_x))+"\n"
+            text = save_text + shape_text + orientation_text
+            f.write(text)
+            f.close()
 
 
 # Coordinate Saving Step 2: Convert coordinate dictionaries to numpy arrays for saving
-def coords_dict_to_array(coords_dict, indexes, filename, episode_num, saving_dir):
+def coords_dict_to_array(success_coords, fail_coords):
     """ Convert coordinate dictionary to numpy array for saving """
-    coords_x = np.array([coords_dict["x"][i] for i in indexes])
-    coords_y = np.array([coords_dict["y"][i] for i in indexes])
-    idx = indexes[0]
-    orientation = coords_dict["orientation"][idx]
+    success_x = np.array([])
+    success_y = np.array([])
+    success_z = np.array([])
+    fail_x = np.array([])
+    fail_y = np.array([])
+    fail_z = np.array([])
+    total_x = np.array([])
+    total_y = np.array([])
+    total_z = np.array([])
 
-    save_coordinates(coords_x, coords_y, saving_dir+"/"+orientation, filename, episode_num)
+    if len(success_coords) > 0:
+        success_x = np.array([coords[0] for coords in success_coords])
+        success_y = np.array([coords[1] for coords in success_coords])
+        success_z = np.array([coords[2] for coords in success_coords])
+        total_x = np.append(total_x,success_x)
+        total_y = np.append(total_y,success_y)
+        total_z = np.append(total_z,success_z)
+    if len(fail_coords) > 0:
+        fail_x = np.array([coords[0] for coords in fail_coords])
+        fail_y = np.array([coords[1] for coords in fail_coords])
+        fail_z = np.array([coords[2] for coords in fail_coords])
+        total_x = np.append(total_x,fail_x)
+        total_y = np.append(total_y,fail_y)
+        total_z = np.append(total_z,fail_z)
 
+    return success_x, success_y, success_z, fail_x, fail_y, fail_z, total_x, total_y, total_z
 
 # Coordinate Saving Step 3: Save heatmap coordinates by orientation type
-def save_coordinates(x,y,file_path,filename,episode_num):
+def save_coordinates(x,y,z,file_path,filename,episode_num):
     """ Save heatmap initial object position x,y coordinates
     x: initial object x-coordinate
     y: initial object y-coordinate
+    z: initial object z-coordinate
     filename: Location to save heatmap coordinates to
     """
     # Ensure file path is created if it doesn't exist
@@ -93,3 +105,4 @@ def save_coordinates(x,y,file_path,filename,episode_num):
 
     np.save(file_path + filename+"_x"+ep_str, x)
     np.save(file_path + filename+"_y"+ep_str, y)
+    np.save(file_path + filename + "_z" + ep_str, z)

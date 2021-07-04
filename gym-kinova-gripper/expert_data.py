@@ -26,7 +26,7 @@ import copy # For copying over coordinates
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
-from heatmap_coords import add_heatmap_coords, filter_heatmap_coords, coords_dict_to_array, save_coordinates
+from heatmap_coords import sort_and_save_heatmap_coords, coords_dict_to_array, save_coordinates
 from trajectory_plot import plot_trajectory
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -387,7 +387,7 @@ class ExpertPIDController(object):
 
         # Check if change in object dot product to wrist center versus the initial dot product is greater than 0.01
         if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
-            print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
+            #print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
             # Start lowering velocity of finger 2 and 3 so the balance of force is equal (no tipping)
             f1, f2, f3 = constant_velocity, (constant_velocity / 2), (constant_velocity / 2)
 
@@ -396,10 +396,9 @@ class ExpertPIDController(object):
         if lift_check is True:
             # Ready to lift, so slow down Finger 1 to allow for desired grip
             # (where Fingers 2 and 3 have dominance)
-            print("Check 2A: Object is grasped, ready for lift")
-            wrist, f1, f2, f3 = wrist_lift_velocity, (
-                    finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
-        return np.array([wrist, f1, f2, f3])
+            #print("Check 2A: Object is grasped, ready for lift")
+            f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+        return np.array([f1, f2, f3])
 
     def right_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
         """ Object is in an extreme right-side location within the hand, so Finger 2 and 3 move the
@@ -408,7 +407,7 @@ class ExpertPIDController(object):
         # Object has not moved much, we want the fingers to move closer to the object to move it
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
-            print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
+            #print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
             f1 = 0.0  # frontal finger doesn't move
             f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
             f3 = f2  # other double side finger moves at same speed
@@ -416,32 +415,31 @@ class ExpertPIDController(object):
         else:
             """ POST-contact """
             # now finger-object distance has been changed a decent amount.
-            print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
+            #print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
-                print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
+                #print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
                 # start to close the PID stuff
                 f1 = min_velocity  # frontal finger moves slightly
                 f2 = pid.velocity(obj_dot_prod)  # get PID velocity
                 f3 = f2  # other double side finger moves at same speed
                 wrist = 0.0
             else:  # goal is within 0.01 of being reached:
-                print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
+                #print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
                 # start to close from the first finger
                 f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
                 f2 = 0.0
                 f3 = 0.0
                 wrist = 0.0
 
-            print("Check 9a: Check for grasp (small distal finger movement)")
+            #print("Check 9a: Check for grasp (small distal finger movement)")
             # Lift check determined by grasp check (distal finger tip movements)
             # and this check has occurred over multiple time steps
             if lift_check is True:
-                print("CHECK 9: Yes! Good grasp, move ALL fingers")
-                wrist, f1, f2, f3 = wrist_lift_velocity, (
-                        finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+                #print("CHECK 9: Yes! Good grasp, move ALL fingers")
+                f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
 
-        return np.array([wrist, f1, f2, f3])
+        return np.array([f1, f2, f3])
 
     def left_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
         """ Object is in an extreme left-side location within the hand, so Finger 1 moves the
@@ -449,7 +447,7 @@ class ExpertPIDController(object):
         # Only Small change in object dot prod to wrist from initial position, must move more
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
-            print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
+            #print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
             f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
             f2 = 0.0
             f3 = 0.0
@@ -457,17 +455,17 @@ class ExpertPIDController(object):
         else:
             """ POST-contact """
             # now finger-object distance has been changed a decent amount.
-            print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
+            #print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
-                print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
+                #print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
                 f1 = pid.velocity(obj_dot_prod)
                 f2 = min_velocity  # 0.05
                 f3 = min_velocity  # 0.05
                 wrist = 0.0
             else:
                 # Goal is within 0.01 of being reached:
-                print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
+                #print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
                 # start to close from the first finger
                 # nudge with thumb
                 f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
@@ -475,14 +473,13 @@ class ExpertPIDController(object):
                 f1 = 0.0
                 wrist = 0.0
 
-            print("Check 15a: Check for grasp (small distal finger movement)")
+            #print("Check 15a: Check for grasp (small distal finger movement)")
             # Lift check determined by grasp check (distal finger tip movements)
             # and this check has occurred over multiple time steps
             if lift_check is True:
-                print("CHECK 15b: Good grasp - moving ALL fingers")
-                wrist, f1, f2, f3 = wrist_lift_velocity, (
-                        finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
-        return np.array([wrist, f1, f2, f3])
+                #print("CHECK 15b: Good grasp - moving ALL fingers")
+                f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+        return np.array([f1, f2, f3])
 
     def PDController(self, lift_check, states, action_space, velocities):
         """ Position-Dependent (PD) Controller that is dependent on the x-axis coordinate position of the object to 
@@ -509,32 +506,32 @@ class ExpertPIDController(object):
 
         # Check if the object is near the center area (less than x-axis 0.03)
         if abs(self.init_obj_pose) <= 0.03:
-            print("CHECK 1: Object is near the center")
-            action = self.center_action(constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+            #print("CHECK 1: Object is near the center")
+            controller_action = self.center_action(constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
         else:
-            print("CHECK 3: Object is on extreme left OR right sides")
+            #print("CHECK 3: Object is on extreme left OR right sides")
             # Object on right hand side, move 2-fingered side
             # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
             if self.init_obj_pose > 0.0:
-                print("CHECK 4: Object is on RIGHT side")
-                action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+                #print("CHECK 4: Object is on RIGHT side")
+                controller_action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
 
             # object on left hand side, move 1-fingered side
             # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
-                print("CHECK 10: Object is on the LEFT side")
-                action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+                #print("CHECK 10: Object is on the LEFT side")
+                controller_action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
 
         self._count()
-        action = check_vel_in_range(action, min_velocity, max_velocity, finger_lift_velocity)
+        controller_action = check_vel_in_range(controller_action, min_velocity, max_velocity, finger_lift_velocity)
 
-        print("f1: ", action[1], " f2: ", action[2], " f3: ", action[3], " wrist: ", action[0])
+        #print("f1: ", controller_action[0], " f2: ", controller_action[1], " f3: ", controller_action[2])
         self.f1_vels.append(f1)
         self.f2_vels.append(f2)
         self.f3_vels.append(f3)
-        self.wrist_vels.append(f3)
+        self.wrist_vels.append(wrist)
 
-        return action, self.f1_vels, self.f2_vels, self.f3_vels, self.wrist_vels
+        return controller_action, self.f1_vels, self.f2_vels, self.f3_vels, self.wrist_vels
 
 
 def check_vel_in_range(action, min_velocity, max_velocity, finger_lift_velocity):
@@ -556,7 +553,7 @@ def GenerateTestPID_JointVel(obs, env):
     return action
 
 
-def check_grasp(f_dist_old, f_dist_new):
+def check_pid_grasp(f_dist_old, f_dist_new):
     """
     Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
     the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
@@ -566,7 +563,7 @@ def check_grasp(f_dist_old, f_dist_new):
 
     # Initial check to see if previous state has been set
     if f_dist_old is None:
-        return [0,0]
+        return 0
     sampling_time = 15
 
     # Change in finger 1 distal x-coordinate position
@@ -597,43 +594,66 @@ def NaiveController(lift_check, velocities):
     """ Move fingers at a constant speed, return action """
 
     # By default, close all fingers at a constant speed
-    action = np.array([0, velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
+    action = np.array([velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
 
     # If ready to lift, set fingers to constant lifting velocities
     if lift_check is True:
-        action = np.array([velocities["wrist_lift_velocity"], velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
+        action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
                            velocities["finger_lift_velocity"]])
 
     return action
 
+def BellShapedController(lift_check, velocities, timestep):
+    """ Move fingers at a constant speed, return action """
 
-def get_action(obs, lift_check, controller, env, pid_mode="combined"):
+    bell_curve_velocities = [0.202, 0.27864, 0.35046, 0.41696, 0.47814, 0.534, 0.58454, 0.62976, 0.66966, 0.70424, 0.7335, 0.75744, 0.77606, 0.78936, 0.79734, 0.8, 0.79734, 0.78936, 0.77606, 0.75744, 0.7335, 0.70424, 0.66966, 0.62976, 0.58454, 0.534, 0.47814, 0.41696, 0.35046, 0.27864, 0.2015]
+
+    # Determine the finger velocities by increasing and decreasing the values with a constant acceleration
+    finger_velocity = bell_curve_velocities[timestep]
+
+    # By default, close all fingers at a constant speed
+    action = np.array([finger_velocity, finger_velocity, finger_velocity])
+
+    # If ready to lift, set fingers to constant lifting velocities
+    if lift_check is True:
+        action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
+                           velocities["finger_lift_velocity"]])
+
+    #print("TS: {} action: {}".format(timestep, action))
+
+    return action
+
+
+def get_action(obs, lift_check, controller, env, pid_mode="combined",timestep=None):
     """ Get action based on controller (Naive, position-dependent, combined interpolation)
         obs: Current state observation
         controller: Initialized expert PID controller
         env: Current Mujoco environment needed for expert PID controller
         return action: np.array([wrist, f1, f2, f3]) (velocities in rad/sec)
     """
-    velocities = {"constant_velocity": 0.5, "min_velocity": 0.5, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
+    velocities = {"constant_velocity": 0.5, "min_velocity": 0.3, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
     object_x_coord = obs[21]  # Object x coordinate position
 
     # By default, action is set to close fingers at a constant velocity
-    action = np.array([0, velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
+    controller_action = np.array([velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
 
     # NAIVE CONTROLLER: Close all fingers at a constant speed
     if pid_mode == "naive":
-        action = NaiveController(lift_check, velocities)
+        controller_action = NaiveController(lift_check, velocities)
 
     # POSITION-DEPENDENT CONTROLLER: Only move fingers based on object x-coord position within hand
     elif pid_mode == "position-dependent":
-        action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+        controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+
+    elif pid_mode == "bell-shaped":
+        controller_action = BellShapedController(lift_check, velocities, timestep)
 
     # COMBINED CONTROLLER: Interpolate Naive and Position-Dependent controller output based on object x-coord position within hand
     else:
         # If object x position is on outer edges, do expert pid
         if object_x_coord < -0.04 or object_x_coord > 0.04:
             # Expert Nudge controller strategy
-            action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
 
         # Object x position within the side-middle ranges, interpolate expert/naive velocity output
         elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
@@ -643,32 +663,19 @@ def get_action(obs, lift_check, controller, env, pid_mode="combined"):
             # Naive controller action (fingers move at constant velocity)
             naive_action = NaiveController(lift_check, velocities)
 
-            # Only start to lift if we've had some RL time steps (multiple actions) to adjust hand
-            # Naive controller lift check determines whether we lift or not
-            if naive_action[0] == 0 and lift_check is True:
-                wrist_vel = 0
-            else:
-                wrist_vel = velocities["wrist_lift_velocity"] #naive_action[0] + expert_action[0] / 2
-
             # Interpolate finger velocity values between position-dependent and Naive action output
-            finger_vels = np.interp(np.arange(1, 4), naive_action[1:3], expert_action[1:3])
+            finger_vels = np.interp(np.arange(0, 3), naive_action, expert_action)
 
-            action = np.array([wrist_vel, finger_vels[0], finger_vels[1], finger_vels[2]])
+            controller_action = np.array([finger_vels[0], finger_vels[1], finger_vels[2]])
 
         # Object x position is within center area, so use naive controller
         else:
             # Naive controller action (fingers move at constant velocity)
-            action = NaiveController(lift_check, velocities)
-
-    # From the controllers we get the iniividual finger velocities, then lift with the same wrist velocity
-    if lift_check is True:
-        action[0] = velocities["wrist_lift_velocity"]
-    else:
-        action[0] = 0
+            controller_action = NaiveController(lift_check, velocities)
 
     #print("**** action: ",action)
 
-    return action
+    return controller_action
 
 
 def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info):
@@ -687,7 +694,7 @@ def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_re
     return action_str
 
 
-def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, with_grasp, replay_buffer=None, save=True, render_imgs=False, pid_mode="combined"):
+def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientation, all_saving_dirs, replay_buffer=None, with_grasp=False, with_noise=False, save=True, render_imgs=False, pid_mode="combined"):
     """ Generate expert data based on Expert PID and Naive PID controller action output.
     episode_num: Number of episodes to generate expert data for
     replay_buffer: Replay buffer to be passed in (set to None for testing purposes)
@@ -708,6 +715,9 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     fail_timesteps = np.array([])  # Failed episode timesteps count distribution
     datestr = datetime.datetime.now().strftime("%m_%d_%y_%H%M") # used for file name saving
 
+    # Wrist lifting velocity
+    wrist_lift_action = 0.6 # radians/sec
+
     print("----Generating {} expert episodes----".format(episode_num))
     print("Using PID MODE: ", pid_mode)
 
@@ -717,7 +727,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
         # Fill training object list using latin square
         if env.check_obj_file_empty("objects.csv") or episode_num is 0:
             env.Generate_Latin_Square(episode_num, "objects.csv", shape_keys=requested_shapes)
-        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation), False
+        obs, done = env.reset(shape_keys=requested_shapes,hand_orientation=requested_orientation, with_noise=with_noise), False
 
         # Record initial coordinate file path once shapes are generated
         coord_filepath = env.get_coords_filename()
@@ -756,8 +766,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             lift_check = False  # Check whether we have had enough good grasps and meet lifting requirements
 
             # Check if ready to lift based on distal finger tip change in movement
-            naive_ret = check_grasp(f_dist_old, f_dist_new)
-            grasp_check = bool(naive_ret[0])  # (1) True if within distal finger movement is <= threshold (ready for lifting)
+            grasp_check = check_pid_grasp(f_dist_old, f_dist_new)
+            # (1) True if within distal finger movement is <= threshold (ready for lifting)
             if grasp_check is True:
                 num_good_grasps += 1  # Increment the number of consecutive good grasps
 
@@ -767,15 +777,20 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             ### END OF READY FOR LIFTING CHECK ###
 
             # Get action based on the selected controller (Naive, position-dependent, combined Interpolation
-            action = get_action(obs, lift_check, controller, env, pid_mode)
+            controller_action = get_action(obs, lift_check, controller, env, pid_mode)
+
+            # From the controllers we get the iniividual finger velocities, then lift with the same wrist velocity
+            if lift_check is True:
+                wrist_action = np.array([wrist_lift_action])
+                action = np.concatenate((wrist_action, controller_action))
+            else:
+                # No movement in the wrist if we are not ready for lifting (0 rad/sec)
+                wrist_action = np.array([0])
+                action = np.concatenate((wrist_action, controller_action))
 
             # Take action (Reinforcement Learning step)
             env.set_with_grasp_reward(with_grasp)
             next_obs, reward, done, info = env.step(action)
-
-            # NAIVE RET SHOULD BE SET BASED ON MOST UP TO DATE F_DIST_OLD and F_DIST_NEW
-            # Check whether we are ready to lift for action string
-            #[naive_ret, _] = check_grasp(f_dist_old, f_dist_new)
 
             # Set the info to be displayed in episode rendering based on current hand/object status
             action_str = set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info)
@@ -783,15 +798,16 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             # Render image from current episode
             if render_imgs is True:
                 if total_steps % 1 == 0:
-                    env.render_img(dir_name=pid_mode + "_" + datestr, text_overlay=action_str, episode_num=i,
+                    env.render_img(saving_dir=all_saving_dirs["output_dir"], text_overlay=action_str, episode_num=i,
                                    timestep_num=total_steps,
-                                   obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]))
+                                   obj_coords=obj_local_pos)
                 else:
                     env._viewer = None
 
             # Add experience to replay buffer
             if replay_buffer is not None and not lift_check:
-                replay_buffer.add(obs[0:82], action, next_obs[0:82], reward, float(done))
+                # Only recording the controller's actions (finger velocities) within the replay buffer
+                replay_buffer.add(obs[0:82], controller_action, next_obs[0:82], reward, float(done))
 
             if lift_check and done:
                 replay_buffer.replace(reward, done)
@@ -820,8 +836,8 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
             action_str = set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info)
 
             if total_steps % 1 == 0:
-                image = env.render_img(dir_name=pid_mode+"_"+datestr,text_overlay=action_str, episode_num=i, timestep_num=total_steps,
-                               obj_coords=str(obj_local_pos[0]) + "_" + str(obj_local_pos[1]), final_episode_type=lift_success)
+                image = env.render_img(saving_dir=all_saving_dirs["output_dir"],text_overlay=action_str, episode_num=i, timestep_num=total_steps,
+                               obj_coords=obj_local_pos, final_episode_type=success)
 
         # Add heatmap coordinates
         orientation = env.get_orientation()
@@ -859,27 +875,18 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     # Save coordinates
     # Directory for x,y coordinate heatmap data
     # STEPH TEST NO NOISE
-    expert_saving_dir = "expert_replay_data_NO_NOISE/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
-    #expert_saving_dir = "./expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
-    expert_output_saving_dir = expert_saving_dir + "/output"
-    expert_replay_saving_dir = expert_saving_dir + "/replay_buffer"
-    expert_save_path = Path(expert_saving_dir)
-    expert_save_path.mkdir(parents=True, exist_ok=True)
-
-    heatmap_saving_dir = expert_output_saving_dir + "/heatmap/expert"
-    heatmap_save_path = Path(heatmap_saving_dir)
-    heatmap_save_path.mkdir(parents=True, exist_ok=True)
+    expert_saving_dir = all_saving_dirs["saving_dir"] #"expert_replay_data/"+grasp_str+"/"+str(pid_mode)+"/"+str(shapes_str) +"/"+ str(requested_orientation)
+    expert_output_saving_dir = all_saving_dirs["output_dir"] #expert_saving_dir + "/output"
+    expert_replay_saving_dir = all_saving_dirs["replay_buffer"] #expert_saving_dir + "/replay_buffer"
+    heatmap_saving_dir = all_saving_dirs["heatmap_dir"] #expert_output_saving_dir + "/heatmap/expert"
 
     print("\n--------- Saving Directories --------------")
     print("Main saving directory: ", expert_saving_dir)
     print("Output (data, plots) saved to: ", expert_output_saving_dir)
-    print("Heatmap data saved to: ", expert_saving_dir)
+    print("Heatmap data saved to: ", heatmap_saving_dir)
 
     # Filter heatmap coords by success/fail, orientation type, and save to appropriate place
     filter_heatmap_coords(success_coords, fail_coords, None, heatmap_saving_dir)
-
-    #print("Plotting timestep distribution...")
-    #plot_timestep_distribution(success_timesteps, fail_timesteps, all_timesteps, expert_saving_dir)
 
     if save and replay_buffer is not None:
         print("\nSaving replay buffer...")
@@ -938,7 +945,7 @@ if __name__ ==  "__main__":
     pid_mode = "naive"
     replay_size = 10
     with_grasp = False
-    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=4, max_episode=replay_size)
+    expert_replay_buffer = utils.ReplayBuffer_Queue(state_dim=82, action_dim=3, max_episode=replay_size)
     replay_buffer, save_filepath, expert_saving_dir, text, num_success, total = GenerateExpertPID_JointVel(episode_num=10, requested_shapes=["CubeS"], requested_orientation="normal", with_grasp=with_grasp, replay_buffer=expert_replay_buffer, save=False, render_imgs=True, pid_mode=pid_mode)
 
     #print (replay_buffer, save_filepath)

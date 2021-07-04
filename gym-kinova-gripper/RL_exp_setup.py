@@ -100,8 +100,8 @@ class RLExpSetup:
 if __name__ == '__main__':
 
     # f_name = "/Users/asar/Desktop/Grimm's Lab/Grasping/Codes/KinovaGrasping/gym-kinova-gripper/train_trial.txt"
-    f_name_train = "gym-kinova-gripper/cor_train_trial_new.txt"
-    f_name_test = "gym-kinova-gripper/cor_test_trial_new.txt"
+    f_name_train = "cor_train_trial_new.txt"
+    f_name_test = "cor_test_trial_new.txt"
 
     train = RLExpSetup(f_name_train)
     test = RLExpSetup(f_name_test)
