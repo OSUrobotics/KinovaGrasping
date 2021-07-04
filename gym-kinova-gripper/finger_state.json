@@ -1,0 +1,7 @@
+{
+  "StateGroup_FingerObjDist":{
+      "F1": {"Distance_Prox1":[0,2],"Distance_Prox2":[0,2],"Distance_Dist1":[0,2],"Distance_Dist2":[0,2]},
+      "F2": {"Distance_Prox1":[0,2],"Distance_Prox2":[0,2],"Distance_Dist1":[0,2],"Distance_Dist2":[0,2]},
+      "F3": {"Distance_Prox1":[0,2],"Distance_Prox2":[0,2],"Distance_Dist1":[0,2],"Distance_Dist2":[0,2]}
+      }
+}

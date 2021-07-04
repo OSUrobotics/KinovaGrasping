@@ -1,8 +1,15 @@
 {
-    "F1":0,
-    "F2":0,
-    "F3":0,
-    "Xslide":0,
-    "Yslide":0,
-    "Zslide":0
+    "Action":{
+        "Xslide":[0,100],
+        "Yslide":[0,100],
+        "Zslide":[0,100],
+        "F1":[0,1],
+        "F2":[0,1],
+        "F3":[0,1]
+    },
+    "Parameters":{
+        "Timestep_len":0.002,
+        "Timestep_num":15,
+        "Speed_Range":[0,1]
+        }
 }

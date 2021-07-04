@@ -64,7 +64,8 @@ class KinovaGripper_Env(gym.Env):
 
         ########## ENVIRONMENT CLASS: VARIABLES ###########
         ## MUJOCO SIMULATOR - ENVIRONMENT
-        self._model, self.obj_size, self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_shg.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+#        self._model, self.obj_size, self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+        self._model, self.obj_size, self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"), 'm', "/kinova_description/j2s7s300_end_effector_v1_mRoundBowl.xml"
         self._sim = MjSim(self._model)  # The simulator. This holds all the information about object locations and orientations
         self._viewer = None  # The render window
         self.contacts = self._sim.data.ncon  # The number of contacts in the simulation environment
@@ -124,7 +125,7 @@ class KinovaGripper_Env(gym.Env):
         self.obj_coords = [0,0,0] # Object center x,y,z coordinates
         self.objects = {} # Current set of objects requested (out of all objects)
         self.obj_keys = list() # List of keys (to the all_objects dictionary) for the current set of objects
-        self.random_shape = 'CubeS' # Shape data for determining correct expert data to retrieve for sampling
+        self.random_shape = 'CubeM' # Shape data for determining correct expert data to retrieve for sampling
         self.orientation_idx = 0 # Default index for orientation data files (coords and noise) based on hand pose
         self.obj_coord_region = None # Region to sample initial object coordinates from within the hand (left, center, right, target, origin)
         self.all_objects = {} # Dictionary containing all possible objects and their xml files
@@ -398,6 +399,7 @@ class KinovaGripper_Env(gym.Env):
         orientation = self.select_orienation(random_shape, hand_orientation)
         self.set_orientation(orientation)
 
+        self._set_state([0, 0, 0, 0, 0, 0, 0, 0, 0])
         # Determine location of x, y, z joint locations and proximal finger locations of the hand
         xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
 
@@ -435,15 +437,18 @@ class KinovaGripper_Env(gym.Env):
             self.Grasp_Reward=False
             self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
             self.all_states = [self.all_states_1 , self.all_states_2]
-
+            print('xy and z loc',xloc,yloc,zloc)
             self._set_state(self.all_states[0])
         else:
             self.set_sim_state(qpos,start_pos)
             obj_x, obj_y, obj_z = start_pos[0], start_pos[1], start_pos[2]
 
         states = self._get_obs()
+        print('wrist pose',self.wrist_pose)
         obj_pose=self._get_obj_pose()
         deltas=[obj_x-obj_pose[0],obj_y-obj_pose[1],obj_z-obj_pose[2]]
+
+        
 
         if np.linalg.norm(deltas)>0.05:
             self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x+deltas[0], obj_y+deltas[1], obj_z+deltas[2]])
@@ -593,17 +598,26 @@ class KinovaGripper_Env(gym.Env):
 
     ## STATE
     def _get_trans_mat_wrist_pose(self):  #WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
+        center_pose = self._sim.data.get_site_xpos('palm')
+        xpos = self._sim.data.get_site_xpos('palm_3')
+        zpos = self._sim.data.get_site_xpos('palm_1')
+        xvec = xpos-center_pose
+        zvec = zpos-center_pose
+        yvec = np.cross(zvec, xvec)
+        xvec = xvec/np.linalg.norm(xvec)
+        yvec = yvec/np.linalg.norm(yvec)
+        zvec = zvec/np.linalg.norm(zvec)
+        rotation_matrix = np.array([xvec,yvec,zvec])
+        #print("rotation matrix from cindy's method", rotation_matrix)
         self.wrist_pose=np.copy(self._sim.data.get_geom_xpos('palm'))
         Rfa=np.copy(self._sim.data.get_geom_xmat('palm'))
         temp=np.matmul(Rfa,np.array([[0,0,1],[-1,0,0],[0,-1,0]]))
         temp=np.transpose(temp)
-        Tfa=np.zeros([4,4])
-        Tfa[0:3,0:3]=temp
-        Tfa[3,3]=1
         Tfw=np.zeros([4,4])
-        Tfw[0:3,0:3]=temp
+        Tfw[0:3,0:3]=rotation_matrix
         Tfw[3,3]=1
-        self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+        #self.wrist_pose=self.wrist_pose+np.matmul(np.transpose(Tfw[0:3,0:3]),[-0.009,0.048,0.0])
+        self.wrist_pose=self.wrist_pose+np.matmul(Tfw[0:3,0:3],[-0.0062,0.048,0.0])
         Tfw[0:3,3]=np.matmul(-(Tfw[0:3,0:3]),np.transpose(self.wrist_pose))
         self.Tfw=Tfw
         self.Twf=np.linalg.inv(Tfw)
@@ -757,7 +771,7 @@ class KinovaGripper_Env(gym.Env):
         (17,) Rangefinder data                                  50-66
         (3,) Gravity vector in local coordinates                67-69
         (3,) Object location based on rangefinder data          70-72
-        (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
+        (1,) Ratio of the area of the side of the shape to the openportion of the side of the hand    73
         (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
         (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
         (1, ) Dot product (wrist) 81
@@ -775,6 +789,7 @@ class KinovaGripper_Env(gym.Env):
         (2,) X and Z angle                                      48-49
         (17,) Rangefinder data                                  50-66
         '''
+        #print(self._sim.data.get_geom_xpos('palm'))
         #print(self._model)
         if state_rep == None:
             state_rep = self.state_rep
@@ -1505,8 +1520,8 @@ class KinovaGripper_Env(gym.Env):
         returns hand orientation (Normal (0 deg), Rotated (45 deg), Top (90 deg))
         """
         # Orientation is initialized as Normal
-        orientation = 'normal'
-        orientation_type = 0.330
+        orientation = 'random'
+        orientation_type = 0.5
 
         # Alter the hand orientation type if special shapes are being used (which only work with certain orientations)
         # If the shape is RBowl, only do rotated and top orientations
@@ -1586,23 +1601,29 @@ class KinovaGripper_Env(gym.Env):
             # All other xml simulation files
             if self.orientation == 'normal':
                 new_rotation=np.array([-1.57,0,-1.57]) # Normal
+                new_rotation = new_rotation + (np.random.rand(3)-1)*0.5
             # Top orientation
             elif self.orientation == 'top':
                 new_rotation=np.array([0,0,0]) # Top
+                new_rotation = new_rotation + (np.random.rand(3)-1)*0.5
             else:
                 new_rotation=np.array([-1.2,0,0]) # Rotated
+                new_rotation = new_rotation + (np.random.rand(3)-1)*0.5
 
         # Hand orientation values, for reference:
         # -1.57,0,-1.57 is side normal
         # -1.57, 0, 0 is side tilted
         # 0,0,-1.57 is top down
-
+        print('the new rotation is',new_rotation)
         # Writes the new hand orientation to the xml file to be simulated in the environment
         self.write_xml(new_rotation)
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename
 
     def determine_hand_location(self):
+        self._get_trans_mat_wrist_pose()
+        print('at start, tfw is', self.Tfw, self.orientation)
+        self.orientation = 'rotated'
         """ Determine location of x, y, z joint locations and proximal finger locations of the hand """
         if self.orientation == 'normal':
             xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0
@@ -1617,13 +1638,14 @@ class KinovaGripper_Env(gym.Env):
                 Z=0.13
             stuff=np.matmul(self.Tfw[0:3,0:3],[-0.005,-0.155,Z+0.06])
             #stuff=np.matmul(self.Tfw[0:3,0:3],[0,-0.15,0.1+size[-1]*1.8])
+            # in theory, this should be the results [0.00089011 0.16768412 0.18978861]
             xloc,yloc,zloc,f1prox,f2prox,f3prox=-stuff[0],-stuff[1],stuff[2],0,0,0
         else:
             temp=np.matmul(self.Tfw[0:3,0:3],np.array([0.051,-0.075,0.06]))
-            #print('temp',temp)
+            print('in determine hand location, this is what gets set to xloc yloc and zloc',temp)
             xloc,yloc,zloc,f1prox,f2prox,f3prox=-temp[0],-temp[1],temp[2],0,0,0
 
-        return xloc,yloc,zloc,f1prox,f2prox,f3prox
+        return xloc,yloc,zloc,f1prox,f2prox,f3prox #, [-0.005,-0.155,Z+0.06]
 
 class GraspValid_net(nn.Module):
     def __init__(self, state_dim):

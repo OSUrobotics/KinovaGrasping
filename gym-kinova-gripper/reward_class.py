@@ -7,65 +7,71 @@ Created on Wed May 12 10:56:40 2021
 """
 import pickle
 import numpy as np
+import os
 import sys
-sys.path.insert(0, '/home/orochi/redownload/KinovaGrasping/steph branch')
+import json
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core_classes.stats_tracker_base import *
-
+import state_space
+from collections import OrderedDict
 
 class Reward():
 
     _sim = None
 
-    def __init__(self, lift_scale=50, grasp_scale=0.0, finger_scale=0.0):
-        """ scaleing ratio of each term determines its relative importance
-        @param lift_scale - single number
-        @param grasp_scale - single number
-        @param finger_scale - single number"""
-        self.Grasp_net = pickle.load(open(self.file_dir +'/kinova_description/gc_model.pkl', "rb"))
-        self.Grasp_reward = False
+    def __init__(self,json_path='reward.json'):
+        """ """
+        with open(json_path) as f:
+            json_data = json.load(f)
+        reward_params = json_data['Parameters']
+        self.reward_weights = json_data['Reward']
+        
+        self.reward = {}
+        
+        for i in self.reward_weights.keys():
+            self.reward[i] = 0
+            if i == 'finger':
+                self.finger_state = state_space.StateSpace(reward_params['Finger_State'])
+            elif i == 'grasp':
+                self.grasp_net = pickle.load(open(reward_params['Grasp_Classifier'], "rb"))
+                self.grasp_reward = False
+                self.grasp_state = state_space.StateSpace(reward_params['Grasp_State'])
+            elif i == 'lift':
+                self.heights = StatsTrackerBase(-0.005,0.3)
 
-        self.heights = StatsTrackerBase(-0.005,0.3)
+    def get_reward(self):
+        reward = 0
+        for i in self.reward.keys():
+            self.reward[i] = eval('self.get_' + i + '_reward()') * self.reward_weights[i]
+            reward += self.reward[i]
+        return reward, self.reward
 
-        self.finger_scale = finger_scale
-        self.grasp_scale = grasp_scale
-        self.lift_scale = lift_scale
-
-    def get_reward(self, state):
-        obj_pose = Reward._sim.data.get_geom_xpos('object')
-        self.heights.set_value(obj_pose[-1])
-        finger_joints = ["f1_prox", "f1_prox_1", "f2_prox", "f2_prox_1",
-                         "f3_prox", "f3_prox_1", "f1_dist", "f1_dist_1",
-                         "f2_dist", "f2_dist_1", "f3_dist", "f3_dist_1"]
-
-        # Finger reward 
-        finger_obj_dists = []
-        for i in finger_joints:
-            pos = self._sim.data.get_site_xpos(i)
-            dist = np.absolute(pos[0:3] - obj_pose[0:3])
-            temp = np.linalg.norm(dist)
-            finger_obj_dists.append(temp)
-
+#class FingerReward(Reward):
+    def get_finger_reward(self):
+        self.finger_state.update()
+        finger_obj_dists = self.finger_state.get_full_arr()
         finger_reward = -np.sum((np.array(finger_obj_dists[:6])) + (np.array(finger_obj_dists[6:])))
+        return finger_reward
 
+    def get_lift_reward(self):
+        obj_pose = Reward._sim.data.get_geom_xpos("object")
+        self.heights.set_value(obj_pose[-1])
+        # Lift reward
+        lift_reward = (self.heights.value - self.heights.min_found)/0.2
+        return lift_reward
+        
+    def get_grasp_reward(self):
         # Grasp reward
-        grasp_quality = self.Grasp_net.predict(np.array(state[0:75]).reshape(1,-1))
-        if (grasp_quality >= 0.3) & (not self.Grasp_Reward):
-            grasp_reward = self.grasp_scale
-            self.Grasp_Reward = True
+        # this feeds the state into the grasp quality predictor
+        self.grasp_state.update()
+        state = self.grasp_state.get_full_arr()
+        grasp_quality = self.grasp_net.predict(np.array(state[0:75]).reshape(1,-1))
+        if (grasp_quality >= 0.3) & (not self.grasp_reward):
+            grasp_reward = 1
+            self.grasp_reward = True
         else:
             grasp_reward = 0.0
-
-        # Lift reward
-        lift_reward = (self.heights.value - self.heights.min_found)/0.2*self.lift_scale
-
-        finger_reward = 0
-        reward = finger_reward + lift_reward + grasp_reward
-
-        info = {"finger_reward": finger_reward, "grasp_reward": grasp_reward,
-                "lift_reward": lift_reward}
-
-        return reward, info
-
+        return grasp_reward
 
 if __name__ == "__main__":
     r = Reward()

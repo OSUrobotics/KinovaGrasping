@@ -8,10 +8,10 @@ Created on Mon Apr  5 14:57:24 2021
 import time
 import numpy as np
 import re
-import sys
-import os
 from pathlib import Path
-sys.path.insert(0, '/home/orochi/redownload/KinovaGrasping/steph branch')
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core_classes.stats_tracker_base import *
 from collections import OrderedDict
 
@@ -21,14 +21,16 @@ class StateMetric:
 
     def __init__(self, data_structure):
         flag = True
+        print('intializing with data strucure:',data_structure)
         try:
             self.data = StatsTrackerArray(data_structure[0], data_structure[1])
+            print('stats tracker array initialized with min and max',self.data.allowable_min,self.data.allowable_max)
         except TypeError:
             self.data = StatsTrackerBase(data_structure[0], data_structure[1])
-
+            print('stats tracker base initialized with min and max',self.data.allowable_min,self.data.allowable_max)
         except KeyError:
             self.data = []
-
+            
     def get_value(self):
         return self.data.value
 
@@ -186,19 +188,32 @@ class Distance(StateMetric):
             self.data.set_value(dists[0])
 
         elif 'Size' in keys:
-            TODO fix this so that it works by using the old method
+            #TODO fix this so that it works by using the old method
             geom_sizes = np.array(StateMetric._sim.model.geom_size)
-            num_of_geoms = np.shape(geom_sizes)
+            num_of_geoms = len(geom_sizes)
             geom_poses = np.array(StateMetric._sim.data.geom_xpos)
+            geom_rotation = np.array(StateMetric._sim.data.geom_xmat)
+
+            #print("geom rotations",geom_rotation)
             geom_sizes = geom_sizes[8:]
             geom_poses = geom_poses[8:]
-            temp = np.copy(geom_sizes[1:, 0])
-            geom_sizes[1:, 0] = np.copy(geom_sizes[1:, 2])
-            geom_sizes[1:, 2] = temp
+            geom_rotations = geom_rotation[8:]
+            geom_rotations = np.reshape(geom_rotations,[num_of_geoms-8,3,3])
+            #print("geom_sizes before rotation",geom_sizes)
+            #print("geom poses",geom_poses)
+#            temp = np.copy(geom_sizes[1:, 0])
+#            geom_sizes[1:, 0] = np.copy(geom_sizes[1:, 2])
+#            geom_sizes[1:, 2] = temp
+            for i in range(num_of_geoms-8):
+                temp=geom_rotations[i]
+                geom_sizes[i] = abs(np.matmul(temp,geom_sizes[i]))
+            #print("geom_sizes after rotation",geom_sizes)
             maxes = geom_poses + geom_sizes
             mins = geom_poses - geom_sizes
+            #print('maxes and mins',maxes,mins)
             maxlist = np.max(maxes, axis=0)
             minlist = np.min(mins, axis=0)
+            #print('calculated object size',maxlist - minlist)
             self.data.set_value(maxlist - minlist)
         return self.data.value
 

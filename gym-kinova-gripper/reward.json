@@ -1,0 +1,12 @@
+{
+    "Reward":{
+        "lift":50,
+        "grasp":5,
+        "finger":1
+        },
+    "Parameters":{
+        "Grasp_Classifier":"./gym_kinova_gripper/envs/kinova_description/gc_model.pkl",
+        "Grasp_State":"state.json",
+        "Finger_State":"finger_state.json"
+    }
+}

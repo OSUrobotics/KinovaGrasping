@@ -14,7 +14,9 @@ import matplotlib.pyplot as plt
 import csv
 import time
 from state_space import *
-from action_class import Action
+from reward_class import *
+from action_class import *
+#from action_class import Action
 env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
 #print('action space',env.action_space.low, env.action_space.high)
 #env.reset()
@@ -24,9 +26,9 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm"
 action = np.array([0.0, 0.0, 0.0, 0.1, 0.0, 0.0])
 t = 0
 
-
 test=StateSpace()
 test2=Action()
+reward_test = Reward()
 '''
 size=[0.0175,0.02125,0.025]
 xs=np.zeros([300,3])
@@ -78,9 +80,10 @@ for f in range(3):
     for k in range(10):
         start=time.time()
         thing=np.append([0,0,0],act)
-        env.reset(hand_orientation="random",shape_keys=['HourS'],obj_params=['Hour','S'],start_pos=[0,0,0])
+        env.reset(hand_orientation="random",shape_keys=['BowlS'],obj_params=['Bowl','S'],start_pos=[0,0])
         StateSpace._sim=env.get_sim()
         StateMetric._sim=env.get_sim()
+        Reward._sim=env.get_sim()
         x_move = np.random.rand()/10
         y_move = np.random.rand()/10
         action=np.array(thing)
@@ -98,8 +101,11 @@ for f in range(3):
                 temp=np.array([action[0],action[1],action[2],1])
                 action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
             obs, reward, done, _ = env.step(action)
-            #test.update()
-            #obs2=test.get_full_arr()
+            test.update()
+            obs2=test.get_full_arr()
+            reward2, info = reward_test.get_reward()
+            print('from new class',reward2, info)
+            print('from old class',reward)
             #print('new class obs',len(obs2),obs2)
             env.render()
             network_feed=obs[21:24]
