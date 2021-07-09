@@ -16,6 +16,7 @@ import time
 from state_space import *
 from reward_class import *
 from action_class import *
+from controller import *
 #from action_class import Action
 env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
 #print('action space',env.action_space.low, env.action_space.high)
@@ -29,6 +30,7 @@ t = 0
 test=StateSpace()
 test2=Action()
 reward_test = Reward()
+
 '''
 size=[0.0175,0.02125,0.025]
 xs=np.zeros([300,3])
@@ -80,9 +82,10 @@ for f in range(3):
     for k in range(10):
         start=time.time()
         thing=np.append([0,0,0],act)
-        env.reset(hand_orientation="random",shape_keys=['BowlS'],obj_params=['Bowl','S'],start_pos=[0,0])
+        env.reset(env_name='s')
         StateSpace._sim=env.get_sim()
         StateMetric._sim=env.get_sim()
+        controller = Controller('position-dependent',env.action_space)
         Reward._sim=env.get_sim()
         x_move = np.random.rand()/10
         y_move = np.random.rand()/10
@@ -92,7 +95,7 @@ for f in range(3):
             #print(State_Space._sim)
             #print(env.env._sim)
             #input('is this the sim?')
-            if i == 150:
+            if i == 50:
                 print('move in z')
                 action=np.array([0.15,0.05, 0.05, 0.05])
                 env.env.pid=True
@@ -102,10 +105,12 @@ for f in range(3):
                 action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
             obs, reward, done, _ = env.step(action)
             test.update()
+            control_thing = controller.select_action()
             obs2=test.get_full_arr()
             reward2, info = reward_test.get_reward()
-            print('from new class',reward2, info)
-            print('from old class',reward)
+            print('from controller', control_thing)
+            #print('from new class',reward2, info)
+            #print('from old class',reward)
             #print('new class obs',len(obs2),obs2)
             env.render()
             network_feed=obs[21:24]

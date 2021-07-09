@@ -41,7 +41,7 @@ from PIL import Image, ImageFont, ImageDraw # Used to save images from rendering
 import threading
 
 # Metadata generation
-from RLExpSetup import *
+from RL_exp_setup import *
 
 ## TO BE REMOVED (IMPORTS) -- REVIEW
 import matplotlib.pyplot as plt
@@ -62,7 +62,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 class KinovaGripper_Env(gym.Env):
     def __init__(self, frame_skip=15):
         self.file_dir = os.path.dirname(os.path.realpath(__file__))
-
+        print('file dir at initialization', self.file_dir +'/')
         ##### VARIABLES: SPLIT INTO MUJOCO, OPENAI GYM, STATE, ACTION, REWARD, ENVIRONMENT SETUP, CONTROLLER, GRASP CLASSIFIER
 
         ########## ENVIRONMENT CLASS: VARIABLES ###########
@@ -200,8 +200,11 @@ class KinovaGripper_Env(gym.Env):
 
     ## MUJOCO - ENVIRONMENT
     # GET/SET DATA; Send data to --> Simulator
-    def get_sim_state(self): #this gives you the whole damn qpos
+    def get_sim_state(self): #this gives you the whole qpos
         return np.copy(self._sim.data.qpos)
+
+    def get_sim(self):
+        return self._sim
 
     def set_sim_state(self,qpos,obj_state):#this just sets all the qpos of the simulation manually. Is it bad? Probably. Do I care at this point? Not really
         self._sim.data.set_joint_qpos("object", [obj_state[0], obj_state[1], obj_state[2], 1.0, 0.0, 0.0, 0.0])
@@ -265,8 +268,8 @@ class KinovaGripper_Env(gym.Env):
             self._viewer = MjViewer(self._sim)
             self._viewer._paused = setPause
         self._viewer.render()
-        if setPause:
-            self._viewer._paused=True
+#        if setPause:
+#            self._viewer._paused=True
 
     def render_img(self, episode_num, timestep_num, obj_coords, text_overlay, w=1000, h=1000, cam_name=None, mode='offscreen',saving_dir=None,final_episode_type=None):
         if self._viewer is None:
@@ -397,7 +400,7 @@ class KinovaGripper_Env(gym.Env):
         self.set_random_shape(random_shape)
 
         # Hand orientation (normal, roatated, top)
-        orientation = meta_data["Orn"]
+        orientation = meta_data["Orn"].lower()
         self.set_orientation(orientation)
 
         # Position of the object center (x,y,z)
@@ -408,7 +411,9 @@ class KinovaGripper_Env(gym.Env):
 
         # XML file used to produce the simulation - specific to each Object (shape/size)
         self.filename = meta_data["xml_file"]
-
+        self._model = load_model_from_path(self.file_dir + self.filename)
+        self._sim = MjSim(self._model)
+        self._sim.forward()
         # Originally used for getting the HOV dataset - only used for old 'determine hand coords' functions
         with_noise = meta_data["Noise"]
 
@@ -426,7 +431,6 @@ class KinovaGripper_Env(gym.Env):
 
         # Determine location of x, y, z joint locations and proximal finger locations of the hand
         xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
-
         # Determine the initial position of the wrist based on the orientation and shape/size
         new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, self.random_shape)
 
@@ -435,13 +439,11 @@ class KinovaGripper_Env(gym.Env):
 
         # Determine the new set of hand and object coordinates to be set as the new state
         self.new_state = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_coords[0], obj_coords[1], obj_coords[2]])
-
         # Set the Mujoco simulation state
         self._set_state(self.new_state)
 
         # Get the current state observed from the simulation
         states = self._get_obs()
-        print('wrist pose',self.wrist_pose)
         obj_pose=self._get_obj_pose()
         deltas=[obj_coords[0]-obj_pose[0],obj_coords[1]-obj_pose[1],obj_coords[2]-obj_pose[2]]
 
@@ -619,7 +621,6 @@ class KinovaGripper_Env(gym.Env):
         yvec = yvec / np.linalg.norm(yvec)
         zvec = zvec / np.linalg.norm(zvec)
         rotation_matrix = np.array([xvec, yvec, zvec])
-        # print("rotation matrix from cindy's method", rotation_matrix)
         self.wrist_pose = np.copy(self._sim.data.get_geom_xpos('palm'))
         Rfa = np.copy(self._sim.data.get_geom_xmat('palm'))
         temp = np.matmul(Rfa, np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]]))
@@ -1692,7 +1693,8 @@ class KinovaGripper_Env(gym.Env):
     def determine_hand_location(self):
         self._get_trans_mat_wrist_pose()
         print('at start, tfw is', self.Tfw, self.orientation)
-        self.orientation = 'rotated'
+        #self.orientation = 'rotated'
+        print(self.orientation)
         """ Determine location of x, y, z joint locations and proximal finger locations of the hand """
         if self.orientation == 'normal':
             xloc,yloc,zloc,f1prox,f2prox,f3prox=0,0,0,0,0,0

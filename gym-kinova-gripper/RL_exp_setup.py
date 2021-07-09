@@ -4,7 +4,7 @@ import os
 
 class RLExpSetup:
     xml_file = {"CubeS": "gym-kinova-gripper/gym_kinova_gripper/envs/kinova_description/j2s7s300_end_effector_v1.xml",
-                "CubeM": "gym-kinova-gripper/gym_kinova_gripper/envs/kinova_description/j2s7s300_end_effector_v1_mbox.xml",
+                "CubeM": "/kinova_description/j2s7s300_end_effector_v1_mbox.xml",
                 "CubeB": "gym-kinova-gripper/gym_kinova_gripper/envs/kinova_description/j2s7s300_end_effector_v1_bbox.xml",
                 "Cube45S": None,
                 "Cube45M": None,

@@ -41,7 +41,7 @@ class StateMetric:
         if name2 is None:
             if 'Obj' in keys:
                 name = 'object'
-            elif 'Wrist' in keys:
+            elif 'Palm' in keys:
                 name = 'palm'
         else:
             name = name.group().lower()
@@ -66,6 +66,8 @@ class StateMetric:
         local_to_world[0:3,3] = np.matmul(-(local_to_world[0:3, 0:3]), np.transpose(wrist_pose))
         return local_to_world
 
+    def update(self):
+        None
 
 class Angle(StateMetric):
     def update(self, key): # this function finds either the joint angles or the x and z angle,

@@ -38,7 +38,7 @@ class Action():
         # simulator starts.
         params = json_conts['Parameters']
         self.time = params['Timestep_len']  # length of a timestep in seconds
-        self.timesteps = params['Timestep_num']  # number of simulation 
+        self.timesteps = params['Timestep_num']  # number of simulation
         #                                          timesteps per step call
 
         # Set up the current and last speed values with max and min speeds and
