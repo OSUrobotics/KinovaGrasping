@@ -19,9 +19,11 @@ from geometry_base import GeometryBase
 from bounding_box import BoundingBox
 
 
-class CoordinateSystemBase:
-    # Assumption is that the coordinate system is based off of a piece of geometry's default location
-    #  as read in from the mesh
+class CoordinateSystem:
+    # Assumption is that the coordinate system is based off of the geometry's default location as read in from the mesh
+    #   Location: Where on the mesh
+    #   Orientation: Rotate the coordinate system
+    #   Scale: Default is to scale so the vectors are the same size as mesh
 
     # Some common types of coordinate systems
     coordinate_system_type = {"world":{"origin"},
@@ -31,6 +33,8 @@ class CoordinateSystemBase:
                               "arm":{"origin", "xmlOrURDF", "base", "endeffector"},
                               "signedDistanceFunction":{"origin", "center"},
                               "camera":{"origin", "xmlOrURDF", "at", "aruco"}}
+
+
     def __init__(self, in_type=("none", "none"), in_name="none",
                  in_translation=(0, 0, 0), in_rotation=eye(), in_scale=(1, 1, 1)):
         """ In the object mesh's coordinate system, scale, then rotate, then translate the x,y,z coordinate system
@@ -58,10 +62,10 @@ class CoordinateSystemBase:
 
     @staticmethod
     def check_type(in_type):
-        if in_type[0] not in CoordinateSystemBase.coordinate_system_type:
+        if in_type[0] not in CoordinateSystem.coordinate_system_type:
             raise KeyError("Could not find {0} coordinate system type".format(in_type[0]))
         else:
-            if in_type[1] not in CoordinateSystemBase.coordinate_system_type[in_type[0]]:
+            if in_type[1] not in CoordinateSystem.coordinate_system_type[in_type[0]]:
                 raise KeyError("Could not find {0} coordinate system sub type".format(in_type[1]))
 
         return True
@@ -85,7 +89,7 @@ class CoordinateSystemBase:
         pass
 
 
-class CoordinateSystemTransformBase:
+class CoordinateSystemTransform:
     # The following two are for setting a coordinate transform based on the geometry
     # Where the base of the coordinate system is
     base_location_type = {"current", "center", "bottom_middle", "lower_left"}
@@ -99,8 +103,8 @@ class CoordinateSystemTransformBase:
            @param from_coord_sys: one of coord_system_type
            @param to_coord_sys: one of coord_system_type
            @param xform: The actual matrix - to create a specific transform, use one of the create methods"""
-        CoordinateSystemBase.check_type(from_coord_sys)
-        CoordinateSystemBase.check_type(to_coord_sys)
+        CoordinateSystem.check_type(from_coord_sys)
+        CoordinateSystem.check_type(to_coord_sys)
 
         # The from and the to shouldn't change
         # use the set methods to set the xform for specific cases
@@ -139,7 +143,7 @@ class CoordinateSystemTransformBase:
 
         # TODO: should read the from from the geometry class
         #   will be object/hand, "origin", object/hand, "centered"
-        center_mesh = CoordinateSystemTransformBase("mesh", "centered")
+        center_mesh = CoordinateSystemTransform("mesh", "centered")
         center_mesh.bbox_from = BoundingBox.calc_mesh_bbox(obj_geom, orientation)
 
         mesh_center = center_mesh.bbox_from.get_bbox_center()
@@ -160,15 +164,15 @@ class CoordinateSystemTransformBase:
         @param scl_perc - optional parameter to set the overall scale size in x, y, z as a percentage
             if one number given, applys that to all dimensions
         @return The transform that takes the object from the centered position to the new one"""
-        if origin_location not in CoordinateSystemTransformBase.base_location_type:
+        if origin_location not in CoordinateSystemTransform.base_location_type:
             raise ValueError("Origin location should be one of base_location_type, got {0}".format(origin_location))
-        if scale_normalization not in CoordinateSystemTransformBase.scale_normalization_type:
+        if scale_normalization not in CoordinateSystemTransform.scale_normalization_type:
             raise ValueError("Scale normalization should be one of of scale normalization type, got {0}".format(scale_normalization))
 
         # TODO Check that the bounding box in the centering transform is actually centered
         # TODO Create the from and to based on type type from centering transform (hand/object)
         # TODO Create the matrix that scales the object and translates it, based on the inputs
-        center_mesh = CoordinateSystemTransformBase("TODO")
+        center_mesh = CoordinateSystemTransform("TODO")
         return center_mesh
 
     def transform(self, pt):
@@ -205,13 +209,13 @@ class CoordinateSystemTransformBase:
         raise NotImplementedError
         #return trans
 
-    def __matmul__(self, other: CoordinateSystemTransformBase):
+    def __matmul__(self, other: CoordinateSystemTransform):
         """ Matrix multiply AND check that previous and next match up
         @other Another coordinate system transform
         @return A coordinate system transform"""
         if self.to_coord_sys is not other.from_coord_sys:
             raise ValueError("To and from don't match {} {}".format(self, other))
-        combined_transform = CoordinateSystemTransformBase(self.from_coord_sys, other.to_coord_sys)
+        combined_transform = CoordinateSystemTransform(self.from_coord_sys, other.to_coord_sys)
         combined_transform.xform = self.xform @ other.xform
         return combined_transform
 
@@ -236,7 +240,7 @@ class CoordinateSystemTransformBase:
 
         return m, (source_coord_sys, prev.to_coord_sys)
 
-    def set_from_coordinate_sysetm(self, coord_sys: CoordinateSystemBase):
+    def set_from_coordinate_sysetm(self, coord_sys: CoordinateSystem):
         """ TODO Make (and store) the actual matrix
              Make sure from/to are set up correctly"""
         raise NotImplementedError
@@ -275,4 +279,4 @@ class CoordinateSystemTransformBase:
 
 if __name__ == "__main__":
 
-    my_sys = CoordinateSystemTransformBase(("world", "origin"))
+    my_sys = CoordinateSystemTransform(("world", "origin"))

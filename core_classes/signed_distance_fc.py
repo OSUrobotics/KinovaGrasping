@@ -4,7 +4,7 @@
 # Given a point in space, transform it into the SDF space and find the SDF and/or its gradient
 # SDF may be cached. The filename will depend on the object and the grid size (computed automatically)
 
-from coordinate_system import CoordinateSystemTransformBase, BoundingBox
+from coordinate_system import CoordinateSystemTransform, BoundingBox
 from geometry_base import GeometryBase
 
 class SignedDistanceFc:
@@ -18,7 +18,7 @@ class SignedDistanceFc:
         self.padding = 0.1                # percentage empty space around object
 
         # These are for transforming to/from the object
-        self.mesh_to_sdf = CoordinateSystemTransformBase("mesh", "signed_distance_function")
+        self.mesh_to_sdf = CoordinateSystemTransform("mesh", "signed_distance_function")
 
     def __str__(self):
         """ Print out stats about self"""

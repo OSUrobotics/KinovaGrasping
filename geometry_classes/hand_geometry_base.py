@@ -12,7 +12,7 @@
 #   A transform to scale it/place it at the end of the end effector
 
 from geometry_base import GeometryBase
-from coordinate_system import CoordinateSystemBase, CoordinateSystemTransformBase
+from coordinate_system import CoordinateSystem, CoordinateSystemTransform
 
 
 class HandGeometry(GeometryBase):
@@ -28,11 +28,11 @@ class HandGeometry(GeometryBase):
         # Will be either vertices that are read in or a pointer to the mesh object in the simulator
         self.mesh = None
         self.preshape = "cylindrical"
-        self.handspan_coords = CoordinateSystemBase(("hand", "handspan"))
-        self.wrist_coords = CoordinateSystemBase(("hand", "wrist"))
-        self.mesh_to_wrist = CoordinateSystemTransformBase(("hand", "origin"), ("hand", "wrist"))
-        self.mesh_to_handspan = CoordinateSystemTransformBase(("hand", "origin"), ("hand", "handspan"))
-        self.mesh_to_xml_urdf = CoordinateSystemTransformBase(("hand", "origin"), ("hand", "xmlOrURDF"))
+        self.handspan_coords = CoordinateSystem(("hand", "handspan"))
+        self.wrist_coords = CoordinateSystem(("hand", "wrist"))
+        self.mesh_to_wrist = CoordinateSystemTransform(("hand", "origin"), ("hand", "wrist"))
+        self.mesh_to_handspan = CoordinateSystemTransform(("hand", "origin"), ("hand", "handspan"))
+        self.mesh_to_xml_urdf = CoordinateSystemTransform(("hand", "origin"), ("hand", "xmlOrURDF"))
 
     def read_hand_from_file(self):
         """ Read in the stl file and joint angles for the corresponding pre-shape

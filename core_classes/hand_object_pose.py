@@ -8,7 +8,7 @@
 #   Can string together with wrist-palm pose to get desired end effector pose (for IK)
 # Derived class adds noise to a given HandObjectPose
 
-from coordinate_system import CoordinateSystemBase, CoordinateSystemTransformBase
+from coordinate_system import CoordinateSystem, CoordinateSystemTransform
 from object_geometry_base import ObjectGeometryBase
 from hand_geometry_base import HandGeometry
 from data_directories_base import DataDirectoryBase
@@ -40,7 +40,7 @@ class HandObjectPoseBase(DataDirectoryBase):
         self.env = env_obj
 
         # We need this transform to define how the hand is oriented wrt to the object in the "base" coordinate system
-        self.pose = CoordinateSystemBase(("object", "grasp"))
+        self.pose = CoordinateSystem(("object", "grasp"))
 
     def __str__(self):
         """ TODO: Build string from hand and object type and location type"""
