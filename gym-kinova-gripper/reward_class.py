@@ -19,7 +19,7 @@ class Reward():
 
     _sim = None
 
-    def __init__(self,json_path='reward.json'):
+    def __init__(self,json_path=os.path.dirname(__file__)+'/config/reward.json'):
         """ """
         with open(json_path) as f:
             json_data = json.load(f)
@@ -31,11 +31,11 @@ class Reward():
         for i in self.reward_weights.keys():
             self.reward[i] = 0
             if i == 'finger':
-                self.finger_state = state_space.StateSpace(reward_params['Finger_State'])
+                self.finger_state = state_space.StateSpaceBase(reward_params['Finger_State'])
             elif i == 'grasp':
                 self.grasp_net = pickle.load(open(reward_params['Grasp_Classifier'], "rb"))
                 self.grasp_reward = False
-                self.grasp_state = state_space.StateSpace(reward_params['Grasp_State'])
+                self.grasp_state = state_space.StateSpaceBase(reward_params['Grasp_State'])
             elif i == 'lift':
                 self.heights = StatsTrackerBase(-0.005,0.3)
 
@@ -49,7 +49,7 @@ class Reward():
 #class FingerReward(Reward):
     def get_finger_reward(self):
         self.finger_state.update()
-        finger_obj_dists = self.finger_state.get_full_arr()
+        finger_obj_dists = self.finger_state.get_obs()
         finger_reward = -np.sum((np.array(finger_obj_dists[:6])) + (np.array(finger_obj_dists[6:])))
         return finger_reward
 
@@ -64,7 +64,7 @@ class Reward():
         # Grasp reward
         # this feeds the state into the grasp quality predictor
         self.grasp_state.update()
-        state = self.grasp_state.get_full_arr()
+        state = self.grasp_state.get_obs()
         grasp_quality = self.grasp_net.predict(np.array(state[0:75]).reshape(1,-1))
         if (grasp_quality >= 0.3) & (not self.grasp_reward):
             grasp_reward = 1

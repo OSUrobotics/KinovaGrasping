@@ -9,27 +9,72 @@ import json
 import time
 import numpy as np
 from state_metric import *
+from state_metric_base import StateMetricBase
 from collections import OrderedDict
+import os
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from core_classes.stats_tracker_base import *
 
+class StateMetricGroup(StateMetricBase):
+    valid_state_names = {'Position': StateMetricPosition, 'Distance': StateMetricDistance, 'Angle': StateMetricAngle, 'Ratio': StateMetricRatio, 'Vector': StateMetricVector,
+                         'DotProduct': StateMetricDotProduct, 'StateGroup':'StateMetricGroup'}
+    def __init__(self, data_structure):
+        super().__init__(data_structure)
+        self.data = OrderedDict()
+        for name, value in data_structure.items():
+            state_name = name.split('_')
+            try:
+                print('state name',state_name[0])
+                self.data[name] = StateMetricGroup.valid_state_names[state_name[0]](value)
+            except TypeError:
+                self.data[name] = StateMetricGroup(value)
+            except KeyError:
+                print('Invalid state name. Valid state names are', [name
+                          for name in StateMetricGroup.valid_state_names.keys()])
 
-class StateSpace:
-    valid_state_names = {'Position': Position, 'Distance': Distance, 'Angle': Angle, 'Ratio': Ratio, 'Vector': Vector,
-                         'DotProduct': DotProduct, 'StateGroup': StateGroup}
+    def update(self, keys):
+        arr = []
+        for name, value in self.data.items():
+            temp = value.update(keys + '_' + name)
+            arr.append(temp)
+        return self.data
+
+    def search_dict(self, subdict, arr=[]):
+        for name, value in subdict.items():
+            if type(value) is dict:
+                arr = self.search_dict(subdict[name], arr)
+            else:
+                try:
+                    arr.extend(value.get_value())
+                except TypeError:
+                    arr.extend([value.get_value()])
+        return arr
+
+    def get_value(self):
+        return self.search_dict(self.data, [])
+
+class StateSpaceBase():
+    valid_state_names = {'Position': StateMetricPosition, 'Distance': StateMetricDistance, 'Angle': StateMetricAngle, 'Ratio': StateMetricRatio, 'Vector': StateMetricVector,
+                         'DotProduct': StateMetricDotProduct, 'StateGroup': StateMetricGroup}
     _sim = None
 
-    def __init__(self, path='state.json'):
+    def __init__(self, path=os.path.dirname(__file__)+'/config/state.json'):
+        print('path',path)
         with open(path) as f:
             json_data = json.load(f)
         self.data = OrderedDict()
         for name, value in json_data.items():
             state_name = name.split(sep='_')
             try:
-                self.data[name] = eval(state_name[0] + '(value)')
+                print(state_name[0])
+                self.data[name] = StateSpaceBase.valid_state_names[state_name[0]](value)
             except NameError:
-                print(state_name[0],'ya done messed up a-a-ron, valid state names are', [name for name in
-                                                                           StateSpace.valid_state_names.keys()])
+                print(state_name[0],'Invalid state name. Valid state names are', [name for name in
+                                                                           StateSpaceBase.valid_state_names.keys()])
 
-    def get_full_arr(self):
+    def get_obs(self):
+        #self.update()
         arr = []
         for name, value in self.data.items():
             temp = value.get_value()
@@ -51,8 +96,10 @@ class StateSpace:
     def update(self):
         for name, value in self.data.items():
             self.data[name].update(name)
+        return self.get_obs()
+
 
 
 if __name__ == "__main__":
-    a = StateSpace()
-    print(a.get_full_arr())
+    a = StateSpaceBase()
+    print(a.get_obs())

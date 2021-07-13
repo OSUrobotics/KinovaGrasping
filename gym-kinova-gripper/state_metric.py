@@ -14,23 +14,10 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from core_classes.stats_tracker_base import *
 from collections import OrderedDict
+from state_metric_base import StateMetricBase
 
+class StateMetricMujoco(StateMetricBase):
 
-class StateMetric:
-    _sim = None
-
-    def __init__(self, data_structure):
-        flag = True
-        print('intializing with data strucure:',data_structure)
-        try:
-            self.data = StatsTrackerArray(data_structure[0], data_structure[1])
-            print('stats tracker array initialized with min and max',self.data.allowable_min,self.data.allowable_max)
-        except TypeError:
-            self.data = StatsTrackerBase(data_structure[0], data_structure[1])
-            print('stats tracker base initialized with min and max',self.data.allowable_min,self.data.allowable_max)
-        except KeyError:
-            self.data = []
-            
     def get_value(self):
         return self.data.value
 
@@ -52,8 +39,8 @@ class StateMetric:
 
     @staticmethod
     def get_rotation():
-        wrist_pose = np.copy(StateMetric._sim.data.get_geom_xpos('palm'))
-        Rfa = np.copy(StateMetric._sim.data.get_geom_xmat('palm'))
+        wrist_pose = np.copy(StateMetricBase._sim.data.get_geom_xpos('palm'))
+        Rfa = np.copy(StateMetricBase._sim.data.get_geom_xmat('palm'))
         temp = np.matmul(Rfa, np.array([[0, 0, 1], [-1, 0, 0], [0, -1, 0]]))
         temp = np.transpose(temp)
         Tfa = np.zeros([4, 4])
@@ -66,23 +53,20 @@ class StateMetric:
         local_to_world[0:3,3] = np.matmul(-(local_to_world[0:3, 0:3]), np.transpose(wrist_pose))
         return local_to_world
 
-    def update(self):
-        None
-
-class Angle(StateMetric):
+class StateMetricAngle(StateMetricMujoco):
     def update(self, key): # this function finds either the joint angles or the x and z angle,
         #based on a key determined by the state group or state metric function that called it
         if 'JointState' in key:
             arr = []
-            for i in range(len(StateMetric._sim.data.sensordata)-17):
-                arr.append(StateMetric._sim.data.sensordata[i])
+            for i in range(len(StateMetricBase._sim.data.sensordata)-17):
+                arr.append(StateMetricBase._sim.data.sensordata[i])
             arr[0] = -arr[0]
             arr[1] = -arr[1]
             self.data.set_value(arr)
             return self.data.value
 
         elif 'X,Z' in key:
-            obj_pose = StateMetric._sim.data.get_geom_xpos("object")
+            obj_pose = StateMetricBase._sim.data.get_geom_xpos("object")
             local_to_world = self.get_rotation()
             local_obj_pos = np.copy(obj_pose)
             local_obj_pos = np.append(local_obj_pos, 1)
@@ -97,12 +81,12 @@ class Angle(StateMetric):
             return self.data.value
 
 
-class Position(StateMetric):
+class StateMetricPosition(StateMetricMujoco):
     def update(self, keys):
         arr = []
         local_to_world = self.get_rotation()
         name = self.get_xml_geom_name(keys)
-        temp = list(StateMetric._sim.data.get_geom_xpos(name))
+        temp = list(StateMetricBase._sim.data.get_geom_xpos(name))
         temp.append(1)
         temp = np.matmul(local_to_world, temp)
         arr.append(temp[0:3])
@@ -110,7 +94,7 @@ class Position(StateMetric):
         return self.data.value
 
 
-class Vector(StateMetric):
+class StateMetricVector(StateMetricMujoco):
     def update(self, key):
         local_to_world = self.get_rotation()
         gravity = [0, 0, -1]
@@ -118,7 +102,7 @@ class Vector(StateMetric):
         return self.data
 
 
-class Ratio(StateMetric):
+class StateMetricRatio(StateMetricMujoco):
     def update(self, keylist):
         local_to_world = self.get_rotation()
         gravity = [0, 0, -1]
@@ -127,7 +111,7 @@ class Ratio(StateMetric):
         finger_pose = []
         local_to_world = self.get_rotation()
         for name in ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]:
-            temp = list(StateMetric._sim.data.get_geom_xpos(name))
+            temp = list(StateMetricBase._sim.data.get_geom_xpos(name))
             temp.append(1)
             temp = np.matmul(local_to_world, temp)
             finger_pose.extend(temp[0:3])
@@ -167,23 +151,23 @@ class Ratio(StateMetric):
         return self.data.value
 
 
-class Distance(StateMetric):
+class StateMetricDistance(StateMetricMujoco):
     def update(self, keys):
         if 'Rangefinder' in keys:
             range_data = []
             # names=["palm","palm_top","palm_bottom","palm_left","palm_right","f1_prox","f1_prox_1","f1_dist","f1_dist_1","f2_prox","f2_prox_1","f2_dist","f2_dist_1","f3_prox","f3_prox_1","f3_dist","f3_dist_1"]
             for i in range(17):
-                if StateMetric._sim.data.sensordata[i + len(StateMetric._sim.data.sensordata) - 17] == -1:
+                if StateMetricBase._sim.data.sensordata[i + len(StateMetricBase._sim.data.sensordata) - 17] == -1:
                     a = 6
                 else:
-                    a = StateMetric._sim.data.sensordata[i + len(StateMetric._sim.data.sensordata) - 17]
+                    a = StateMetricBase._sim.data.sensordata[i + len(StateMetricBase._sim.data.sensordata) - 17]
                 range_data.append(a)
             self.data.set_value(range_data)
         elif 'FingerObj' in keys:
-            obj = StateMetric._sim.data.get_geom_xpos("object")
+            obj = StateMetricBase._sim.data.get_geom_xpos("object")
             dists = []
             name = self.get_xml_geom_name(keys)
-            pos = StateMetric._sim.data.get_site_xpos(name)
+            pos = StateMetricBase._sim.data.get_site_xpos(name)
             dist = np.absolute(pos[0:3] - obj[0:3])
             temp = np.linalg.norm(dist)
             dists.append(temp)
@@ -191,10 +175,10 @@ class Distance(StateMetric):
 
         elif 'Size' in keys:
             #TODO fix this so that it works by using the old method
-            geom_sizes = np.array(StateMetric._sim.model.geom_size)
+            geom_sizes = np.array(StateMetricBase._sim.model.geom_size)
             num_of_geoms = len(geom_sizes)
-            geom_poses = np.array(StateMetric._sim.data.geom_xpos)
-            geom_rotation = np.array(StateMetric._sim.data.geom_xmat)
+            geom_poses = np.array(StateMetricBase._sim.data.geom_xpos)
+            geom_rotation = np.array(StateMetricBase._sim.data.geom_xmat)
 
             #print("geom rotations",geom_rotation)
             geom_sizes = geom_sizes[8:]
@@ -220,12 +204,12 @@ class Distance(StateMetric):
         return self.data.value
 
 
-class DotProduct(StateMetric):
+class StateMetricDotProduct(StateMetricMujoco):
     def update(self, keys):
         finger_6d_pose = []
         local_to_world = self.get_rotation()
         for name in ["f1_prox", "f2_prox", "f3_prox", "f1_dist", "f2_dist", "f3_dist"]:
-            temp = list(StateMetric._sim.data.get_geom_xpos(name))
+            temp = list(StateMetricBase._sim.data.get_geom_xpos(name))
             temp.append(1)
             temp = np.matmul(local_to_world, temp)
             finger_6d_pose.extend(temp[0:3])
@@ -240,8 +224,8 @@ class DotProduct(StateMetric):
     # function to get the dot product. Only used for the pid controller
     def _get_dot_product(self, obj_state=None):
         if obj_state == None:
-            obj_state = StateMetric._sim.data.get_geom_xpos('object')
-        hand_pose = StateMetric._sim.data.get_body_xpos("j2s7s300_link_7")
+            obj_state = StateMetricBase._sim.data.get_geom_xpos('object')
+        hand_pose = StateMetricBase._sim.data.get_body_xpos("j2s7s300_link_7")
         obj_state_x = abs(obj_state[0] - hand_pose[0])
         obj_state_y = abs(obj_state[1] - hand_pose[1])
         obj_vec = np.array([obj_state_x, obj_state_y])
@@ -257,41 +241,3 @@ class DotProduct(StateMetric):
         dot_prod = np.dot(obj_unit_vec, center_unit_vec)
         return dot_prod ** 20  # cuspy to get distinct reward
 
-
-class StateGroup(StateMetric):
-    valid_state_names = {'Position': Position, 'Distance': Distance, 'Angle': Angle, 'Ratio': Ratio, 'Vector': Vector,
-                         'Dot_Product': DotProduct}
-
-    def __init__(self, data_structure):
-        super().__init__(data_structure)
-        self.data = OrderedDict()
-        for name, value in data_structure.items():
-            state_name = name.split('_')
-            try:
-                self.data[name] = eval(state_name[0] + '(value)')
-            except NameError:
-                self.data[name] = StateGroup(value)
-            except KeyError:
-                print('ya done messed up a-a-ron, valid state names are', [name for name in
-                                                                           StateSpace.valid_state_names.keys()])
-
-    def update(self, keys):
-        arr = []
-        for name, value in self.data.items():
-            temp = value.update(keys + '_' + name)
-            arr.append(temp)
-        return self.data
-
-    def search_dict(self, subdict, arr=[]):
-        for name, value in subdict.items():
-            if type(value) is dict:
-                arr = self.search_dict(subdict[name], arr)
-            else:
-                try:
-                    arr.extend(value.get_value())
-                except TypeError:
-                    arr.extend([value.get_value()])
-        return arr
-
-    def get_value(self):
-        return self.search_dict(self.data, [])

@@ -1,0 +1,22 @@
+{
+  "StateGroup_Pose": {
+      "StateGroup_F1": {"Position_Prox1":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]],"Position_Dist1":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]]},
+      "StateGroup_F2": {"Position_Prox1":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]],"Position_Dist1":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]]},
+      "StateGroup_F3": {"Position_Prox1":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]],"Position_Dist1":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]]},
+      "Position_Palm":[[-0.1,-0.1,-0.1],[0.1,0.1,0.1]],
+      "Position_Obj":[[-2,-2,-2],[0.2,0.2,0.2]]
+      },
+  "Angle_JointState": [[-1,-1,-1,-0.1,-0.1,-0.1,-0.1,-0.1,-0.1],[2,2,2,2,2,2,2,2,2]],
+  "Distance_ObjSize": [[0,0,0],[0.2,0.2,0.2]],
+  "StateGroup_FingerObjDist":{
+      "StateGroup_F1": {"Distance_Prox1":[0,2],"Distance_Prox2":[0,2],"Distance_Dist1":[0,2],"Distance_Dist2":[0,2]},
+      "StateGroup_F2": {"Distance_Prox1":[0,2],"Distance_Prox2":[0,2],"Distance_Dist1":[0,2],"Distance_Dist2":[0,2]},
+      "StateGroup_F3": {"Distance_Prox1":[0,2],"Distance_Prox2":[0,2],"Distance_Dist1":[0,2],"Distance_Dist2":[0,2]}
+      },
+  "StateGroup_ObjAng":{"Angle_X,Z":[[-3.2,-3.2],[3.2,3.2]]},
+  "Distance_Rangefinder": [[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],[6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6,6]],
+  "Vector_Gravity":[[-1,-1,-1],[1,1,1]],
+  "Position_RFObjectLocation":[[-2,-2,-2],[0.2,0.2,0.2]],
+  "Ratio_TSRat":[[0,0],[2,2]],
+  "DotProduct_All":[[0,0,0,0,0,0,0],[1,1,1,1,1,1,1]]
+}

@@ -27,7 +27,7 @@ env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm"
 action = np.array([0.0, 0.0, 0.0, 0.1, 0.0, 0.0])
 t = 0
 
-test=StateSpace()
+test=StateSpaceBase()
 test2=Action()
 reward_test = Reward()
 
@@ -83,8 +83,8 @@ for f in range(3):
         start=time.time()
         thing=np.append([0,0,0],act)
         env.reset(env_name='s')
-        StateSpace._sim=env.get_sim()
-        StateMetric._sim=env.get_sim()
+        StateSpaceBase._sim=env.get_sim()
+        StateMetricBase._sim=env.get_sim()
         controller = Controller('position-dependent',env.action_space)
         Reward._sim=env.get_sim()
         x_move = np.random.rand()/10
@@ -106,7 +106,7 @@ for f in range(3):
             obs, reward, done, _ = env.step(action)
             test.update()
             control_thing = controller.select_action()
-            obs2=test.get_full_arr()
+            obs2=test.get_obs()
             reward2, info = reward_test.get_reward()
             print('from controller', control_thing)
             #print('from new class',reward2, info)

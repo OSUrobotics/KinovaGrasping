@@ -19,7 +19,7 @@ class Action():
     _sim = None
 
     def __init__(self, starting_speed=None, acceleration_range=[0.2, 20],
-                 json_path='action.json'):
+                 json_path=os.path.dirname(__file__)+'/config/action.json'):
         """ Starting speed is the speed of the fingers at initialization. We
         assume the initial speed is 0 if not otherwise specified.
         @param desired_speed - list of speeds with length described in

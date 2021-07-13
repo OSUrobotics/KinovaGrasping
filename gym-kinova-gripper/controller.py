@@ -8,17 +8,16 @@ Created on Tue Jul  6 11:14:16 2021
 import numpy as np
 from state_space import *
 import DDPGfD
+import os
 
-#            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
 
 class Controller():
-    def __init__(self, controller_type, action_space, state_path='controller_state.json'):
-        self.state = StateSpace(state_path)
+    def __init__(self, controller_type, action_space, state_path=os.path.dirname(__file__)+'/config/controller_state.json'):
+        self.state = StateSpaceBase(state_path)
         self.const_velocities = {"constant_velocity": 0.5, "min_velocity": 0.3, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
         self.lift_check = False
         self.timestep = 0
         self.state.update()
-        self.state.get_full_arr()
         self.PID = PID(action_space)
         self.init_obj_pose = self.state.get_value('Position_Obj')[0]#states[21]  # X position of object
         self.init_dot_prod = self.state.get_value('DotProduct_All')[-1]#states[81]  # dot product of object wrt palm
@@ -209,13 +208,12 @@ class Controller():
 
 class PID(object):
     generic_state_path = 'controller_state.json'
-    def __init__(self, action_space):
+    def __init__(self):
         self.kp = 1
         self.kd = 1
         self.ki = 1
         self.prev_err = 0.0
         self.sampling_time = 15
-        self.action_range = [action_space.low, action_space.high]
 
     def velocity(self, dot_prod):
         err = 1 - dot_prod
