@@ -10,41 +10,50 @@ from state_space import *
 import DDPGfD
 import os
 
-
-class Controller():
-    def __init__(self, controller_type, action_space, state_path=os.path.dirname(__file__)+'/config/controller_state.json'):
-        self.state = StateSpaceBase(state_path)
+class ControllerBase():
+    def __init__(self):
         self.const_velocities = {"constant_velocity": 0.5, "min_velocity": 0.3, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
         self.lift_check = False
-        self.timestep = 0
-        self.state.update()
-        self.PID = PID(action_space)
-        self.init_obj_pose = self.state.get_value('Position_Obj')[0]#states[21]  # X position of object
-        self.init_dot_prod = self.state.get_value('DotProduct_All')[-1]#states[81]  # dot product of object wrt palm
-        if type(controller_type) == str:
-            if controller_type == "naive":
-                self.select_action = self.NaiveController
-            elif controller_type == "bell-shaped":
-                self.select_action = self.BellShapedController
-            elif controller_type == "position-dependent":
-                self.select_action = self.PDController
-            elif controller_type == "combined":
-                self.select_action = self.CombinedController
-        else:
-            self.select_action = controller_type.select_action
+        
 
     def _set_lift_check(self, lift_check):
         self.lift_check = lift_check
+        
+    def select_action(self):
+        None
 
-    def CombinedController(self):
+class GenericController(ControllerBase):
+    def __init__(self, controller_type, state_path=os.path.dirname(__file__)+'/config/controller_state.json'):
+        super().__init__()
+        if controller_type == "naive":
+            self.controller = NaiveController()
+        elif controller_type == "bell-shaped":
+            self.controller = BellShapedController()
+        elif controller_type == "position-dependent":
+            self.controller = PDController(state_path)
+        elif controller_type == "combined":
+            self.controller = CombinedController(state_path)
+        else:
+            self.controller = controller_type
+        try:
+            self.select_action = self.controller.select_action
+        except AttributeError:
+            raise AttributeError('Invalid controller type. Valid controller types are: "naive" "combined" "position-dependent" and "bell-shaped"')
+class CombinedController(ControllerBase):
+    def __init__(self, state_path):
+        super().__init__()
+        self.PDControl = PDController(state_path)
+        self.NaiveController = NaiveController()
+
+    def select_action(self):
         """ Get action based on controller (Naive, position-dependent, combined interpolation)
             obs: Current state observation
             controller: Initialized expert PID controller
             env: Current Mujoco environment needed for expert PID controller
             return action: np.array([wrist, f1, f2, f3]) (velocities in rad/sec)
         """
-        self.state.update()
-        object_x_coord = self.state.get_value('Position_Obj')[0]  # Object x coordinate position
+        self.PDControl.state.update()
+        object_x_coord = self.PDControl.state.get_value('Position_Obj')[0]  # Object x coordinate position
     
         # By default, action is set to close fingers at a constant velocity
         controller_action = np.array([self.const_velocities["constant_velocity"], self.const_velocities["constant_velocity"], self.const_velocities["constant_velocity"]])
@@ -52,15 +61,15 @@ class Controller():
         # If object x position is on outer edges, do expert pid
         if object_x_coord < -0.04 or object_x_coord > 0.04:
             # Expert Nudge controller strategy
-            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = self.PDControl.PDController()
+            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = self.PDControl.select_action()
 
         # Object x position within the side-middle ranges, interpolate expert/naive velocity output
         elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
             # Interpolate between naive and expert velocities
             # position-dependent controller action (finger velocity based on object location within hand)
-            expert_action, f1_vels, f2_vels, f3_vels, wrist_vels = self.PDControl.PDController()
+            expert_action, f1_vels, f2_vels, f3_vels, wrist_vels = self.PDControl.select_action()
             # Naive controller action (fingers move at constant velocity)
-            naive_action = self.NaiveController()
+            naive_action = self.NaiveController.select_action()
 
             # Interpolate finger velocity values between position-dependent and Naive action output
             finger_vels = np.interp(np.arange(0, 3), naive_action, expert_action)
@@ -70,13 +79,14 @@ class Controller():
         # Object x position is within center area, so use naive controller
         else:
             # Naive controller action (fingers move at constant velocity)
-            controller_action = self.NaiveController()
+            controller_action = self.NaiveController.select_action()
     
         #print("**** action: ",action)
     
         return controller_action
 
-    def NaiveController(self):
+class NaiveController(ControllerBase):    
+    def select_action(self):
         """ Move fingers at a constant speed, return action """
     
         # By default, close all fingers at a constant speed
@@ -88,8 +98,14 @@ class Controller():
                                self.const_velocities["finger_lift_velocity"]])
     
         return action
-    
-    def BellShapedController(self):
+
+
+class BellShapedController(ControllerBase):
+    def __init__(self):
+        super().__init__()
+        self.timestep = 0
+
+    def select_action(self):
         """ Move fingers at a constant speed, return action """
     
         bell_curve_velocities = [0.202, 0.27864, 0.35046, 0.41696, 0.47814, 0.534, 0.58454, 0.62976, 0.66966, 0.70424, 0.7335, 0.75744, 0.77606, 0.78936, 0.79734, 0.8, 0.79734, 0.78936, 0.77606, 0.75744, 0.7335, 0.70424, 0.66966, 0.62976, 0.58454, 0.534, 0.47814, 0.41696, 0.35046, 0.27864, 0.2015]
@@ -107,7 +123,34 @@ class Controller():
         #print("TS: {} action: {}".format(timestep, action))
     
         return action
-   
+
+
+class PDController(ControllerBase):
+    def __init__(self,state_path):
+        super().__init__()
+        self.state = StateSpaceBase(state_path)
+        self.state.update()
+        self.PID = PID()
+        self.init_obj_pose = self.state.get_value('Position_Obj')[0]#states[21]  # X position of object
+        self.init_dot_prod = self.state.get_value('DotProduct_All')[-1]#states[81]  # dot product of object wrt palm
+
+    def select_action(self):
+        """ Position-Dependent (PD) Controller that is dependent on the x-axis coordinate position of the object to 
+        determine the individual finger velocities.
+        """
+        self.state.update()
+        if abs(self.init_obj_pose) <= 0.03:
+            controller_action = self.center_action()
+        else:
+            if self.init_obj_pose > 0.0:
+                controller_action = self.right_action()
+
+            else:
+                controller_action = self.left_action()
+
+        controller_action = self.check_vel_in_range(controller_action)
+
+        return controller_action
 
     def center_action(self):
         """ Object is in a center location within the hand, so lift with constant velocity or adjust for lifting """
@@ -176,24 +219,6 @@ class Controller():
                                self.const_velocities["finger_lift_velocity"]])
         return action
 
-    def PDController(self):
-        """ Position-Dependent (PD) Controller that is dependent on the x-axis coordinate position of the object to 
-        determine the individual finger velocities.
-        """
-        self.state.update()
-        if abs(self.init_obj_pose) <= 0.03:
-            controller_action = self.center_action()
-        else:
-            if self.init_obj_pose > 0.0:
-                controller_action = self.right_action()
-
-            else:
-                controller_action = self.left_action()
-
-        controller_action = self.check_vel_in_range(controller_action)
-
-        return controller_action
-    
     def check_vel_in_range(self, action):
         """ Checks that each of the finger/wrist velocies values are in range of min/max values """
         for idx in range(len(action)):

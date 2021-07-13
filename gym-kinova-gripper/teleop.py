@@ -85,7 +85,7 @@ for f in range(3):
         env.reset(env_name='s')
         StateSpaceBase._sim=env.get_sim()
         StateMetricBase._sim=env.get_sim()
-        controller = Controller('position-dependent',env.action_space)
+        controller = GenericController('naive')
         Reward._sim=env.get_sim()
         x_move = np.random.rand()/10
         y_move = np.random.rand()/10
