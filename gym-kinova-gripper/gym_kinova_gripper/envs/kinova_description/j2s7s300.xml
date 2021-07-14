@@ -7,9 +7,7 @@ Purpose: XML model of j2s7s300 kinova jaco arm
 
 <mujoco model="j2s7s300">
     <compiler angle="radian" meshdir="meshes/" />
-    <option timestep ="0.0001">
-    	
-    </option>
+
     <!-- <size njmax="500" nconmax="100" /> -->
     <asset>
     	<!-- Arm -->
