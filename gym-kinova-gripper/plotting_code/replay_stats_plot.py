@@ -4,6 +4,8 @@ import matplotlib.patches as patches    # Allows for text boxes to be added to t
 import numpy as np  # Numpy arrays
 import argparse # Command-line parsing
 import copy # Used to copy replay buffer contents to an array for plotting
+import pandas as pd
+from matplotlib.ticker import MultipleLocator
 
 def get_stats(metric_arr):
     """ Get the min, max, range, and average over the input array """
@@ -28,6 +30,48 @@ def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, saving
         plt.savefig(saving_dir + "/" + label_name + "act_vals" + ".png")
         plt.close(fig)
 
+def actual_values_plot_all_episodes(range_of_episodes, metrics_arr, metric_name, saving_dir=None):
+    """ Create a simple plot with the actual metric values """
+    actual_values = [] # Used to calculate min/max over all output
+    timestep_labels = [] # x-axis labels
+    timestep_major_locs = [] # x-axis major label locations (Episode labels)
+    #timestep_minor_locs = []  # x-axis minor label locations (Time step labels)
+
+    for episode_idx in range_of_episodes:
+        timestep_labels.append(episode_idx) # Episode
+        act_val_length = len(actual_values)
+        if act_val_length == 0:
+            timestep_major_locs = [0]
+        else:
+            timestep_major_locs.append(act_val_length+1) # Timestep within the episode
+
+        # Get the actual metric values within the current episode
+        actual_values.extend(metrics_arr[episode_idx])
+
+    fig, ax = plt.subplots()
+    timesteps = np.arange(len(actual_values))
+    # Plot average values
+    plt.plot(timesteps, actual_values, label=metric_name)
+    plt.title(str(metric_name) + " output for each episode")
+    plt.xlabel("Episodes (with time steps)")
+    plt.ylabel(str(metric_name))
+    plt.legend(loc='best')
+    plt.xlim([0, timesteps[-1]])
+    plt.ylim([0., 0.8])
+
+    #ax.xaxis.set_minor_locator(MultipleLocator(1))
+    #ax.set_xticklabels(
+    plt.xticks(timestep_major_locs, timestep_labels)
+    #timestep_minor_locs = [x for x in timesteps if x not in timestep_major_locs]
+
+
+
+    if saving_dir is not None:
+        plt.savefig(saving_dir + "/" + metric_name + "act_vals_all_eps" + ".png")
+        plt.close(fig)
+    else:
+        plt.show()
+
 def episode_distribution_plot(metrics_arr):
     """ Plot distribution over one episode """
     plt.hist(metrics_arr)
@@ -35,7 +79,7 @@ def episode_distribution_plot(metrics_arr):
     plt.show()
 
 
-def all_episodes_average_plot(range_of_episodes, metrics_arr, label_name, metric_name, axes_limits, saving_dir=None):
+def all_episodes_average_plot(range_of_episodes, metrics_arr, metric_name, axes_limits, saving_dir=None):
     """ Creates an average plot displaying metric values over a range of episodes
     range_of_episodes: Numpy array containing desired episode indexes
     metrics_arr: Numpy array containing metrics to be plotted (state/action metrics, reward metrics) for each episode
@@ -50,19 +94,20 @@ def all_episodes_average_plot(range_of_episodes, metrics_arr, label_name, metric
         averages.append(avg)
 
     # Plot average values
-    plt.plot(range_of_episodes, averages, label=label_name)
-    plt.title("Average value of "+ metric_name + " per episode over episodes" + str(min(range_of_episodes)+1) + "-" + str(max(range_of_episodes)+1))
+    plt.plot(range_of_episodes, averages, label=metric_name)
+    plt.title("Average value of "+ metric_name + " per episode")
     plt.xlabel("Episode")
     plt.ylabel(metric_name)
     plt.legend(loc='best')
     plt.xlim([axes_limits['x_min'], axes_limits['x_max']])
-    plt.ylim([axes_limits['y_min'], axes_limits['y_max']])
+    #plt.ylim([axes_limits['y_min'], axes_limits['y_max']])
+    plt.ylim([0, 0.8])
 
     # Get general stats about metric output
     min_value, max_value, range_value, mean_value = get_stats(actual_values)
 
     # Return text string to be placed on plot (with stats about the metric)
-    textstr = "\n{}:\n".format(label_name)
+    textstr = "\n{}:\n".format(metric_name)
     textstr += "Mean: {:.3f}\nMin: {:.3f}\nMax: {:.3f}\nRange: {:.3f}\n".format(mean_value,min_value,max_value,range_value)
 
     if saving_dir is not None:
@@ -136,73 +181,99 @@ def get_selected_episode_metrics(range_of_episodes,metric_arr,metric_idx):
     selected_episodes = []
 
     for episode_idx in range_of_episodes:
+        print("episode_idx: ",episode_idx)
         # Get all metrics from an episode
         episode_metric = metric_arr[episode_idx]
+
+        metric_len = len(episode_metric[-1])
 
         # Convert each episode (list of transitions) into a stacked numpy array for manipulation
         episode_metric = np.stack(episode_metric, axis=0)
 
+        # Get the specific metric index for each array
+        if metric_len > 1:
+            episode_metric = episode_metric[:, metric_idx]
+
         # Append the desired metric (at the metric_idx) from the current episode to a full list
-        selected_episodes.append(episode_metric[:, metric_idx].tolist())
+        selected_episodes.append(episode_metric.tolist())
 
     return selected_episodes
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--replay_filepaths", type=str, action='store', default=None) # List of the replay buffer filepaths to compare pver
-    parser.add_argument("--metric_filepaths", type=str, action='store', default=None) # List of the metric array filepaths to compare over
-    parser.add_argument("--label_names", type=str, action='store', default="No Label") # List of labels for each plotted line
-    parser.add_argument("--metric_name", type=str, action='store', default=None) # Name of the metric being evaluated (ex: Finger 1 Velocity)
-    parser.add_argument("--metric_idx", type=int, action='store', default=None) # Index of the metric being evaluated (Ex: idx = 1, ReplayBuffer.action[idx] == Finger 1 Velocity)
-    parser.add_argument("--episode_idx", type=int, action='store', default=0) # Index of a specific episode to evaluate
-    parser.add_argument("--plot_type", type=str, action='store', default="average") # Type of plot to be produced; Options: average, actual, distribution, boxplot
+    #parser.add_argument("--replay_filepath", type=str, action='store', default=None) # Replay buffer filepath
+    parser.add_argument("--metric_filepath", type=str, action='store', default=None) # Metric array filepath
+
+    #parser.add_argument("--label_names", type=str, action='store', default="No Label") # List of labels for each plotted line (ex: Finger 1 Velocity)
+    parser.add_argument("--metric_names", type=str, action='store', default=None) # Name of the metric being evaluated (ex: state, action, policy_action)
+    parser.add_argument("--metric_indexes", type=str, action='store', default=None) # List of the indexes for each metric being evaluated (Ex: idx = 1, ReplayBuffer.action[idx] == Finger 1 Velocity)
+    parser.add_argument("--start_episode_idx", type=int, action='store', default=0) # Starting index of a specific episode to evaluate
+    parser.add_argument("--end_episode_idx", type=int, action='store', default=None)  # Ending index of a specific episode to evaluate
+
+    parser.add_argument("--plot_type", type=str, action='store', default="actual") # Type of plot to be produced; Options: average, actual, distribution, boxplot
     parser.add_argument("--saving_dir", type=str, action='store', default=None) # Directory where plot output is saved
+    parser.add_argument("--save_to_file", type=str, action='store', default="False") # Set to True to save the current metric to a text file
 
     args = parser.parse_args()
 
-    state_dim = 82
-    action_dim = 4
-    replay_size = 4000 # Size of the replay buffer (# Episodes)
-    replay_filepaths = args.replay_filepaths
-    metric_filepaths = args.metric_filepaths
-    label_names = args.label_names.split(',')
-    metric_idx = args.metric_idx
-    episode_idx = args.episode_idx
-    metric_name = args.metric_name
+    #state_dim = 82
+    #action_dim = 3
+    #replay_size = 4000 # Size of the replay buffer (# Episodes)
+
+    #replay_filepath = args.replay_filepath
+    metric_filepath = args.metric_filepath
+
+    metric_names = args.metric_names.split(',') # Name for each indexed metric (Ex: label_name for action[0] is "Finger 1 Velocity")
+    #label_names = args.label_names.split(',') # Labels for each indexed metric (Ex: label_name for action[0] is "Finger 1 Velocity")
+    metric_indexes = args.metric_indexes.split(',') # List of indexes for each metric
+
+    start_episode_idx = args.start_episode_idx
+    end_episode_idx = args.end_episode_idx
+
     plot_type = args.plot_type
     saving_dir = args.saving_dir
+    if args.save_to_file == "True" or args.save_to_file == "true":
+        save_to_file = True
+    else:
+        save_to_file = False
 
-    ## For reference:
-    #Constant-controller replay buffer: "../replay_buffer/expert_replay_data_NO_NOISE/no_grasp/naive_only/CubeS/normal/replay_buffer/"
-    #Pre-trained policy replay buffer: "../replay_buffer/BC_4keps/replay_buffer_04_15/"
 
-    metric_arrays = []
+    #metric_arrays = []
 
-    if replay_filepaths is not None:
-        replay_filepaths = replay_filepaths.split(',')  # Sets list of replay buffer filepaths
-        for filepath in replay_filepaths:
-            replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, replay_size) # Load the replay buffer (expert replay buffer)
-            replay_text = replay_buffer.store_saved_data_into_replay(filepath) # Load stored data into the initialized replay buffer
-            replay_buffer_array = copy.deepcopy(replay_buffer.action)
-            metric_arrays.append(replay_buffer_array)
+    #if replay_filepath is not None:
+    #    replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, replay_size) # Load the replay buffer (expert replay buffer)
+    #    replay_text = replay_buffer.store_saved_data_into_replay(replay_filepath) # Load stored data into the initialized replay buffer
+    #    replay_buffer_array = copy.deepcopy(replay_buffer.action)
+    #    metric_arrays.append(replay_buffer_array)
 
-    if metric_filepaths is not None:
-        metric_filepaths = metric_filepaths.split(',')  # Sets list of metric filepaths
-        for filepath in metric_filepaths:
-            metric_arrays.append(np.load(filepath, allow_pickle=True))
+    metric_array = []
+    if metric_filepath is not None:
+        metric_array = np.load(metric_filepath, allow_pickle=True)
+        if len(metric_array[-1]) == 0:
+            metric_array = metric_array[:-1]
 
     plt.figure() # Create the figure before plotting to allow multiple lines to be plotted
     textstr = "" # Text to be displayed on the plot (Ex: Min, Max, Avg. info per metric)
-    axes_limits = {"x_min": 0, "x_max": replay_size, "y_min": 0, "y_max": 0.9}
 
-    for label_name, metric_arr in zip(label_names,metric_arrays):
-        start_episode_idx = 0
-        end_episode_idx = len(metric_arr)
-        range_of_episodes = np.arange(start_episode_idx, end_episode_idx) # List of selected range of episode indexes
+    if end_episode_idx is None or end_episode_idx > len(metric_array)-1:
+        end_episode_idx = len(metric_array)-1
 
-        # Get selected episode metrics from the data over all episodes
-        selected_metric_arr = get_selected_episode_metrics(range_of_episodes,metric_arr=metric_arr, metric_idx=metric_idx)
+    # List of selected range of episode indexes
+    range_of_episodes = np.arange(start_episode_idx, end_episode_idx+1) # Add 1 to include the final index
+
+    # Holds the current metrics being analyzed within the selected episode range
+    metric_dict = {"Episodes": range_of_episodes}
+
+    for name, metric_idx in zip(metric_names, metric_indexes):
+        # Get metrics from each of the desired episodes
+        selected_metric_arr = get_selected_episode_metrics(range_of_episodes,metric_arr=metric_array, metric_idx=int(metric_idx))
+        #timesteps = np.arrange(0,len(selected_metric_arr)+1)
+        metric_dict[name] = selected_metric_arr
+
+        if save_to_file is True and saving_dir is not None:
+            df = pd.DataFrame(metric_dict)
+            df.to_csv(saving_dir + "/" + name + ".csv")
 
         min_arr_value = min([min(metric_arr) for metric_arr in selected_metric_arr])
         max_arr_value = max([max(metric_arr) for metric_arr in selected_metric_arr])
@@ -210,22 +281,22 @@ if __name__ == "__main__":
 
         # Plot the metrics based on the desired plot type
         if plot_type == "average":
-            textstr += all_episodes_average_plot(range_of_episodes, selected_metric_arr, label_name, metric_name, axes_limits)
+            textstr += all_episodes_average_plot(range_of_episodes, selected_metric_arr, name, axes_limits, saving_dir)
         elif plot_type == "actual":
-            actual_values_plot(selected_metric_arr, episode_idx, label_name, metric_name)
-        elif plot_type == "distribution":
-            all_episodes_distribution_plot(range_of_episodes, selected_metric_arr, metric_name)
-        elif plot_type == "boxplot":
-            all_episodes_boxplot(range_of_episodes, selected_metric_arr, metric_name, freq=200, min_val=0, max_val=0.9)
+            actual_values_plot_all_episodes(range_of_episodes, selected_metric_arr, name, saving_dir)
+        #elif plot_type == "distribution":
+        #    all_episodes_distribution_plot(range_of_episodes, selected_metric_arr, metric_name)
+        #elif plot_type == "boxplot":
+        #    all_episodes_boxplot(range_of_episodes, selected_metric_arr, metric_name, freq=200, min_val=0, max_val=0.9)
 
-    # Set matplotlib.patch.Patch properties
-    props = dict(facecolor='white', pad=5, alpha=0.5)
-    # Place a text box in the upper left corner
-    plt.figtext(axes_limits["x_min"]+0.01, axes_limits["y_max"], textstr, fontsize=7,
-            horizontalalignment='left', verticalalignment='top', bbox=props)
-    plt.subplots_adjust(left=0.2)
+        # Set matplotlib.patch.Patch properties
+        props = dict(facecolor='white', pad=5, alpha=0.5)
+        # Place a text box in the upper left corner
+        plt.figtext(axes_limits["x_min"]+0.01, axes_limits["y_max"], textstr, fontsize=7,
+                horizontalalignment='left', verticalalignment='top', bbox=props)
+        plt.subplots_adjust(left=0.2)
 
-    if saving_dir is None:
-        plt.show()
-    else:
-        plt.savefig(saving_dir+"/"+metric_name+plot_type+".png")
+        if saving_dir is None:
+            plt.show()
+        else:
+            plt.savefig(saving_dir+"/"+name+plot_type+".png")
