@@ -272,17 +272,18 @@ def test_global_to_local_transformation(local_coords,global_coords,env_global_co
     print("Done with test_global_to_local_transformation, (decimal precision: "+str(precision)+", all test cases PASSED! :)")
 
 
-def check_grasp(f_dist_old, f_dist_new):
+def check_grasp(f_dist_old, f_dist_new, total_distal_change):
     """
     Uses the current change in x,y position of the distal finger tips, summed over all fingers to determine if
     the object is grasped (fingers must have only changed in position over a tiny amount to be considered done).
-    @param: f_dist_old: Distal finger tip x,y,z coordinate values from previous timestep
-    @param: f_dist_new: Distal finger tip x,y,z coordinate values from current timestep
+    f_dist_old: Distal finger tip x,y,z coordinate values from previous timestep
+    f_dist_new: Distal finger tip x,y,z coordinate values from current timestep
+    total_distal_change: cumulative total change of the distal fingertips over the course of the episode
     """
 
     # Initial check to see if previous state has been set
     if f_dist_old is None:
-        return 0
+        return False, total_distal_change
     sampling_time = 15
 
     # Change in finger 1 distal x-coordinate position
@@ -300,13 +301,15 @@ def check_grasp(f_dist_old, f_dist_new):
     # Sum of changes in distal fingers
     f_all_change = f1_diff + f2_diff + f3_diff
 
+    total_distal_change += f_all_change
+
     #print("In check grasp, f1_change: {}, f2_change: {}, f3_change: {}, f_all_change: {}".format(f1_change,f2_change,f3_change,f_all_change))
 
     # If the fingers have only changed a small amount, we assume the object is grasped
-    if f_all_change < 0.0002:
-        return 1
+    if f_all_change < 0.0002 and total_distal_change > 0.0002:
+        return True, total_distal_change
     else:
-        return 0
+        return False, total_distal_change
 
 
 def get_hand_object_coords_dict(curr_env):
@@ -424,6 +427,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
         lift_success = 0
         final_success = None # Marks whether we have a final success for rendering
+        total_distal_change = 0 # Cumulative change in the distal finger tips over the course of the episode
 
         # Beginning of episode time steps, done is max time steps or lift reward achieved
         timestep = 1
@@ -465,7 +469,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
             # Check if the movement in the distal finger tips give a grasping position
             if timestep >= n_steps:
-                ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+                ready_for_lift, total_distal_change = check_grasp(f_dist_old, f_dist_new, total_distal_change)
 
             state = next_state
             timestep = timestep + 1
@@ -665,6 +669,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         episode_reward = 0 # Cumulative reward over a single episode
         ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
         lift_success = 0
+        total_distal_change = 0  # Cumulative change in the distal finger tips over the course of the episode
 
         replay_buffer_recorded_ts = 0  # Number of RL time steps recorded by the replay buffer
         replay_buffer.add_episode(1)  # Start recording the episode within the replay buffer
@@ -707,7 +712,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
 
             # Check if the movement in the distal finger tips give a grasping position
             if timestep >= replay_buffer.n_steps:
-                ready_for_lift = check_grasp(f_dist_old, f_dist_new)
+                ready_for_lift, total_distal_change = check_grasp(f_dist_old, f_dist_new, total_distal_change)
 
             state = next_state
             timestep = timestep + 1
