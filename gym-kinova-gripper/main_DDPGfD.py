@@ -1083,7 +1083,7 @@ def generate_output(text, shapes_list, orientations_list, num_success, num_total
         create_info_file(num_success, num_total, all_saving_dirs, text)
 
 
-def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs):
+def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs, state_idx_arr=np.arange(82)):
     """ Train policy according to RL experiment shape, size, orientation combo + stage """
     # Fill object list using latin square method
     env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
@@ -1099,7 +1099,7 @@ def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, req
 
     # *** Train policy ****
     # TODO: Add in state_idx_arr=state_idx_arr !!!!
-    eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_replay_buffer, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities)
+    eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_replay_buffer, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=state_idx_arr)
     eval_num_total = eval_num_success + eval_num_fail
 
     print("Experiment ", exp_num, ", ", exp_name, " policy saved at: ", all_saving_dirs["model_save_path"])
@@ -1950,7 +1950,7 @@ if __name__ == "__main__":
                                             prev_exp_dir, create_dirs=False)
 
         # Run experiment
-        rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs)
+        rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs, state_idx_arr=state_idx_arr)
     else:
         print("Invalid mode input")
 
