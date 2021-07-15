@@ -249,9 +249,9 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 		<motor joint="j2s7s300_slide_y" gear="25"></motor>
 		<velocity joint="j2s7s300_slide_z" kv="150" ctrllimited="true" ctrlrange="-0.5 0.5"></velocity>	
 		<motor joint="j2s7s300_slide_z" gear="25"></motor>	
-		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
-		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
-		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrllimited="true" ctrlrange="-0.8 0.8"></velocity>
+		<velocity joint="j2s7s300_joint_finger_1" kv="2.5" ctrllimited="true" ctrlrange="-0.8 3"></velocity>
+		<velocity joint="j2s7s300_joint_finger_2" kv="2.5" ctrllimited="true" ctrlrange="-0.8 3"></velocity>
+		<velocity joint="j2s7s300_joint_finger_3" kv="2.5" ctrllimited="true" ctrlrange="-0.8 3"></velocity>
 	</actuator> 	
 	<!-- ======================= Torque actuators ================================ -->
 	<!-- <actuator>
