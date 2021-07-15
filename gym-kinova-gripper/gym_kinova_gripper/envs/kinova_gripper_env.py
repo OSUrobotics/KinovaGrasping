@@ -125,12 +125,12 @@ class KinovaGripper_Env(gym.Env):
         self._numSteps = 0
         self._simulator = "Mujoco"
         self.action_scale = 0.0333
-        self.max_episode_steps = 30
+        self.max_episode_steps = 45
         self.site_count=0
         # Parameters for cost function
         self.state_des = 0.20
         self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
+        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([3, 3, 3]), dtype=np.float32) # Velocity action space
         self.const_T=np.array([[0,-1,0,0],[0,0,-1,0],[1,0,0,0],[0,0,0,1]])  #Transfer matrix from world frame to un-modified hand frame
         self.frame_skip = frame_skip # Used in step. Number of frames you go through before you reach the next step
         self.all_states = None  # This is the varriable we use to save the states before they are sent to the simulator when we are resetting.

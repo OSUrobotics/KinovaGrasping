@@ -324,13 +324,16 @@ class PID(object):
         self.sampling_time = 15
         self.action_range = [action_space.low, action_space.high]
 
-    def velocity(self, dot_prod):
+    def velocity(self, dot_prod, velocities):
         err = 1 - dot_prod
         diff = (err) / self.sampling_time
         vel = err * self.kp + diff * self.kd
-        action = (vel / 1.25) * 0.3  # 1.25 means dot product equals to 1
-        if action < 0.05:
-            action = 0.05
+        vel = (vel / 1.25)  # 1.25 means dot product equals to 1
+
+        # Scale the velocity to the maximum velocity -
+        # the PID was determined originally with a max of 0.8 rad/sec
+        action = (vel / 0.8) * velocities["max_velocity"]
+
         return action
 
     def joint(self, dot_prod):
@@ -340,15 +343,13 @@ class PID(object):
         action = (joint / 1.25) * 2  # 1.25 means dot product equals to 1
         return action
 
-    def touch_vel(self, obj_dotprod, finger_dotprod):
+    def touch_vel(self, obj_dotprod, finger_dotprod, velocities):
         err = obj_dotprod - finger_dotprod
         diff = err / self.sampling_time
         vel = err * self.kp + diff * self.kd
-        action = (vel) #* 0.3
-        # if action < 0.8:
-        #    action = 0.8
-        #if action < 0.05:  # Old velocity
-        #    action = 0.05
+
+        action = (vel/0.8) * velocities["max_velocity"]
+
         return action
 
 ##############################################################################
@@ -400,7 +401,7 @@ class ExpertPIDController(object):
             f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
         return np.array([f1, f2, f3])
 
-    def right_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
+    def right_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities):
         """ Object is in an extreme right-side location within the hand, so Finger 2 and 3 move the
         object closer to the center """
         # Only Small change in object dot prod to wrist from initial position, must move more
@@ -409,7 +410,7 @@ class ExpertPIDController(object):
             """ PRE-contact """
             #print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
             f1 = 0.0  # frontal finger doesn't move
-            f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
+            f2 = pid.touch_vel(obj_dot_prod, states[79], velocities)  # f2_dist dot product to object
             f3 = f2  # other double side finger moves at same speed
             wrist = 0.0
         else:
@@ -421,13 +422,13 @@ class ExpertPIDController(object):
                 #print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
                 # start to close the PID stuff
                 f1 = min_velocity  # frontal finger moves slightly
-                f2 = pid.velocity(obj_dot_prod)  # get PID velocity
+                f2 = pid.velocity(obj_dot_prod, velocities)  # get PID velocity
                 f3 = f2  # other double side finger moves at same speed
                 wrist = 0.0
             else:  # goal is within 0.01 of being reached:
                 #print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
                 # start to close from the first finger
-                f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
+                f1 = pid.touch_vel(obj_dot_prod, states[78], velocities)  # f1_dist dot product to object
                 f2 = 0.0
                 f3 = 0.0
                 wrist = 0.0
@@ -441,14 +442,14 @@ class ExpertPIDController(object):
 
         return np.array([f1, f2, f3])
 
-    def left_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
+    def left_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities):
         """ Object is in an extreme left-side location within the hand, so Finger 1 moves the
                 object closer to the center """
         # Only Small change in object dot prod to wrist from initial position, must move more
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
             #print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
-            f1 = pid.touch_vel(obj_dot_prod, states[78])  # f1_dist dot product to object
+            f1 = pid.touch_vel(obj_dot_prod, states[78], velocities)  # f1_dist dot product to object
             f2 = 0.0
             f3 = 0.0
             wrist = 0.0
@@ -459,7 +460,7 @@ class ExpertPIDController(object):
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
                 #print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
-                f1 = pid.velocity(obj_dot_prod)
+                f1 = pid.velocity(obj_dot_prod, velocities)
                 f2 = min_velocity  # 0.05
                 f3 = min_velocity  # 0.05
                 wrist = 0.0
@@ -468,7 +469,7 @@ class ExpertPIDController(object):
                 #print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
                 # start to close from the first finger
                 # nudge with thumb
-                f2 = pid.touch_vel(obj_dot_prod, states[79])  # f2_dist dot product to object
+                f2 = pid.touch_vel(obj_dot_prod, states[79], velocities)  # f2_dist dot product to object
                 f3 = f2
                 f1 = 0.0
                 wrist = 0.0
@@ -498,7 +499,7 @@ class ExpertPIDController(object):
         constant_velocity = velocities["constant_velocity"]
         wrist_lift_velocity = velocities["wrist_lift_velocity"]
         finger_lift_velocity = velocities["finger_lift_velocity"]
-        min_velocity = velocities["min_velocity"]
+        min_velocity = velocities["min_velocity"] + 1.3 # Add 1.3 so fingers are always moving
         max_velocity = velocities["max_velocity"]
 
         # Note: only comparing initial X position of object. because we know
@@ -514,13 +515,13 @@ class ExpertPIDController(object):
             # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
             if self.init_obj_pose > 0.0:
                 #print("CHECK 4: Object is on RIGHT side")
-                controller_action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+                controller_action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities)
 
             # object on left hand side, move 1-fingered side
             # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
                 #print("CHECK 10: Object is on the LEFT side")
-                controller_action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+                controller_action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities)
 
         self._count()
         controller_action = check_vel_in_range(controller_action, min_velocity, max_velocity, finger_lift_velocity)
@@ -624,14 +625,13 @@ def BellShapedController(lift_check, velocities, timestep):
     return action
 
 
-def get_action(obs, lift_check, controller, env, pid_mode="combined",timestep=None):
+def get_action(obs, lift_check, controller, env, velocities, pid_mode="combined",timestep=None):
     """ Get action based on controller (Naive, position-dependent, combined interpolation)
         obs: Current state observation
         controller: Initialized expert PID controller
         env: Current Mujoco environment needed for expert PID controller
         return action: np.array([wrist, f1, f2, f3]) (velocities in rad/sec)
     """
-    velocities = {"constant_velocity": 0.5, "min_velocity": 0.3, "max_velocity": 0.8, "finger_lift_velocity": 0.5, "wrist_lift_velocity": 0.6}
     object_x_coord = obs[21]  # Object x coordinate position
 
     # By default, action is set to close fingers at a constant velocity
@@ -716,7 +716,7 @@ def GenerateExpertPID_JointVel(episode_num, requested_shapes, requested_orientat
     datestr = datetime.datetime.now().strftime("%m_%d_%y_%H%M") # used for file name saving
 
     # Wrist lifting velocity
-    wrist_lift_action = 0.6 # radians/sec
+    wrist_lift_action = 1 # radians/sec
 
     print("----Generating {} expert episodes----".format(episode_num))
     print("Using PID MODE: ", pid_mode)
