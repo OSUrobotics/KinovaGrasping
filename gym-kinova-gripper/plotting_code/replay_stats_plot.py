@@ -16,7 +16,7 @@ def get_stats(metric_arr):
 
     return min_value, max_value, range_value, mean_value
 
-def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, saving_dir=None):
+def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, axes_limits=None, saving_dir=None):
     """ Create a simple plot with the actual metric values """
     fig = plt.figure()
     plt.plot(metrics_arr[episode_idx],label=label_name)
@@ -24,18 +24,24 @@ def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, saving
     plt.xlabel("Time step")
     plt.ylabel(str(metric_name))
     plt.legend(loc='best')
-    plt.ylim([0, 0.8])
+
+    if axes_limits is None:
+        # Get general stats about metric output
+        min_value, max_value, range_value, mean_value = get_stats(metrics_arr)
+        axes_limits = {"x_min": 0, "x_max": len(range_of_episodes), "y_min": min_value, "y_max": max_value}
+
+    plt.xlim([axes_limits['x_min'], axes_limits['x_max']])
+    plt.ylim([axes_limits['y_min'], axes_limits['y_max']])
 
     if saving_dir is not None:
         plt.savefig(saving_dir + "/" + label_name + "act_vals" + ".png")
         plt.close(fig)
 
-def actual_values_plot_all_episodes(range_of_episodes, metrics_arr, metric_name, saving_dir=None):
+def actual_values_plot_all_episodes(range_of_episodes, metrics_arr, metric_name, axes_limits=None, saving_dir=None):
     """ Create a simple plot with the actual metric values """
     actual_values = [] # Used to calculate min/max over all output
     timestep_labels = [] # x-axis labels
     timestep_major_locs = [] # x-axis major label locations (Episode labels)
-    #timestep_minor_locs = []  # x-axis minor label locations (Time step labels)
 
     for episode_idx in range_of_episodes:
         timestep_labels.append(episode_idx) # Episode
@@ -56,15 +62,16 @@ def actual_values_plot_all_episodes(range_of_episodes, metrics_arr, metric_name,
     plt.xlabel("Episodes (with time steps)")
     plt.ylabel(str(metric_name))
     plt.legend(loc='best')
-    plt.xlim([0, timesteps[-1]])
-    plt.ylim([0., 0.8])
 
-    #ax.xaxis.set_minor_locator(MultipleLocator(1))
-    #ax.set_xticklabels(
+    if axes_limits is None:
+        # Get general stats about metric output
+        min_value, max_value, range_value, mean_value = get_stats(metrics_arr)
+        axes_limits = {"x_min": 0, "x_max": len(range_of_episodes), "y_min": min_value, "y_max": max_value}
+
+    plt.xlim([axes_limits['x_min'], axes_limits['x_max']])
+    plt.ylim([axes_limits['y_min'], axes_limits['y_max']])
+
     plt.xticks(timestep_major_locs, timestep_labels)
-    #timestep_minor_locs = [x for x in timesteps if x not in timestep_major_locs]
-
-
 
     if saving_dir is not None:
         plt.savefig(saving_dir + "/" + metric_name + "act_vals_all_eps" + ".png")
@@ -79,7 +86,7 @@ def episode_distribution_plot(metrics_arr):
     plt.show()
 
 
-def all_episodes_average_plot(range_of_episodes, metrics_arr, metric_name, axes_limits, saving_dir=None):
+def all_episodes_average_plot(range_of_episodes, metrics_arr, metric_name, axes_limits=None, saving_dir=None):
     """ Creates an average plot displaying metric values over a range of episodes
     range_of_episodes: Numpy array containing desired episode indexes
     metrics_arr: Numpy array containing metrics to be plotted (state/action metrics, reward metrics) for each episode
@@ -99,12 +106,15 @@ def all_episodes_average_plot(range_of_episodes, metrics_arr, metric_name, axes_
     plt.xlabel("Episode")
     plt.ylabel(metric_name)
     plt.legend(loc='best')
-    plt.xlim([axes_limits['x_min'], axes_limits['x_max']])
-    #plt.ylim([axes_limits['y_min'], axes_limits['y_max']])
-    plt.ylim([0, 0.8])
 
     # Get general stats about metric output
     min_value, max_value, range_value, mean_value = get_stats(actual_values)
+
+    if axes_limits is None:
+        axes_limits = {"x_min": 0, "x_max": len(range_of_episodes), "y_min": min_value,"y_max": max_value}
+
+    plt.xlim([axes_limits['x_min'], axes_limits['x_max']])
+    plt.ylim([axes_limits['y_min'], axes_limits['y_max']])
 
     # Return text string to be placed on plot (with stats about the metric)
     textstr = "\n{}:\n".format(metric_name)
@@ -202,7 +212,6 @@ def get_selected_episode_metrics(range_of_episodes,metric_arr,metric_idx):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    #parser.add_argument("--replay_filepath", type=str, action='store', default=None) # Replay buffer filepath
     parser.add_argument("--metric_filepath", type=str, action='store', default=None) # Metric array filepath
 
     #parser.add_argument("--label_names", type=str, action='store', default="No Label") # List of labels for each plotted line (ex: Finger 1 Velocity)
@@ -217,15 +226,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    #state_dim = 82
-    #action_dim = 3
-    #replay_size = 4000 # Size of the replay buffer (# Episodes)
-
-    #replay_filepath = args.replay_filepath
     metric_filepath = args.metric_filepath
-
     metric_names = args.metric_names.split(',') # Name for each indexed metric (Ex: label_name for action[0] is "Finger 1 Velocity")
-    #label_names = args.label_names.split(',') # Labels for each indexed metric (Ex: label_name for action[0] is "Finger 1 Velocity")
     metric_indexes = args.metric_indexes.split(',') # List of indexes for each metric
 
     start_episode_idx = args.start_episode_idx
@@ -237,15 +239,6 @@ if __name__ == "__main__":
         save_to_file = True
     else:
         save_to_file = False
-
-
-    #metric_arrays = []
-
-    #if replay_filepath is not None:
-    #    replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, replay_size) # Load the replay buffer (expert replay buffer)
-    #    replay_text = replay_buffer.store_saved_data_into_replay(replay_filepath) # Load stored data into the initialized replay buffer
-    #    replay_buffer_array = copy.deepcopy(replay_buffer.action)
-    #    metric_arrays.append(replay_buffer_array)
 
     metric_array = []
     if metric_filepath is not None:
@@ -268,7 +261,6 @@ if __name__ == "__main__":
     for name, metric_idx in zip(metric_names, metric_indexes):
         # Get metrics from each of the desired episodes
         selected_metric_arr = get_selected_episode_metrics(range_of_episodes,metric_arr=metric_array, metric_idx=int(metric_idx))
-        #timesteps = np.arrange(0,len(selected_metric_arr)+1)
         metric_dict[name] = selected_metric_arr
 
         if save_to_file is True and saving_dir is not None:
@@ -283,7 +275,7 @@ if __name__ == "__main__":
         if plot_type == "average":
             textstr += all_episodes_average_plot(range_of_episodes, selected_metric_arr, name, axes_limits, saving_dir)
         elif plot_type == "actual":
-            actual_values_plot_all_episodes(range_of_episodes, selected_metric_arr, name, saving_dir)
+            actual_values_plot_all_episodes(range_of_episodes, selected_metric_arr, name, axes_limits, saving_dir)
         #elif plot_type == "distribution":
         #    all_episodes_distribution_plot(range_of_episodes, selected_metric_arr, metric_name)
         #elif plot_type == "boxplot":
