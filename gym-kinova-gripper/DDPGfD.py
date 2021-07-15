@@ -55,6 +55,8 @@ class Critic(nn.Module):
 
 class DDPGfD(object):
 	def __init__(self, state_dim=82, action_dim=3, max_action=3, n=5, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
+		print('================================ INITTING DDPGfD with state dim of: ', state_dim,
+			  '===============================')
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)
 		self.actor_target = copy.deepcopy(self.actor)
 		self.actor_optimizer = torch.optim.Adam(self.actor.parameters(), lr=1e-4)
@@ -86,7 +88,7 @@ class DDPGfD(object):
 		return self.actor(state).cpu().data.numpy().flatten()
 
 
-	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.7):
+	def train(self, episode_step, expert_replay_buffer, replay_buffer=None, prob=0.7, mod_state_idx=np.arange(82)):
 		""" Update policy based on full trajectory of one episode """
 		self.total_it += 1
 
@@ -122,6 +124,21 @@ class DDPGfD(object):
 		print("IN OG TRAIN: grasp_reward_count: ", grasp_reward_count)
 		print("IN OG TRAIN: lift_reward_count: ", lift_reward_count)
 		"""
+
+
+		# # TODO: STATE DIM CODE, FOR NON-BATCHING TRAINING. NEEDS TO BE TESTED BEFORE USE. COMMENTED OUT UNTIL TESTED.
+		# print('=============== Start printing - BATCH training =======================')
+		# print('=============== Before modification =======================')
+		# print('state dimensions: ', state.shape)
+		# print('next state dimensions: ', next_state.shape)
+		# # modify state dimensions
+		# state = state[:, mod_state_idx]
+		# next_state = next_state[:, mod_state_idx]
+		#
+		# print('=============== After modification =======================')
+		# print('state dimensions: ', state.shape)
+		# print('next state dimensions: ', next_state.shape)
+		# print('=============== End printing - BATCH training =======================')
 
 		# Target Q network
 		#print("Target Q")
@@ -229,7 +246,7 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, max_episode_num, episode_num, update_count, expert_replay_buffer, replay_buffer):
+	def train_batch(self, max_episode_num, episode_num, update_count, expert_replay_buffer, replay_buffer, mod_state_idx=np.arange(82)):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 		agent_batch_size = 0
@@ -277,8 +294,28 @@ class DDPGfD(object):
 				reward = reward.unsqueeze(0)
 				not_done = not_done.unsqueeze(0)
 
+			expert_state = expert_state[:, :, mod_state_idx]
+			# expert_next_state = expert_next_state[:, :, mod_state_idx]
+
 		reward = reward.unsqueeze(-1)
 		not_done = not_done.unsqueeze(-1)
+
+		# STATE DIMENSION MODIFICATION
+		# print('=============== Start printing - BATCH training =======================')
+		# print('=============== Before modification =======================')
+		# print('state dimensions: ', state.shape)
+		# print('next state dimensions: ', next_state.shape)
+		# print('sanity check - mod_state_idx length: ', len(mod_state_idx))
+
+		# modify state dimensions
+		state = state[:, :, mod_state_idx]
+		next_state = next_state[:, :, mod_state_idx]
+
+
+		# print('=============== After modification =======================')
+		# print('state dimensions: ', state.shape)
+		# print('next state dimensions: ', next_state.shape)
+		# print('=============== End printing - BATCH training =======================')
 
 		### FOR TESTING:
 		#assert_batch_size = self.batch_size * num_trajectories
