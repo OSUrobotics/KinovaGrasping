@@ -613,6 +613,9 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
     total_reward = [[]]
     eval_action = [[]]
 
+    # All policy actions over each episode
+    all_action_ouput = {"episode": [], "timestep": [], "action": [], "policy_action": [], "action_noise": []}
+
     # At episode 0, the target networks == current netoworks, so the network loss is 0
     actor_loss = 0
     critic_loss = 0
@@ -694,12 +697,21 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 # Record the policy's output action and the added noise within the replay buffer
                 replay_buffer.policy_action[-1].append(policy_action)
                 replay_buffer.action_noise[-1].append(action_noise)
+
+                # Record the action output over all episodes to track the policy output
+                all_action_ouput["episode"].append(episode_num)
+                all_action_ouput["timestep"].append(timestep)
+                all_action_ouput["policy_action"].append(policy_action)
+                all_action_ouput["action_noise"].append(action_noise)
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
                 finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=env, velocities=velocities, pid_mode=controller_type)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action))  # Wrist velocity will be 0 until ready for lift
+
+            # Records all action output (even if it is not contained within the replay buffer)
+            all_action_ouput["action"].append(action)
 
             # Perform grasping action by the policy
             next_state, reward, grasp_done, info = env.step(action)
@@ -798,7 +810,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
 
                 # Cumulative (over timesteps) reward data from each evaluation episode for boxplot
                 all_ep_reward_values = eval_ret["all_ep_reward_values"]
-                all_action_values = eval_ret["all_action_values"]
+                all_eval_action_values = eval_ret["all_action_values"]
 
                 # Plot tensorboard metrics for learning analysis (average reward, loss, etc.)
                 writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss,policy.current_expert_proportion)
@@ -808,7 +820,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 grasp_reward[-1].append(all_ep_reward_values["grasp_reward"])
                 lift_reward[-1].append(all_ep_reward_values["lift_reward"])
                 total_reward[-1].append(all_ep_reward_values["total_reward"])
-                eval_action[-1].append(all_action_values["controller_actions"])
+                eval_action[-1].append(all_eval_action_values["controller_actions"])
 
                 # Save a copy of the current policy for evaluation purposes
                 evaluated_policy_path = all_saving_dirs["results_saving_dir"] + "/policy_" + str(episode_num) + "/"
@@ -831,9 +843,17 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 np.save(all_saving_dirs["boxplot_dir"] + "/total_reward_" + str(episode_num),total_reward)
 
                 # Save the finger velocities for plotting and evaluation
-                actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/controller_actions_" + str(episode_num)
+                actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/eval_controller_actions_" + str(episode_num)
                 create_paths([all_saving_dirs["results_saving_dir"] + "/eval_actions/"])
-                np.save(actions_path, all_action_values["controller_actions"])
+                np.save(actions_path, all_eval_action_values["controller_actions"])
+
+                # Save all action output - overwrite what is there so in the end it is a full list
+                dict_file = open(all_saving_dirs["results_saving_dir"] + "/all_action_output.csv", "w", newline='')
+                keys = all_action_ouput.keys()
+                dict_writer = csv.DictWriter(dict_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows([all_action_ouput])
+                dict_file.close()
 
                 finger_reward = [[]]
                 grasp_reward = [[]]
