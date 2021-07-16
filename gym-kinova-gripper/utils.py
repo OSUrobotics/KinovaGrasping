@@ -22,6 +22,9 @@ class ReplayBuffer_Queue(object):
 		self.reward = [[]]
 		self.not_done = [[]]
 
+		self.policy_action = [[]]	# Actual action output by the policy actor network
+		self.action_noise = [[]]	# Noise added to the action output by the policy
+
 		self.finger_reward = [[]]
 		self.grasp_reward = [[]]
 		self.lift_reward = [[]]
@@ -55,10 +58,26 @@ class ReplayBuffer_Queue(object):
 		self.reward.pop(idx)
 		self.not_done.pop(idx)
 		self.episodes.pop(idx)
+
+		# Only pop from these lists if they have been added to
 		if len(self.orientation_indexes) > 0:
 			self.orientation_indexes.pop(idx)
+		if len(self.policy_action) > 0:
+			self.policy_action.pop(idx)
+		if len(self.action_noise) > 0:
+			self.action_noise.pop(idx)
 
 		self.replay_ep_num -= 1
+
+		# If we have popped off the final episode, initialize the arrays as a nested list
+		if len(self.state) == 0:
+			self.state = [[]]
+			self.action = [[]]
+			self.next_state = [[]]
+			self.reward = [[]]
+			self.not_done = [[]]
+			self.episodes = [[]]  # Keep track of episode start/finish indexes
+			self.orientation_indexes = []
 
 	def add_episode(self, start):
 		"""
@@ -128,7 +147,7 @@ class ReplayBuffer_Queue(object):
 			trajectory_arr_idx = []
 
 			for num in range(ceiling-1):
-				start_idx = num #np.random.randint(ceiling)
+				start_idx = num #np.random.randint(ceiling) --> use this for random sampling
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
 			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
@@ -163,9 +182,7 @@ class ReplayBuffer_Queue(object):
 		@param done: The updated done bit value
 		"""
 
-		# Current episode index
-		episode_idx = self.replay_ep_num - 1
-		if len(self.reward[episode_idx]) == 0:
+		if len(self.reward) == 0 or len(self.reward[-1]) == 0:
 			print("We cannot replace the reward as for this episode as we have not done any transitions!")
 			return 0
 
@@ -173,6 +190,9 @@ class ReplayBuffer_Queue(object):
 			print("Can only replace last time step of the latest episode")
 			raise ValueError
 
+		# Current episode index
+		episode_idx = len(self.reward) - 1 #self.replay_ep_num - 1
+		# Current reward index
 		idx = len(self.reward[episode_idx]) - 1
 		old_reward = self.reward[episode_idx][idx]
 		self.reward[episode_idx][idx] = reward
@@ -189,6 +209,9 @@ class ReplayBuffer_Queue(object):
 		self.next_state.append([])
 		self.reward.append([])
 		self.not_done.append([])
+
+		self.policy_action.append([])
+		self.action_noise.append([])
 
 		# If over max number of episodes for replay buffer
 		if self.replay_ep_num > self.max_episode:
@@ -208,6 +231,9 @@ class ReplayBuffer_Queue(object):
 		np.save(save_filepath + "next_state", self.next_state)
 		np.save(save_filepath + "reward", self.reward)
 		np.save(save_filepath + "not_done", self.not_done)
+
+		np.save(save_filepath + "policy_action", self.policy_action)
+		np.save(save_filepath + "action_noise", self.action_noise)
 
 		np.save(save_filepath + "episodes", self.episodes)  # Keep track of episode start/finish indexes
 		np.save(save_filepath + "episodes_info",
@@ -280,6 +306,18 @@ class ReplayBuffer_Queue(object):
 		expert_reward = np.load(filepath + "reward.npy", allow_pickle=True).astype('object')
 		expert_not_done = np.load(filepath + "not_done.npy", allow_pickle=True).astype('object')
 
+		policy_action_path = Path(filepath + "policy_action.npy")
+		if policy_action_path.is_file():
+			expert_policy_action = np.load(filepath + "policy_action.npy", allow_pickle=True).astype('object')
+		else:
+			expert_policy_action = np.array([[]])
+
+		expert_action_path = Path(filepath + "action_noise.npy")
+		if expert_action_path.is_file():
+			expert_action_noise = np.load(filepath + "action_noise.npy", allow_pickle=True).astype('object')
+		else:
+			expert_action_noise = np.array([[]])
+
 		expert_episodes = np.load(filepath + "episodes.npy", allow_pickle=True).astype(
 			'object')  # Keep track of episode start/finish indexes
 		expert_episodes_info = np.load(filepath + "episodes_info.npy", allow_pickle=True)
@@ -295,6 +333,9 @@ class ReplayBuffer_Queue(object):
 			expert_next_state = expert_next_state[-sample_size:]
 			expert_reward = expert_reward[-sample_size:]
 			expert_not_done = expert_not_done[-sample_size:]
+
+			expert_policy_action = expert_policy_action[-sample_size:]
+			expert_action_noise = expert_action_noise[-sample_size:]
 			expert_episodes = expert_episodes[-sample_size:]
 			expert_episodes_info = expert_episodes_info[-sample_size:]
 			expert_orientation_indexes = expert_orientation_indexes[-sample_size:]
@@ -307,6 +348,9 @@ class ReplayBuffer_Queue(object):
 			self.reward = expert_reward.tolist()
 			self.not_done = expert_not_done.tolist()
 			self.episodes = expert_episodes.tolist()
+
+			self.policy_action = expert_policy_action.tolist()
+			self.action_noise = expert_action_noise.tolist()
 		else:
 			# Otherwise, extend current replay buffer with new replay data
 			# Convert numpy array to list and set to replay buffer
@@ -316,6 +360,9 @@ class ReplayBuffer_Queue(object):
 			self.reward.extend(expert_reward.tolist())
 			self.not_done.extend(expert_not_done.tolist())
 			self.episodes.extend(expert_episodes.tolist())
+
+			self.policy_action.extend(expert_policy_action.tolist())
+			self.action_noise.extend(expert_action_noise.tolist())
 
 		# Print out the values stored within the reward array of the replay buffer
 		reward_text, num_elems = self.evaluate_replay_reward(self.reward)

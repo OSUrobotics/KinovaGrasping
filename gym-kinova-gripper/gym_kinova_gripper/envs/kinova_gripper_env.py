@@ -125,12 +125,12 @@ class KinovaGripper_Env(gym.Env):
         self._numSteps = 0
         self._simulator = "Mujoco"
         self.action_scale = 0.0333
-        self.max_episode_steps = 30
+        self.max_episode_steps = 45
         self.site_count=0
         # Parameters for cost function
         self.state_des = 0.20
         self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([0.8, 0.8, 0.8]), dtype=np.float32) # Velocity action space
+        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([3, 3, 3]), dtype=np.float32) # Velocity action space
         self.const_T=np.array([[0,-1,0,0],[0,0,-1,0],[1,0,0,0],[0,0,0,1]])  #Transfer matrix from world frame to un-modified hand frame
         self.frame_skip = frame_skip # Used in step. Number of frames you go through before you reach the next step
         self.all_states = None  # This is the varriable we use to save the states before they are sent to the simulator when we are resetting.
@@ -848,7 +848,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to run all the experiments for RL training
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
-        self.objects = {}
+        #self.objects = {}
 
         for key in shape_keys:
             self.objects[key] = self.all_objects[key]
@@ -1043,10 +1043,11 @@ class KinovaGripper_Env(gym.Env):
                 writer.writerow(key)
 
         # Load model
-        self._model = load_model_from_path(self.file_dir + self.objects[random_shape])
+        object_file = copy.deepcopy(self.experiment([random_shape]))
+        self._model = load_model_from_path(self.file_dir + object_file[random_shape])
         self._sim = MjSim(self._model)
 
-        return random_shape, self.objects[random_shape]
+        return random_shape, object_file[random_shape]
 
     # Get the initial object position
     def sample_initial_object_hand_pos(self,coords_filename,with_noise=True,orient_idx=None,region=None):

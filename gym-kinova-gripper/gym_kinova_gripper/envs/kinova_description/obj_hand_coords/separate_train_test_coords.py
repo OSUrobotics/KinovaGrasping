@@ -11,23 +11,24 @@ def split_coords(all_data_filepath,with_noise):
     all_data_filepath: Filepath to full dataset to be split (Ex: all_shapes/)
     """
     # Create train and test output files
-    train_coords_dir = "./train_coords"
+    train_coords_dir = all_data_filepath + "/train_coords"
     if not os.path.isdir(train_coords_dir):
         os.mkdir(train_coords_dir)
 
-    eval_coords_dir = "./eval_coords"
+    eval_coords_dir = all_data_filepath + "/eval_coords"
     if not os.path.isdir(eval_coords_dir):
         os.mkdir(eval_coords_dir)
 
-    test_coords_dir = "./test_coords"
+    test_coords_dir = all_data_filepath + "/test_coords"
     if not os.path.isdir(test_coords_dir):
         os.mkdir(test_coords_dir)
 
     orientations = ["normal","rotated","top"]
 
     for hand_orientation in orientations:
-        print("File: ",all_data_filepath+hand_orientation)
-        for coords_file in glob.glob(all_data_filepath+hand_orientation+'/*.txt'):
+        shape_coords_path = all_data_filepath+"/shape_coords/"+hand_orientation
+        print("File: ",shape_coords_path)
+        for coords_file in glob.glob(shape_coords_path+'/*.txt'):
             data = []
             with open(coords_file) as csvfile:
                 checker = csvfile.readline()
@@ -44,7 +45,7 @@ def split_coords(all_data_filepath,with_noise):
                         data.append([float(i[0]), float(i[1]), float(i[2]), float(i[3]), float(i[4]), float(i[5])])
                     else:
                         # Hand orientation is set to (0, 0, 0) if no orientation is selected
-                        data.append([float(i[0]), float(i[1]), float(i[2]), 0, 0, 0])
+                        data.append([float(i[0]), float(i[1]), float(i[2])])
 
             coords_file = os.path.basename(coords_file)
 
