@@ -71,7 +71,7 @@ poses=[[0.0,-0.03],[0.02,-0.03],[-0.02,-0.03],[-0.05,0],[-0.01,-0.035],[0.01,-0.
 for f in range(3):
     for k in range(10):
         thing=np.append([0,0,0],act)
-        env.reset(hand_orientation="random",shape_keys=['CubeM','CubeS'])
+        env.reset(hand_orientation="random",shape_keys=['Vase1S'])
         x_move = np.random.rand()/10
         y_move = np.random.rand()/10
         action=np.array(thing)
