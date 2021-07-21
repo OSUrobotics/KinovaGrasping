@@ -616,11 +616,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
     # All policy actions over each episode
     all_action_ouput = {"episode": [], "timestep": [], "action": [], "policy_action": [], "action_noise": []}
 
-    # At episode 0, the target networks == current netoworks, so the network loss is 0
-    actor_loss = 0
-    critic_loss = 0
-    critic_L1loss = 0
-    critic_LNloss = 0
+    # All policy loss output at each evaluation frequency
+    all_policy_output = {"actor_loss": [], "critic_loss": [], "critic_L1loss": [], "critic_LNloss": []}
 
     # Tensorboard writer
     if controller_type == "policy":
@@ -785,9 +782,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                                                                                          replay_buffer, prob)
                     else:
                         # Batch training using n-steps
-                        actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps, episode_num, update_count,
-                                                                                             expert_replay_buffer,
-                                                                                             replay_buffer)
+                        policy.train_batch(env._max_episode_steps, episode_num, update_count,expert_replay_buffer,replay_buffer)
+                        
             # Evaluation of the policy: Evaluate the policy every eval_freq episodes
             if episode_num+1 == num_episodes or (episode_num) % args.eval_freq == 0:
                 print("EVALUATING EPISODE AT: ",episode_num)
@@ -813,7 +809,11 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 all_eval_action_values = eval_ret["all_action_values"]
 
                 # Plot tensorboard metrics for learning analysis (average reward, loss, etc.)
-                writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss,policy.current_expert_proportion)
+                all_policy_output["actor_loss"].append(policy.actor_loss)
+                all_policy_output["critic_loss"].append(policy.critic_loss)
+                all_policy_output["critic_L1loss"].append(policy.critic_L1loss)
+                all_policy_output["critic_LNloss"].append(policy.critic_LNloss)
+                writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],policy.actor_loss,policy.critic_loss,policy.critic_L1loss,policy.critic_LNloss,policy.current_expert_proportion)
 
                 # Insert boxplot code reference
                 finger_reward[-1].append(all_ep_reward_values["finger_reward"])
@@ -853,6 +853,14 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 dict_writer = csv.DictWriter(dict_file, keys)
                 dict_writer.writeheader()
                 dict_writer.writerows([all_action_ouput])
+                dict_file.close()
+                
+                # Save all policy loss output - overwrite what is there so in the end it is a full list
+                dict_file = open(all_saving_dirs["results_saving_dir"] + "/all_policy_output.csv", "w", newline='')
+                keys = all_policy_output.keys()
+                dict_writer = csv.DictWriter(dict_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows([all_policy_output])
                 dict_file.close()
 
                 finger_reward = [[]]
@@ -1244,6 +1252,8 @@ def setup_args(args=None):
     parser.add_argument("--controller_type", type=str, action='store', default=None) # Determine the type of controller to use for evaluation (policy OR naive, expert, position-dependent)
     parser.add_argument("--regions_of_interest", type=str, action='store', default=None) # Determine the region of interest to evaluate over (Ex: extreme_left, extreme_right, all_regions)
     parser.add_argument("--input_variations", type=str, action='store', default=None)  # Determine the input variations to evaluate over (Ex: Baseline, Baseline_HOV, Shapes_HOV, all_variations)
+    parser.add_argument("--replay_buffer_sample_size", type=str, action='store', default=100) # Number of entries to load from the end of the replay buffer
+    parser.add_argument("--sampling_decay_rate", type=float, action='store', default=0.2) # Rate of decay of the proportion of replay buffer experience that is samples from the expert within training
 
     args = parser.parse_args()
     return args
@@ -1378,6 +1388,11 @@ if __name__ == "__main__":
     requested_orientation = args.hand_orientation   # Set the desired hand orientation (normal or random)
     expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
+    replay_buffer_sample_size = args.replay_buffer_sample_size # Number of entries to load the replay buffer with from the saved replay buffer
+                                                               # (sampled from the end of the buffer to get the most recent experience)
+    if replay_buffer_sample_size == "None":
+        replay_buffer_sample_size = None
+    sampling_decay_rate = args.sampling_decay_rate
     max_num_timesteps = 45     # Maximum number of time steps within an episode
 
     # If experiment number is selected, set mode to experiment (in case the mode has been set to train by default)
@@ -1630,7 +1645,7 @@ if __name__ == "__main__":
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
         if agent_replay_file_path is not None:
             # Fill experience from previous stage into replay buffer
-            replay_buffer.store_saved_data_into_replay(agent_replay_file_path,sample_size=100)
+            replay_buffer.store_saved_data_into_replay(agent_replay_file_path,sample_size=replay_buffer_sample_size)
         else:
             print("Using an empty agent replay buffer!!")
 
@@ -1662,7 +1677,7 @@ if __name__ == "__main__":
         # Initialize timer to analyze run times
         train_time = Timer()
         train_time.start()
-        policy.sampling_decay_rate = 0.2
+        policy.sampling_decay_rate = sampling_decay_rate
         eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities)
         eval_num_total = eval_num_success + eval_num_fail
 

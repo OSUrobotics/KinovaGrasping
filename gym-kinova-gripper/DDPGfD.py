@@ -4,6 +4,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pdb
+from pathlib import Path
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -62,6 +63,11 @@ class DDPGfD(object):
 		self.critic = Critic(state_dim, action_dim).to(device)
 		self.critic_target = copy.deepcopy(self.critic)
 		self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=1e-4, weight_decay=1e-4)
+
+		self.actor_loss = 0
+		self.critic_loss = 0
+		self.critic_L1loss = 0
+		self.critic_LNloss = 0
 
 		self.discount = discount
 		self.tau = tau
@@ -407,6 +413,12 @@ class DDPGfD(object):
 
 			for param, target_param in zip(self.actor.parameters(), self.actor_target.parameters()):
 				target_param.data.copy_(self.tau * param.data + (1 - self.tau) * target_param.data)
+
+		self.actor_loss = actor_loss.item()
+		self.critic_loss = critic_loss.item()
+		self.critic_L1loss = critic_L1loss.item()
+		self.critic_LNloss = critic_LNloss.item()
+
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 	def copy(self, policy_to_copy_from):
@@ -421,6 +433,11 @@ class DDPGfD(object):
 		self.critic = copy.deepcopy(policy_to_copy_from.critic)
 		self.critic_target = copy.deepcopy(policy_to_copy_from.critic_target)
 		self.critic_optimizer = copy.deepcopy(policy_to_copy_from.critic_optimizer)
+
+		self.actor_loss = policy_to_copy_from.actor_loss
+		self.critic_loss = policy_to_copy_from.critic_loss
+		self.critic_L1loss = policy_to_copy_from.critic_L1loss
+		self.critic_LNloss = policy_to_copy_from.critic_LNloss
 
 		self.discount = policy_to_copy_from.discount
 		self.tau = policy_to_copy_from.tau
@@ -446,6 +463,8 @@ class DDPGfD(object):
 		torch.save(self.actor_optimizer.state_dict(), filename + "_actor_optimizer")
 		np.save(filename + "avg_evaluation_reward",np.array([self.avg_evaluation_reward]))
 
+		policy_attributes = {"actor_loss": self.actor_loss, "critic_loss": self.critic_loss, "critic_L1loss": self.critic_L1loss, "critic_LNloss": self.critic_LNloss}
+		np.save(filename+'policy_attributes.npy', policy_attributes)
 
 	def load(self, filename):
 		self.critic.load_state_dict(torch.load(filename + "_critic", map_location=device))
@@ -453,5 +472,13 @@ class DDPGfD(object):
 		self.actor.load_state_dict(torch.load(filename + "_actor", map_location=device))
 		self.actor_optimizer.load_state_dict(torch.load(filename + "_actor_optimizer", map_location=device))
 
-		self.critic_target = copy.deepcopy(self.critic)
-		self.actor_target = copy.deepcopy(self.actor)
+		self.critic_target.load_state_dict(torch.load(filename + "_critic_target", map_location=device))
+		self.actor_target.load_state_dict(torch.load(filename + "_actor_target", map_location=device))
+
+		policy_attributes_path = Path(filename + 'policy_attributes.npy')
+		if policy_attributes_path.is_file():
+			policy_attributes = np.load(filename+'policy_attributes.npy').item()
+			self.actor_loss = policy_attributes["actor_loss"]
+			self.critic_loss = policy_attributes["critic_loss"]
+			self.critic_L1loss = policy_attributes["critic_L1loss"]
+			self.critic_LNloss = policy_attributes["critic_LNloss"]
