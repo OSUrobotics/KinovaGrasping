@@ -172,14 +172,14 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 
     <contact>
-    	<pair geom1="object" geom2="ground" condim="3" friction="0.3 0.3 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f1_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f1_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f2_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f2_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f3_prox" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="f3_dist" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
-    	<pair geom1="object" geom2="palm" condim="3" friction="1 1 0.005 0.0001 0.0001"/>
+		<pair geom1="object" geom2="ground" condim="3" friction="0.3 0.3 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="f1_prox" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="f1_dist" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="f2_prox" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="f2_dist" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="f3_prox" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="f3_dist" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
+		<pair geom1="object" geom2="palm" condim="3" friction="1 1 0.005 0.0001 0.0001" solimp="0.99 0.99 0.01" solref="0.01 1"/>
     
     </contact>
 

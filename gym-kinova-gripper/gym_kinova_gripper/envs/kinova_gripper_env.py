@@ -58,7 +58,7 @@ class KinovaGripper_Env(gym.Env):
             self.filename= "/kinova_description/j2s7s300.xml"
         elif arm_or_end_effector == "hand":
             pass
-            self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+            self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
             #self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
             #self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
