@@ -1,3 +1,10 @@
+# import logging
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger()
+# logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/long_training_full_episodes.log', 'a'))
+# print = lambda *x: logger.info("".join(str(item) for item in x))
+# print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
+
 import numpy as np
 import torch
 import gym
@@ -1231,7 +1238,7 @@ def setup_args(args=None):
 
     # state dim related arguments
     parser.add_argument("--state_range", default='all',
-                        type=str)  # string - from ('all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real')
+                        type=str)  # string - from ('all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real', 'adam_sim2real')
 
     args = parser.parse_args()
     return args
@@ -1339,43 +1346,62 @@ def state_dim_setup(state_dim_option):
     Input: The argument of which state_range option to use.
     Output: Numpy array of indices
     """
-    assert state_dim_option in ['all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real']
 
     # Setup state dimensional parts here
     '''
     Local obs, all in local coordinates (from the center of the palm)
-    (18,) Finger Pos                                        0-18
-    (3,) Wrist Pos                                            18-21
-    (3,) Obj Pos                                            21-24
-    (9,) Joint States                                        24-33
-    (3,) Obj Size                                            33-36
-    (12,) Finger Object Distance                            36-48
-    (2,) X and Z angle                                        48-50
-    (17,) Rangefinder data                                    50-67
-    (3,) Gravity vector in local coordinates                    67-70
-    (3,) Object location based on rangefinder data                70-73
+    (18,) Finger Pos                                        0-17: (0: x, 1: y, 2: z) "f1_prox", (3-5) "f2_prox", (6-8) "f3_prox", (9-11) "f1_dist", (12-14) "f2_dist", (15-17) "f3_dist"
+    (3,) Wrist Pos                                          18-20 (18: x, 19: y, 20: z)
+    (3,) Obj Pos                                            21-23 (21: x, 22: y, 23: z)
+    (9,) Joint States                                       24-32
+    (3,) Obj Size                                           33-35
+    (12,) Finger Object Distance                            36-47
+    
+    36) "f1_prox"
+    37) "f1_prox_1"
+    38) "f2_prox"
+    39) "f2_prox_1"
+    40) "f3_prox"
+    41) "f3_prox_1"
+    42) "f1_dist"
+    43) "f1_dist_1"
+    44) "f2_dist"
+    45) "f2_dist_1"
+    46) "f3_dist"
+    47) "f3_dist_1"
+    
+    Note: NONE vs "_1" meaning: On each finger there are two red dots. The "_1" is the ones closer to the center
+    
+    
+    (2,) X and Z angle                                      48-49
+    (17,) Rangefinder data                                  50-66
+    (3,) Gravity vector in local coordinates                67-69
+    (3,) Object location based on rangefinder data          70-72
     (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
     (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
     (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
     (1, ) Dot product (wrist) 81
-
-    Global obs, all in global coordinates (from simulator 0,0,0)
-    (18,) Finger Pos                                        0-18
-    (3,) Wrist Pos                                            18-21
-    (3,) Obj Pos                                            21-24
-    (9,) Joint States                                        24-33
-    (3,) Obj Size                                            33-36
-    (12,) Finger Object Distance                            36-48
-    (2,) X and Z angle                                        48-50
-    (17,) Rangefinder data                                    50-67
     '''
 
     finger_pos_idx = np.arange(0, 18)
+    f1_prox_pos_idx = np.array([3, 4, 5])
+    f2_prox_pos_idx = np.array([6, 7, 8])
+    f1_dist_pos_idx = np.array([12, 13, 14])
+    f2_dist_pos_idx = np.array([15, 16, 17])
+    last_6_joint_states_idx = np.arange(27, 33)
+    
     wrist_pos_idx = np.arange(18, 21)
     obj_pos_idx = np.arange(21, 24)
     joint_states_idx = np.arange(24, 33)
     obj_size_idx = np.arange(33, 36)
     finger_obj_dist_idx = np.arange(36, 48)
+    
+    finger_obj_dist_f1_prox_1 = np.array([37])
+    finger_obj_dist_f2_prox_1 = np.array([39])
+    finger_obj_dist_f1_dist_1 = np.array([43])
+    finger_obj_dist_f2_dist_1 = np.array([45])
+    
+    
     x_z_angle_idx = np.arange(48, 50)
     rangefinder_data_idx = np.arange(50, 67)
     gravity_vector_in_local_coords = np.arange(67, 70)
@@ -1395,8 +1421,17 @@ def state_dim_setup(state_dim_option):
         'all': np.arange(82),
         'nigel_rangefinder': np.concatenate((obj_pos_idx, rangefinder_data_idx, obj_size_idx), axis=0),
         'nigel_norangefinder': np.concatenate((obj_pos_idx, finger_obj_dist_idx, obj_size_idx), axis=0),
-        'all_real': np.concatenate((obj_pos_idx, joint_states_idx, obj_size_idx, finger_obj_dist_idx, x_z_angle_idx))
+        'all_real': np.concatenate((f1_prox_pos_idx, f2_prox_pos_idx, f1_dist_pos_idx, f2_dist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_idx)),
+        #  wrist 3 + finger pos 12 + obj size 3 + last joint states 6 + obj pos 3 + finger obj dist 4
+        'adam_sim2real': np.concatenate((f1_dist_pos_idx, f1_prox_pos_idx, f2_dist_pos_idx, f2_prox_pos_idx, wrist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1, finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1))  # this one is based on sim2real
     }
+    
+    
+    assert state_dim_option in state_dim_idx_arr_dict.keys()
+    
+#     # x_z useless
+#     1. dont use finger 3, both in control and for position
+#     2. for joint states - you only want the last 6
 
     res_state_idx_arr = state_dim_idx_arr_dict[state_dim_option]
 
