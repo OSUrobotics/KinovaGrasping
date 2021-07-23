@@ -147,7 +147,7 @@ class ReplayBuffer_Queue(object):
 			trajectory_arr_idx = []
 
 			for num in range(ceiling-1):
-				start_idx = num #np.random.randint(ceiling) --> use this for random sampling
+				start_idx = np.random.randint(ceiling) # num --> use this for in-order sampling
 				trajectory_arr_idx.append(np.arange(start_idx, start_idx + self.n_steps))
 
 			trajectory_arr_idx.append(np.arange(ceiling, ceiling + self.n_steps))
