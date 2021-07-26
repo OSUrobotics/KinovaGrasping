@@ -477,7 +477,7 @@ class DDPGfD(object):
 
 		policy_attributes_path = Path(filename + 'policy_attributes.npy')
 		if policy_attributes_path.is_file():
-			policy_attributes = np.load(filename+'policy_attributes.npy').item()
+			policy_attributes = np.load(filename+'policy_attributes.npy',allow_pickle=True).item()
 			self.actor_loss = policy_attributes["actor_loss"]
 			self.critic_loss = policy_attributes["critic_loss"]
 			self.critic_L1loss = policy_attributes["critic_L1loss"]
