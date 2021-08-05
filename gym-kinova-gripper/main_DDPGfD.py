@@ -127,7 +127,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, velocities, sample_size=5, regions_of_interest=None, controller_type="policy"):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, velocities, sample_size=2, regions_of_interest=None, controller_type="policy"):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -173,8 +173,8 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, al
 
                     # Sample points from each region of success/failures to render
                     for dict_list in [success_dicts, fail_dicts]:
-                        num_points = len(dict_list)
-                        for d_idx in range(min(sample_size,num_points)):
+                        num_points = min(sample_size,len(dict_list))
+                        for d_idx in range(num_points):
                             curr_dict = dict_list[d_idx]
 
                             # Evaluate policy with a sampled point in a region and create a video rendering
