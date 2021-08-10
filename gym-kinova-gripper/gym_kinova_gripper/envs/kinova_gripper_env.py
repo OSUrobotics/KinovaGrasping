@@ -946,9 +946,8 @@ class KinovaGripper_Env(gym.Env):
         return self.all_objects
 
     # Function to run all the experiments for RL training
-    def experiment(self,
-                   shape_keys):  # TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
-        # self.objects = {}
+    def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
+        #self.objects = {}
 
         print('EXPERIMENT FUNCTION before')
         print(self.objects)

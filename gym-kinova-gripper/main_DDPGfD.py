@@ -134,7 +134,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, velocities, sample_size=5, regions_of_interest=None, controller_type="policy", state_idx_arr=np.arange(82)):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, velocities, sample_size=2, regions_of_interest=None, controller_type="policy", state_idx_arr=np.arange(82)):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -180,8 +180,8 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, al
 
                     # Sample points from each region of success/failures to render
                     for dict_list in [success_dicts, fail_dicts]:
-                        num_points = len(dict_list)
-                        for d_idx in range(min(sample_size,num_points)):
+                        num_points = min(sample_size,len(dict_list))
+                        for d_idx in range(num_points):
                             curr_dict = dict_list[d_idx]
 
                             # Evaluate policy with a sampled point in a region and create a video rendering
@@ -623,11 +623,11 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
     total_reward = [[]]
     eval_action = [[]]
 
-    # At episode 0, the target networks == current netoworks, so the network loss is 0
-    actor_loss = 0
-    critic_loss = 0
-    critic_L1loss = 0
-    critic_LNloss = 0
+    # All policy actions over each episode
+    all_action_ouput = {"episode": [], "timestep": [], "action": [], "policy_action": [], "action_noise": []}
+
+    # All policy loss output at each evaluation frequency
+    all_policy_output = {"actor_loss": [], "critic_loss": [], "critic_L1loss": [], "critic_LNloss": []}
 
     # Tensorboard writer
     if controller_type == "policy":
@@ -704,12 +704,21 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 # Record the policy's output action and the added noise within the replay buffer
                 replay_buffer.policy_action[-1].append(policy_action)
                 replay_buffer.action_noise[-1].append(action_noise)
+
+                # Record the action output over all episodes to track the policy output
+                all_action_ouput["episode"].append(episode_num)
+                all_action_ouput["timestep"].append(timestep)
+                all_action_ouput["policy_action"].append(policy_action)
+                all_action_ouput["action_noise"].append(action_noise)
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
                 finger_action = get_action(obs=np.array(state[0:82])[state_idx_arr], lift_check=ready_for_lift, controller=controller, env=env, velocities=velocities, pid_mode=controller_type)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action))  # Wrist velocity will be 0 until ready for lift
+
+            # Records all action output (even if it is not contained within the replay buffer)
+            all_action_ouput["action"].append(action)
 
             # Perform grasping action by the policy
             next_state, reward, grasp_done, info = env.step(action)
@@ -808,17 +817,21 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
 
                 # Cumulative (over timesteps) reward data from each evaluation episode for boxplot
                 all_ep_reward_values = eval_ret["all_ep_reward_values"]
-                all_action_values = eval_ret["all_action_values"]
+                all_eval_action_values = eval_ret["all_action_values"]
 
                 # Plot tensorboard metrics for learning analysis (average reward, loss, etc.)
-                writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],actor_loss,critic_loss,critic_L1loss,critic_LNloss,policy.current_expert_proportion)
+                all_policy_output["actor_loss"].append(policy.actor_loss)
+                all_policy_output["critic_loss"].append(policy.critic_loss)
+                all_policy_output["critic_L1loss"].append(policy.critic_L1loss)
+                all_policy_output["critic_LNloss"].append(policy.critic_LNloss)
+                writer = write_tensor_plot(writer,episode_num,eval_ret["avg_reward"],eval_ret["avg_rewards"],policy.actor_loss,policy.critic_loss,policy.critic_L1loss,policy.critic_LNloss,policy.current_expert_proportion)
 
                 # Insert boxplot code reference
                 finger_reward[-1].append(all_ep_reward_values["finger_reward"])
                 grasp_reward[-1].append(all_ep_reward_values["grasp_reward"])
                 lift_reward[-1].append(all_ep_reward_values["lift_reward"])
                 total_reward[-1].append(all_ep_reward_values["total_reward"])
-                eval_action[-1].append(all_action_values["controller_actions"])
+                eval_action[-1].append(all_eval_action_values["controller_actions"])
 
                 # Save a copy of the current policy for evaluation purposes
                 evaluated_policy_path = all_saving_dirs["results_saving_dir"] + "/policy_" + str(episode_num) + "/"
@@ -841,9 +854,25 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 np.save(all_saving_dirs["boxplot_dir"] + "/total_reward_" + str(episode_num),total_reward)
 
                 # Save the finger velocities for plotting and evaluation
-                actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/controller_actions_" + str(episode_num)
+                actions_path = all_saving_dirs["results_saving_dir"] + "/eval_actions/eval_controller_actions_" + str(episode_num)
                 create_paths([all_saving_dirs["results_saving_dir"] + "/eval_actions/"])
-                np.save(actions_path, all_action_values["controller_actions"])
+                np.save(actions_path, all_eval_action_values["controller_actions"])
+
+                # Save all action output - overwrite what is there so in the end it is a full list
+                dict_file = open(all_saving_dirs["results_saving_dir"] + "/all_action_output.csv", "w", newline='')
+                keys = all_action_ouput.keys()
+                dict_writer = csv.DictWriter(dict_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows([all_action_ouput])
+                dict_file.close()
+
+                # Save all policy loss output - overwrite what is there so in the end it is a full list
+                dict_file = open(all_saving_dirs["results_saving_dir"] + "/all_policy_output.csv", "w", newline='')
+                keys = all_policy_output.keys()
+                dict_writer = csv.DictWriter(dict_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows([all_policy_output])
+                dict_file.close()
 
                 finger_reward = [[]]
                 grasp_reward = [[]]
@@ -1235,6 +1264,8 @@ def setup_args(args=None):
     parser.add_argument("--controller_type", type=str, action='store', default=None) # Determine the type of controller to use for evaluation (policy OR naive, expert, position-dependent)
     parser.add_argument("--regions_of_interest", type=str, action='store', default=None) # Determine the region of interest to evaluate over (Ex: extreme_left, extreme_right, all_regions)
     parser.add_argument("--input_variations", type=str, action='store', default=None)  # Determine the input variations to evaluate over (Ex: Baseline, Baseline_HOV, Shapes_HOV, all_variations)
+    parser.add_argument("--replay_buffer_sample_size", type=str, action='store', default=100) # Number of entries to load from the end of the replay buffer
+    parser.add_argument("--sampling_decay_rate", type=float, action='store', default=0.2) # Rate of decay of the proportion of replay buffer experience that is samples from the expert within training
 
     # state dim related arguments
     parser.add_argument("--state_range", default='all',
@@ -1389,19 +1420,19 @@ def state_dim_setup(state_dim_option):
     f1_dist_pos_idx = np.array([12, 13, 14])
     f2_dist_pos_idx = np.array([15, 16, 17])
     last_6_joint_states_idx = np.arange(27, 33)
-    
+
     wrist_pos_idx = np.arange(18, 21)
     obj_pos_idx = np.arange(21, 24)
     joint_states_idx = np.arange(24, 33)
     obj_size_idx = np.arange(33, 36)
     finger_obj_dist_idx = np.arange(36, 48)
-    
+
     finger_obj_dist_f1_prox_1 = np.array([37])
     finger_obj_dist_f2_prox_1 = np.array([39])
     finger_obj_dist_f1_dist_1 = np.array([43])
     finger_obj_dist_f2_dist_1 = np.array([45])
-    
-    
+
+
     x_z_angle_idx = np.arange(48, 50)
     rangefinder_data_idx = np.arange(50, 67)
     gravity_vector_in_local_coords = np.arange(67, 70)
@@ -1425,10 +1456,10 @@ def state_dim_setup(state_dim_option):
         #  wrist 3 + finger pos 12 + obj size 3 + last joint states 6 + obj pos 3 + finger obj dist 4
         'adam_sim2real': np.concatenate((f1_dist_pos_idx, f1_prox_pos_idx, f2_dist_pos_idx, f2_prox_pos_idx, wrist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1, finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1))  # this one is based on sim2real
     }
-    
-    
+
+
     assert state_dim_option in state_dim_idx_arr_dict.keys()
-    
+
 #     # x_z useless
 #     1. dont use finger 3, both in control and for position
 #     2. for joint states - you only want the last 6
@@ -1480,6 +1511,11 @@ if __name__ == "__main__":
     requested_orientation = args.hand_orientation   # Set the desired hand orientation (normal or random)
     expert_replay_size = args.expert_replay_size    # Number of expert episodes for expert the replay buffer
     agent_replay_size = args.agent_replay_size      # Maximum number of episodes to be stored in agent replay buffer
+    replay_buffer_sample_size = args.replay_buffer_sample_size # Number of entries to load the replay buffer with from the saved replay buffer
+                                                               # (sampled from the end of the buffer to get the most recent experience)
+    if replay_buffer_sample_size == "None":
+        replay_buffer_sample_size = None
+    sampling_decay_rate = args.sampling_decay_rate
     max_num_timesteps = 45     # Maximum number of time steps within an episode
 
     # If experiment number is selected, set mode to experiment (in case the mode has been set to train by default)
@@ -1732,7 +1768,7 @@ if __name__ == "__main__":
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
         if agent_replay_file_path is not None:
             # Fill experience from previous stage into replay buffer
-            replay_buffer.store_saved_data_into_replay(agent_replay_file_path,sample_size=100)
+            replay_buffer.store_saved_data_into_replay(agent_replay_file_path,sample_size=replay_buffer_sample_size)
         else:
             print("Using an empty agent replay buffer!!")
 
@@ -1764,7 +1800,7 @@ if __name__ == "__main__":
         # Initialize timer to analyze run times
         train_time = Timer()
         train_time.start()
-        policy.sampling_decay_rate = 0.2
+        policy.sampling_decay_rate = sampling_decay_rate
         eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=state_idx_arr)
         eval_num_total = eval_num_success + eval_num_fail
 
