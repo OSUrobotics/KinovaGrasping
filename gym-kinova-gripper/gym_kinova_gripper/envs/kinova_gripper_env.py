@@ -47,36 +47,6 @@ import xml.etree.ElementTree as ET
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def rotate_around_origin(vec, how_much_rotation):
-    # vec: xyz
-    # how_much_rotation: in radians. use np.radians to covert if necessary
-    # roll, pitch, yaw.
-    rotation = R.from_euler('xyz', how_much_rotation)
-
-    rotated_vec = rotation.apply(vec)
-    return rotated_vec
-
-
-def rotate_around_axis(vec, theta, axis, input_unit='deg'):
-    """
-    rotate around an arbitrary axis
-
-    vec: xyz
-    theta: single angle, but now around arbitrary axis
-    axis: defined as a 3d vector direction, xyz
-    """
-    rotation_radians = theta
-
-    if input_unit == 'deg':
-        rotation_radians = np.radians(theta)
-
-    rotation_axis = np.array(axis)  # type conversion... just in case
-    rotation_vector = rotation_radians * rotation_axis
-    rotation = R.from_rotvec(rotation_vector)
-    rotated_vec = rotation.apply(vec)
-    return rotated_vec
-
-
 class KinovaGripper_Env(gym.Env):
     metadata = {'render.modes': ['human']}
 
@@ -318,7 +288,7 @@ class KinovaGripper_Env(gym.Env):
         self.instance = 0  # int(np.random.uniform(low=0,high=100))
 
     # Funtion to get 3D transformation matrix of the palm and get the wrist position and update both those varriables
-    def _get_trans_mat_wrist_pose(self):  # WHY MUST YOU HATE ME WHEN I GIVE YOU NOTHING BUT LOVE?
+    def _get_trans_mat_wrist_pose(self):
         """
         world coord => local coord, in the palm of the hand.
 
@@ -1715,21 +1685,6 @@ class KinovaGripper_Env(gym.Env):
             if new_dir is not None:
                 new_path = Path(new_dir)
                 new_path.mkdir(parents=True, exist_ok=True)
-
-    def get_wrist_pos_coord(self, euler_rotation, original_offset=[0.0, 0.18, 0.0654],
-                            original_rotation=np.array([-np.pi / 2, 0.0, -np.pi / 2])):
-        """
-        TODO: use tuples as an immutable array? better practice??
-        rotates the wrist position around the coordinate...
-
-        TODO: Incomplete! pain...
-        """
-        # delta_rotation = np.array(euler_rotation) + original_rotation
-        # print('delta rotation: ', delta_rotation)
-        # delta_rotation = np.array(euler_rotation)
-        new_point = rotate_around_origin(original_offset, euler_rotation)
-        new_point = rotate_around_origin(new_point, original_rotation)
-        return new_point
 
     def reset(self, shape_keys, hand_orientation, with_grasp=False, env_name="env", mode="train", start_pos=None,
               hand_rotation=None, obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False):
