@@ -60,14 +60,12 @@ class StateSpaceBase():
     _sim = None
 
     def __init__(self, path=os.path.dirname(__file__)+'/config/state.json'):
-        print('path',path)
         with open(path) as f:
             json_data = json.load(f)
         self.data = OrderedDict()
         for name, value in json_data.items():
             state_name = name.split(sep='_')
             try:
-                print(state_name[0])
                 self.data[name] = StateSpaceBase.valid_state_names[state_name[0]](value)
             except NameError:
                 print(state_name[0],'Invalid state name. Valid state names are', [name for name in

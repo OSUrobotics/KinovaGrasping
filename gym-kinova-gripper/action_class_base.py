@@ -15,7 +15,7 @@ from core_classes.stats_tracker_base import StatsTrackerArray
 from collections import OrderedDict
 
 
-class Action():
+class ActionBase():
     _sim = None
 
     def __init__(self, starting_speed=None, acceleration_range=[0.2, 20],

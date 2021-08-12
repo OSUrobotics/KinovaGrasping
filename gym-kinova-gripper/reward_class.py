@@ -73,6 +73,7 @@ class Reward():
             grasp_reward = 0.0
         return grasp_reward
 
+
 if __name__ == "__main__":
     r = Reward()
     r.get_reward()

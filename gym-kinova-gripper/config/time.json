@@ -1,0 +1,5 @@
+{
+    "timestep_len":0.01,
+    "timestep_num":15,
+    "max_sim_time":1
+}

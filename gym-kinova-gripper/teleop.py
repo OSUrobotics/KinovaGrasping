@@ -17,6 +17,7 @@ from state_space import *
 from reward_class import *
 from action_class import *
 from controller import *
+import simulator
 #from action_class import Action
 env = gym.make('gym_kinova_gripper:kinovagripper-v0')#,arm_or_end_effector="arm")
 #print('action space',env.action_space.low, env.action_space.high)
@@ -74,9 +75,9 @@ value=0
 s_or_f=[]
 last_obs=[]
 obs=[]
-act=np.array([0.3,0.3,0.3])
+act=np.array([0.8,0.8,0.8])
 thing=np.append([0,0,0],act)
-actions=[[0,0,0,0.3,0.3,0.3],[0,0,0,0.3,0.3,0],[0,0,0,0,0,0.3]]
+actions=[[0,0,0,0.8,0.8,0.8],[0,0,0,0.8,0.8,0],[0,0,0,0,0,0.8]]
 poses=[[0.0,-0.03],[0.02,-0.03],[-0.02,-0.03],[-0.05,0],[-0.01,-0.035],[0.01,-0.035],[0.05,0],[-0.02,0.03],[0.0,0.03],[0.02,0.03]]
 for f in range(3):
     for k in range(10):
@@ -95,7 +96,7 @@ for f in range(3):
             #print(State_Space._sim)
             #print(env.env._sim)
             #input('is this the sim?')
-            if i == 50:
+            if i == 40:
                 print('move in z')
                 action=np.array([0.15,0.05, 0.05, 0.05])
                 env.env.pid=True
@@ -103,6 +104,7 @@ for f in range(3):
             if coords=='global':
                 temp=np.array([action[0],action[1],action[2],1])
                 action[0:3]=np.matmul(env.Twf[0:3,0:3],action[0:3])
+            print('action is',action,'step is', i)
             obs, reward, done, _ = env.step(action)
             test.update()
             control_thing = controller.select_action()

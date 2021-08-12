@@ -7,7 +7,7 @@ Set time step to 0.002 to correspond 500 Hz of Kinova arm
 
 <mujoco model="j2s7s300">
     <compiler angle="radian" meshdir="meshes/" />
-    <option timestep ="0.01" impratio="5"> 
+    <option timestep ="0.002" impratio="5"> 
     	
     </option>
     <!-- <size njmax="500" nconmax="100" /> -->

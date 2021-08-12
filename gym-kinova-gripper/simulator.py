@@ -99,3 +99,62 @@ class Simulator():
             states=[self._sim.data.qpos[0],self._sim.data.qpos[1],self._sim.data.qpos[2],self._sim.data.qpos[3],self._sim.data.qpos[5],self._sim.data.qpos[7],object_location[0],object_location[1],object_location[2]]
             self._set_state(np.array(states))
             self._get_trans_mat_wrist_pose()
+        
+    def step(self, action_list):
+        """ Takes an RL timestep - conducts action for a certain number of simulation steps, indicated by frame_skip
+            action: array of finger joint velocity values (finger1, finger1, finger3)
+            graspnetwork: bool, set True to use grasping network to determine reward value
+        """
+        total_reward = 0
+        self._get_trans_mat_wrist_pose()
+        error = [0, 0, 0]
+        
+        error = self.starting_coords - self.wrist_pose
+        kp = 50
+        mass = 0.733
+        gear = 25
+        slider_motion = np.matmul(self.Tfw[0:3, 0:3], [kp * error[0], kp * error[1], kp * error[2] + mass * 10 / gear])
+        slider_motion[0] = -slider_motion[0]
+        slider_motion[1] = -slider_motion[1]
+
+        self.prev_pose = np.copy(self.wrist_pose)
+        for _ in range(self.frame_skip):
+            if self.step_coords == 'global':
+                slide_vector = np.matmul(self.Tfw[0:3, 0:3], action[0:3])
+                if (self.orientation == 'rotated') & (action[2] <= 0):
+                    slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
+                else:
+                    slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
+            else:
+                if (self.orientation == 'rotated') & (action[2] <= 0):
+                    slide_vector = [-slide_vector[0], -slide_vector[1], slide_vector[2]]
+                else:
+                    slide_vector = [-action[0], -action[1], action[2]]
+            for i in range(3):
+                self._sim.data.ctrl[(i) * 2] = slide_vector[i]
+                if self.step_coords == 'rotated':
+                    self._sim.data.ctrl[i + 6] = action[i + 3] + 0.05
+                else:
+                    self._sim.data.ctrl[i + 6] = action[i + 3]
+                self._sim.data.ctrl[i * 2 + 1] = stuff[i]
+            self._sim.step()
+
+        else:
+            for _ in range(self.frame_skip):
+                joint_velocities = action[0:7]
+                finger_velocities = action[7:]
+                for i in range(len(joint_velocities)):
+                    self._sim.data.ctrl[i + 10] = joint_velocities[i]
+                for i in range(len(finger_velocities)):
+                    self._sim.data.ctrl[i + 7] = finger_velocities[i]
+                self._sim.step()
+        obs = self._get_obs()
+        self._get_trans_mat_wrist_pose()
+        if self.starting_coords[0] == 10:
+            self.starting_coords = np.copy(self.wrist_pose)
+        if not graspnetwork:
+            total_reward, info, done = self._get_reward(self.with_grasp_reward)
+        else:
+            ### Get this reward for grasp classifier collection ###
+            total_reward, info, done = self._get_reward_DataCollection()
+        return obs, total_reward, done, info

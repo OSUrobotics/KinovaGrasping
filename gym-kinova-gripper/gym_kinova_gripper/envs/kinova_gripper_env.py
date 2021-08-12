@@ -474,6 +474,9 @@ class KinovaGripper_Env(gym.Env):
                 print("Reset function is not working Properly Check the render")
                 self.render()
         '''
+        print('just finished reset, this is filename.',self.filename)
+        #self._timestep = self._sim.model.opt.timestep
+        print(self.frame_skip)
         return states
 
     ###################################################

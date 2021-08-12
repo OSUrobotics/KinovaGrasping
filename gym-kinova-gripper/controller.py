@@ -39,6 +39,7 @@ class GenericController(ControllerBase):
             self.select_action = self.controller.select_action
         except AttributeError:
             raise AttributeError('Invalid controller type. Valid controller types are: "naive" "combined" "position-dependent" and "bell-shaped"')
+
 class CombinedController(ControllerBase):
     def __init__(self, state_path):
         super().__init__()
