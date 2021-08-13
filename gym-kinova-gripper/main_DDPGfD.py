@@ -1,3 +1,10 @@
+import logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger()
+logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/long_training_full_episodes_training_v05.log', 'a'))
+print = lambda *x: logger.info("".join(str(item) for item in x))
+print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
+
 import numpy as np
 import torch
 import gym
@@ -127,7 +134,7 @@ def compare_test():
     #     print("Evaluation over {} episodes: {}".format(eval_episodes, avg_reward))
     #     print("---------------------------------------")
 
-def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, velocities, sample_size=2, regions_of_interest=None, controller_type="policy"):
+def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, all_saving_dirs, velocities, sample_size=2, regions_of_interest=None, controller_type="policy", state_idx_arr=np.arange(82)):
     """ Evaluate the policy within certain regions within the graspable area within the hand. Regions within
     the hand are determined by the Local coordinate frame. Plot and render a sample of success/failed coordinates.
     Policy: Policy to evaluate
@@ -190,7 +197,7 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, al
                                                           output_dir=region_dir,
                                                           with_noise=variation_type["with_orientation_noise"],
                                                           controller_type=controller_type,
-                                                          max_num_timesteps=max_num_timesteps)
+                                                          max_num_timesteps=max_num_timesteps, state_idx_arr=state_idx_arr)
 
                             all_action_values = region_eval_ret["all_action_values"]
                             controller_actions = all_action_values["controller_actions"]
@@ -368,7 +375,7 @@ def get_hand_object_coords_dict(curr_env):
     return hand_object_coords
 
 # Runs policy for X episodes and returns average reward -- evaluate the policy per shape and per hand orientation
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, velocities, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, velocities, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False, state_idx_arr=np.arange(82)):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Initial (timestep = 1) transformation matrices (from Global to Local) for each episode
@@ -431,10 +438,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         # Grasping Stage
         while timestep <= 30 and not ready_for_lift:
             if controller_type == "policy":
-                finger_action = policy.select_action(np.array(state[0:82]))
+                finger_action = policy.select_action(np.array(state[0:82])[state_idx_arr])
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
-                finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=eval_env, velocities=velocities, pid_mode=controller_type, timestep=timestep)
+                finger_action = get_action(obs=np.array(state[0:82])[state_idx_arr], lift_check=ready_for_lift, controller=controller, env=eval_env, velocities=velocities, pid_mode=controller_type, timestep=timestep)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action)) # If not ready for lift, wrist should always be 0
@@ -578,7 +585,7 @@ def write_tensor_plot(writer,episode_num,avg_reward,avg_rewards,actor_loss,criti
     return writer
 
 
-def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num_episodes, prob, type_of_training, all_saving_dirs, max_num_timesteps, velocities):
+def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num_episodes, prob, type_of_training, all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=np.arange(82)):
     """ Conduct the desired number of episodes with the controller
     policy: policy to be updated
     expert_buffers: dictionary of expert replay buffers, where the key is the current shape and the value is the expert replay buffer for that shape
@@ -587,10 +594,13 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
     prob: Probability (proportion) of sampling from expert replay buffer
     type_of_training: Based on training mode ("pre-train", "test", etc.)
     max_num_timesteps: Maximum number of time steps within a RL episode
+    state_idx_arr: Modifies the state dimensionality.
     """
 
+    print('======================== CONDUCT EPISODES - STATE INDEX ARRAY SIZE: ', len(state_idx_arr), ' ==============================')
+
     # Initialize and copy current policy to be the best policy
-    best_policy = DDPGfD.DDPGfD()
+    best_policy = DDPGfD.DDPGfD(state_dim=len(state_idx_arr))  # TODO: just pass in a whole args... bruh
     best_policy.copy(policy)
 
     # Initialize OU noise, added to action output from policy
@@ -687,7 +697,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
             replay_buffer.add_orientation_idx_to_replay(orientation_idx)
 
             if controller_type == "policy":
-                policy_action = policy.select_action(np.array(state))
+                policy_action = policy.select_action(np.array(state)[state_idx_arr])
                 action_noise = np.random.normal(0, max_action * args.expl_noise, size=action_dim)
                 finger_action = (policy_action + action_noise).clip(0, max_action)
 
@@ -702,7 +712,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 all_action_ouput["action_noise"].append(action_noise)
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
-                finger_action = get_action(obs=np.array(state[0:82]), lift_check=ready_for_lift, controller=controller, env=env, velocities=velocities, pid_mode=controller_type)
+                finger_action = get_action(obs=np.array(state[0:82])[state_idx_arr], lift_check=ready_for_lift, controller=controller, env=env, velocities=velocities, pid_mode=controller_type)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action))  # Wrist velocity will be 0 until ready for lift
@@ -779,17 +789,18 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                         # Single episode training using full trajectory
                         actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train(env._max_episode_steps,
                                                                                          expert_replay_buffer,
-                                                                                         replay_buffer, prob)
+                                                                                         replay_buffer, prob, mod_state_idx=state_idx_arr)
                     else:
                         # Batch training using n-steps
-                        policy.train_batch(env._max_episode_steps, episode_num, update_count,expert_replay_buffer,replay_buffer)
-                        
+                        actor_loss, critic_loss, critic_L1loss, critic_LNloss = policy.train_batch(env._max_episode_steps, episode_num, update_count,
+                                                                                             expert_replay_buffer,
+                                                                                             replay_buffer, mod_state_idx=state_idx_arr)
             # Evaluation of the policy: Evaluate the policy every eval_freq episodes
             if episode_num+1 == num_episodes or (episode_num) % args.eval_freq == 0:
                 print("EVALUATING EPISODE AT: ",episode_num)
                 print("Evaluating with "+str(args.eval_num)+" grasping trials")
                 eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes, requested_orientation, velocities=velocities, all_saving_dirs=all_saving_dirs, max_num_timesteps=max_num_timesteps,
-                                       controller_type=controller_type, eval_episodes=args.eval_num, with_noise=with_orientation_noise, render_imgs=args.render_imgs)
+                                       controller_type=controller_type, eval_episodes=args.eval_num, with_noise=with_orientation_noise, render_imgs=args.render_imgs, state_idx_arr=state_idx_arr)
 
                 # Records the number of successful and failed coordinates from evaluation
                 num_success = eval_ret["num_success"]
@@ -854,7 +865,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 dict_writer.writeheader()
                 dict_writer.writerows([all_action_ouput])
                 dict_file.close()
-                
+
                 # Save all policy loss output - overwrite what is there so in the end it is a full list
                 dict_file = open(all_saving_dirs["results_saving_dir"] + "/all_policy_output.csv", "w", newline='')
                 keys = all_policy_output.keys()
@@ -1108,7 +1119,7 @@ def generate_output(text, shapes_list, orientations_list, num_success, num_total
         create_info_file(num_success, num_total, all_saving_dirs, text)
 
 
-def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs):
+def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs, state_idx_arr=np.arange(82)):
     """ Train policy according to RL experiment shape, size, orientation combo + stage """
     # Fill object list using latin square method
     env.Generate_Latin_Square(args.max_episode, "objects.csv", shape_keys=requested_shapes)
@@ -1123,7 +1134,8 @@ def rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, req
     policy.load(pol_dir+policy_filename)
 
     # *** Train policy ****
-    eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_replay_buffer, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities)
+    # TODO: Add in state_idx_arr=state_idx_arr !!!!
+    eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_replay_buffer, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=state_idx_arr)
     eval_num_total = eval_num_success + eval_num_fail
 
     print("Experiment ", exp_num, ", ", exp_name, " policy saved at: ", all_saving_dirs["model_save_path"])
@@ -1255,12 +1267,19 @@ def setup_args(args=None):
     parser.add_argument("--replay_buffer_sample_size", type=str, action='store', default=100) # Number of entries to load from the end of the replay buffer
     parser.add_argument("--sampling_decay_rate", type=float, action='store', default=0.2) # Rate of decay of the proportion of replay buffer experience that is samples from the expert within training
 
+    # state dim related arguments
+    parser.add_argument("--state_range", default='all',
+                        type=str)  # string - from ('all', 'nigel_rangefinder', 'nigel_norangefinder', 'all_real', 'adam_sim2real')
+
     args = parser.parse_args()
     return args
 
 
 def test_policy_models_match(current_model, compare_model=None, compare_model_filepath=None):
     """ Check that the input models match. This can check that we have loaded in the trained model correctly. """
+
+    # TODO, STATE DIM STUFF: Does this need to be changed to match policy
+    # NOTE: THIS DOESN'T GET USED ANYWHERE ATM. don't touch it LOLOLOL
 
     # Set dimensions for state and action spaces - policy initialization
     state_dim = 82  # State dimension dependent on the length of the state space
@@ -1352,6 +1371,107 @@ def create_input_variation_reward_plot(policies, start_episode, eval_freq, max_e
         # Create a reward plot for variation_input_name for evaluation of the policy over time
         reward_plot(policy_eval_points, variation_input_policies, variation_input_name, policy_colors, start_episode, eval_freq, max_episode, saving_dir)
 
+def state_dim_setup(state_dim_option):
+    """
+    Returns an array of indices that can be used on a full observation to only grab relevant state dimensions
+    Input: The argument of which state_range option to use.
+    Output: Numpy array of indices
+    """
+
+    # Setup state dimensional parts here
+    '''
+    Local obs, all in local coordinates (from the center of the palm)
+    (18,) Finger Pos                                        0-17: (0: x, 1: y, 2: z) "f1_prox", (3-5) "f2_prox", (6-8) "f3_prox", (9-11) "f1_dist", (12-14) "f2_dist", (15-17) "f3_dist"
+    (3,) Wrist Pos                                          18-20 (18: x, 19: y, 20: z)
+    (3,) Obj Pos                                            21-23 (21: x, 22: y, 23: z)
+    (9,) Joint States                                       24-32
+    (3,) Obj Size                                           33-35
+    (12,) Finger Object Distance                            36-47
+    
+    36) "f1_prox"
+    37) "f1_prox_1"
+    38) "f2_prox"
+    39) "f2_prox_1"
+    40) "f3_prox"
+    41) "f3_prox_1"
+    42) "f1_dist"
+    43) "f1_dist_1"
+    44) "f2_dist"
+    45) "f2_dist_1"
+    46) "f3_dist"
+    47) "f3_dist_1"
+    
+    Note: NONE vs "_1" meaning: On each finger there are two red dots. The "_1" is the ones closer to the center
+    
+    
+    (2,) X and Z angle                                      48-49
+    (17,) Rangefinder data                                  50-66
+    (3,) Gravity vector in local coordinates                67-69
+    (3,) Object location based on rangefinder data          70-72
+    (1,) Ratio of the area of the side of the shape to the open portion of the side of the hand    73
+    (1,) Ratio of the area of the top of the shape to the open portion of the top of the hand    74
+    (6, ) Finger dot product  75) "f1_prox", 76) "f2_prox", 77) "f3_prox", 78) "f1_dist", 79) "f2_dist", 80) "f3_dist"  75-80
+    (1, ) Dot product (wrist) 81
+    '''
+
+    finger_pos_idx = np.arange(0, 18)
+    f1_prox_pos_idx = np.array([0, 1, 2])
+    f2_prox_pos_idx = np.array([3, 4, 5])
+    f1_dist_pos_idx = np.array([9, 10, 11])
+    f2_dist_pos_idx = np.array([12, 13, 14])
+    last_6_joint_states_idx = np.arange(27, 33)
+    f1_f2_joint_angles_idx = np.array([27, 28, 30, 31])  # TODO: figure out the right angles here... => in order: f1 proximal angle joint, f2 proximal angle joint, f1 distal angle joint, f2 distal angle joint.
+    # note: these are also all in radians in simulator...
+
+    wrist_pos_idx = np.arange(18, 21)
+    obj_pos_idx = np.arange(21, 24)
+    joint_states_idx = np.arange(24, 33)
+    obj_size_idx = np.arange(33, 36)
+    finger_obj_dist_idx = np.arange(36, 48)
+
+    finger_obj_dist_f1_prox_1 = np.array([37])
+    finger_obj_dist_f2_prox_1 = np.array([39])
+    finger_obj_dist_f1_dist_1 = np.array([43])
+    finger_obj_dist_f2_dist_1 = np.array([45])
+
+
+    x_z_angle_idx = np.arange(48, 50)
+    rangefinder_data_idx = np.arange(50, 67)
+    gravity_vector_in_local_coords = np.arange(67, 70)
+    object_location_rangefinder = np.arange(70, 73)
+    ratio_sideshape_sidehand = np.array([73])
+    ratio_topshape_tophand = np.array([74])
+    f1_prox_idx = np.array([75])
+    f2_prox_idx = np.array([76])
+    f3_prox_idx = np.array([77])
+    f1_dist_idx = np.array([78])
+    f2_dist_idx = np.array([79])
+    f3_dist_idx = np.array([80])
+    dot_prod_wrist = np.array([81])
+
+    # create mappings for state dimension mapping
+    state_dim_idx_arr_dict = {
+        'all': np.arange(82),
+        'nigel_rangefinder': np.concatenate((obj_pos_idx, rangefinder_data_idx, obj_size_idx), axis=0),
+        'nigel_norangefinder': np.concatenate((obj_pos_idx, finger_obj_dist_idx, obj_size_idx), axis=0),
+        'all_real': np.concatenate((f1_prox_pos_idx, f2_prox_pos_idx, f1_dist_pos_idx, f2_dist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_idx)),
+        #  wrist 3 + finger pos 12 + obj size 3 + last joint states 6 + obj pos 3 + finger obj dist 4
+        'adam_sim2real': np.concatenate((f1_dist_pos_idx, f1_prox_pos_idx, f2_dist_pos_idx, f2_prox_pos_idx, wrist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1, finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1)),  # this one is based on sim2real
+        'adam_sim2real_v02': np.concatenate((f1_prox_pos_idx, f1_dist_pos_idx, f2_prox_pos_idx, f2_dist_pos_idx, wrist_pos_idx, obj_pos_idx, f1_f2_joint_angles_idx, obj_size_idx, finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1, finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1))  # this one removes wrist position and third finger joints.
+    }
+
+
+    assert state_dim_option in state_dim_idx_arr_dict.keys()
+
+#     # x_z useless
+#     1. dont use finger 3, both in control and for position
+#     2. for joint states - you only want the last 6
+
+    res_state_idx_arr = state_dim_idx_arr_dict[state_dim_option]
+
+    return res_state_idx_arr
+
+
 if __name__ == "__main__":
     # Set up environment based on command-line arguments or passed in arguments
     args = setup_args()
@@ -1372,6 +1492,12 @@ if __name__ == "__main__":
     env.seed(args.seed)
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
+
+    # TODO: state dimensional stuff
+
+    state_idx_arr = state_dim_setup(args.state_range)
+    modified_state_dim = len(state_idx_arr)
+    print("============= MODIFIED STATE DIM: ", modified_state_dim, " =============================")
 
     # Set dimensions for state and action spaces - policy initialization
     state_dim = 82  # State dimension dependent on the length of the state space
@@ -1409,7 +1535,7 @@ if __name__ == "__main__":
     env.Generate_Latin_Square(args.max_episode,"objects.csv", shape_keys=requested_shapes)
 
     kwargs = {
-        "state_dim": state_dim,
+        "state_dim": modified_state_dim,
         "action_dim": action_dim,
         "max_action": max_action,
         "n": n,
@@ -1584,7 +1710,7 @@ if __name__ == "__main__":
         # Initialize expert replay buffer, then generate expert pid data to fill it
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, expert_replay_size)
 
-        num_success, num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, args.mode, all_saving_dirs, max_num_timesteps, velocities)
+        num_success, num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, args.mode, all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=state_idx_arr)
 
         print(args.mode + " saving directory: ", all_saving_dirs["saving_dir"])
         print(args.mode + " replay buffer file path: ",all_saving_dirs["replay_buffer"])
@@ -1623,7 +1749,7 @@ if __name__ == "__main__":
         train_time.start()
         # Pre-train policy based on expert data
         policy.sampling_decay_rate = 0
-        eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, "PRE-TRAIN", all_saving_dirs, max_num_timesteps, velocities)
+        eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, "PRE-TRAIN", all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=state_idx_arr)
         eval_num_total = eval_num_success + eval_num_fail
 
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
@@ -1678,7 +1804,7 @@ if __name__ == "__main__":
         train_time = Timer()
         train_time.start()
         policy.sampling_decay_rate = sampling_decay_rate
-        eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities)
+        eval_num_success, eval_num_fail = conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, max_episode, expert_prob, "TRAIN", all_saving_dirs, max_num_timesteps, velocities, state_idx_arr=state_idx_arr)
         eval_num_total = eval_num_success + eval_num_fail
 
         train_time_text = "\nTRAIN time: \n" + train_time.stop()
@@ -1779,7 +1905,7 @@ if __name__ == "__main__":
                         print("\n**Evaluating the policy: {}\nVariation Input: {}\nOrientation: {}\nShape: {}".format(test_policy_name,variation_name,orientation,shape))
                         # Evaluate policy over certain number of episodes
                         eval_ret = eval_policy(policy, args.env_name, args.seed, requested_shapes=[shape], requested_orientation=orientation,
-                                               velocities=velocities, controller_type=controller_type,  max_num_timesteps=max_num_timesteps, all_saving_dirs=variation_saving_dirs, eval_episodes=eval_num, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"])
+                                               velocities=velocities, controller_type=controller_type,  max_num_timesteps=max_num_timesteps, all_saving_dirs=variation_saving_dirs, eval_episodes=eval_num, render_imgs=args.render_imgs, with_noise=variation_type["with_orientation_noise"], state_idx_arr=state_idx_arr)
 
                         # Append the average reward from evaluation to the specific variation type avg. reward list
                         for rewards_combo_dict in policy_rewards[variation_name]:
@@ -1805,7 +1931,7 @@ if __name__ == "__main__":
 
                         ## RENDER AND PLOT COORDINATES BY REGION
                         if regions_of_interest is not None:
-                            evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_saving_dirs, velocities=velocities, regions_of_interest=regions_of_interest, controller_type=controller_type)
+                            evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, variation_saving_dirs, velocities=velocities, regions_of_interest=regions_of_interest, controller_type=controller_type, state_idx_arr=state_idx_arr)
 
                 # Once the evaluation of a certain variation is complete, save the reward to a text file
                 # Save all reward data to file
@@ -1898,7 +2024,7 @@ if __name__ == "__main__":
                                             prev_exp_dir, create_dirs=False)
 
         # Run experiment
-        rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs)
+        rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs, state_idx_arr=state_idx_arr)
     else:
         print("Invalid mode input")
 
