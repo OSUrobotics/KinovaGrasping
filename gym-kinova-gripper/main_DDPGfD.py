@@ -1,7 +1,7 @@
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
-logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/long_training_full_episodes_training_v05.log', 'a'))
+logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/long_training_full_episodes_training_pain_v20_hahaha_77.log', 'a'))
 print = lambda *x: logger.info("".join(str(item) for item in x))
 print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
 
@@ -1387,7 +1387,7 @@ def state_dim_setup(state_dim_option):
     (9,) Joint States                                       24-32
     (3,) Obj Size                                           33-35
     (12,) Finger Object Distance                            36-47
-    
+
     36) "f1_prox"
     37) "f1_prox_1"
     38) "f2_prox"
@@ -1400,10 +1400,10 @@ def state_dim_setup(state_dim_option):
     45) "f2_dist_1"
     46) "f3_dist"
     47) "f3_dist_1"
-    
+
     Note: NONE vs "_1" meaning: On each finger there are two red dots. The "_1" is the ones closer to the center
-    
-    
+
+
     (2,) X and Z angle                                      48-49
     (17,) Rangefinder data                                  50-66
     (3,) Gravity vector in local coordinates                67-69
@@ -1420,7 +1420,8 @@ def state_dim_setup(state_dim_option):
     f1_dist_pos_idx = np.array([9, 10, 11])
     f2_dist_pos_idx = np.array([12, 13, 14])
     last_6_joint_states_idx = np.arange(27, 33)
-    f1_f2_joint_angles_idx = np.array([27, 28, 30, 31])  # TODO: figure out the right angles here... => in order: f1 proximal angle joint, f2 proximal angle joint, f1 distal angle joint, f2 distal angle joint.
+    f1_f2_joint_angles_idx = np.array([27, 28, 30,
+                                       31])  # TODO: figure out the right angles here... => in order: f1 proximal angle joint, f2 proximal angle joint, f1 distal angle joint, f2 distal angle joint.
     # note: these are also all in radians in simulator...
 
     wrist_pos_idx = np.arange(18, 21)
@@ -1433,7 +1434,6 @@ def state_dim_setup(state_dim_option):
     finger_obj_dist_f2_prox_1 = np.array([39])
     finger_obj_dist_f1_dist_1 = np.array([43])
     finger_obj_dist_f2_dist_1 = np.array([45])
-
 
     x_z_angle_idx = np.arange(48, 50)
     rangefinder_data_idx = np.arange(50, 67)
@@ -1454,18 +1454,22 @@ def state_dim_setup(state_dim_option):
         'all': np.arange(82),
         'nigel_rangefinder': np.concatenate((obj_pos_idx, rangefinder_data_idx, obj_size_idx), axis=0),
         'nigel_norangefinder': np.concatenate((obj_pos_idx, finger_obj_dist_idx, obj_size_idx), axis=0),
-        'all_real': np.concatenate((f1_prox_pos_idx, f2_prox_pos_idx, f1_dist_pos_idx, f2_dist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_idx)),
+        'all_real': np.concatenate((f1_prox_pos_idx, f2_prox_pos_idx, f1_dist_pos_idx, f2_dist_pos_idx, obj_pos_idx,
+                                    last_6_joint_states_idx, obj_size_idx, finger_obj_dist_idx)),
         #  wrist 3 + finger pos 12 + obj size 3 + last joint states 6 + obj pos 3 + finger obj dist 4
-        'adam_sim2real': np.concatenate((f1_dist_pos_idx, f1_prox_pos_idx, f2_dist_pos_idx, f2_prox_pos_idx, wrist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx, finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1, finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1)),  # this one is based on sim2real
-        'adam_sim2real_v02': np.concatenate((f1_prox_pos_idx, f1_dist_pos_idx, f2_prox_pos_idx, f2_dist_pos_idx, wrist_pos_idx, obj_pos_idx, f1_f2_joint_angles_idx, obj_size_idx, finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1, finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1))  # this one removes wrist position and third finger joints.
+        'adam_sim2real': np.concatenate((f1_dist_pos_idx, f1_prox_pos_idx, f2_dist_pos_idx, f2_prox_pos_idx,
+                                         wrist_pos_idx, obj_pos_idx, last_6_joint_states_idx, obj_size_idx,
+                                         finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1,
+                                         finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1)), # finger positions (12), wrist pos (3), obj pos (3), last 6 joint states (6), obj size (3), finger obj dist (4)
+        # this one is based on sim2real
+        'adam_sim2real_v02': np.concatenate((f1_prox_pos_idx, f1_dist_pos_idx, f2_prox_pos_idx, f2_dist_pos_idx,
+                                             obj_pos_idx, f1_f2_joint_angles_idx, obj_size_idx,
+                                             finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1,
+                                             finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1))
+        # this one removes wrist position and third finger joints.
     }
 
-
     assert state_dim_option in state_dim_idx_arr_dict.keys()
-
-#     # x_z useless
-#     1. dont use finger 3, both in control and for position
-#     2. for joint states - you only want the last 6
 
     res_state_idx_arr = state_dim_idx_arr_dict[state_dim_option]
 

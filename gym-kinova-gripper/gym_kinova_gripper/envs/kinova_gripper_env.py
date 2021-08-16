@@ -135,7 +135,9 @@ class KinovaGripper_Env(gym.Env):
         # Parameters for cost function
         self.state_des = 0.20
         self.initial_state = np.array([0.0, 0.0, 0.0, 0.0])
-        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([3, 3, 3]),
+        
+        # TODO: flip between 3 and 1.5 for max speed
+        self.action_space = spaces.Box(low=np.array([0.0, 0.0, 0.0]), high=np.array([1.5, 1.5, 1.5]),
                                        dtype=np.float32)  # Velocity action space
         self.const_T = np.array([[0, -1, 0, 0], [0, 0, -1, 0], [1, 0, 0, 0],
                                  [0, 0, 0, 1]])  # Transfer matrix from world frame to un-modified hand frame
