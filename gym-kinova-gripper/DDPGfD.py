@@ -55,7 +55,7 @@ class Critic(nn.Module):
 
 
 class DDPGfD(object):
-	def __init__(self, state_dim=82, action_dim=3, max_action=3, n=5, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
+	def __init__(self, state_dim=82, action_dim=3, max_action=1.5, n=5, discount=0.995, tau=0.0005, batch_size=64, expert_sampling_proportion=0.7):
 		print('================================ INITTING DDPGfD with state dim of: ', state_dim,
 			  '===============================')
 		self.actor = Actor(state_dim, action_dim, max_action).to(device)

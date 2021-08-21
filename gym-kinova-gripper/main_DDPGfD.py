@@ -1,7 +1,8 @@
 import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
-logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/long_training_full_episodes_training_pain_v20_hahaha_77.log', 'a'))
+# logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/evaluating_more_pretrains_aug17.log', 'a'))
+logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
 print = lambda *x: logger.info("".join(str(item) for item in x))
 print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
 
@@ -309,7 +310,8 @@ def check_grasp(f_dist_old, f_dist_new, total_distal_change):
     #print("In check grasp, f1_change: {}, f2_change: {}, f3_change: {}, f_all_change: {}".format(f1_change,f2_change,f3_change,f_all_change))
 
     # If the fingers have only changed a small amount, we assume the object is grasped
-    if f_all_change < 0.0001 and total_distal_change > 0.0001:
+#     if f_all_change < 0.0001 and total_distal_change > 0.0001:
+    if f_all_change < 0.00002 and total_distal_change > 0.0001:
         return True, total_distal_change
     else:
         return False, total_distal_change
@@ -375,7 +377,7 @@ def get_hand_object_coords_dict(curr_env):
     return hand_object_coords
 
 # Runs policy for X episodes and returns average reward -- evaluate the policy per shape and per hand orientation
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, velocities, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False, state_idx_arr=np.arange(82)):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, velocities, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=True, state_idx_arr=np.arange(82)):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Initial (timestep = 1) transformation matrices (from Global to Local) for each episode
@@ -436,7 +438,8 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         lift_timestep = 1
 
         # Grasping Stage
-        while timestep <= 30 and not ready_for_lift:
+#         while timestep <= 30 and not ready_for_lift:
+        while timestep <= 45 and not ready_for_lift:  # ADAM: INCREASE TO 45 TIMESTEPS
             if controller_type == "policy":
                 finger_action = policy.select_action(np.array(state[0:82])[state_idx_arr])
             else:
@@ -693,7 +696,8 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         lift_timestep = 1
 
         # Grasping Stage
-        while timestep <= 30 and not ready_for_lift:
+#         while timestep <= 30 and not ready_for_lift:
+        while timestep <= 45 and not ready_for_lift:  # ADAM: Increase timestep to 45 (50%)
             replay_buffer.add_orientation_idx_to_replay(orientation_idx)
 
             if controller_type == "policy":
@@ -1510,7 +1514,8 @@ if __name__ == "__main__":
     max_action_trained = env.action_space.high  # a vector of max actions
     n = 5   # n step look ahead for the policy
     max_q_value = 50  # Should match the maximum reward value
-    velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 3, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
+#     velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 3, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
+    velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 1.5, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
 
     ''' Set values from command line arguments '''
     requested_shapes = args.shapes                   # Sets list of desired objects for experiment
@@ -1523,7 +1528,7 @@ if __name__ == "__main__":
     if replay_buffer_sample_size == "None":
         replay_buffer_sample_size = None
     sampling_decay_rate = args.sampling_decay_rate
-    max_num_timesteps = 45     # Maximum number of time steps within an episode
+    max_num_timesteps = 60     # Maximum number of time steps within an episode
 
     # If experiment number is selected, set mode to experiment (in case the mode has been set to train by default)
     if args.exp_num is not None:
