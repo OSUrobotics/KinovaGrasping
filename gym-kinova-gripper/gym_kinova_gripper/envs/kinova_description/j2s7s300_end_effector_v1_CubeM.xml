@@ -41,7 +41,7 @@
         <body name="root" pos="0 0 0">
 
             <camera euler="0 0 3.14" mode="fixed" name="camera" pos="0 0 1" />
-            <body euler="-1.57 0 -1.57" name="j2s7s300_link_7" pos="0.0 0.18 0.0654">
+            <body euler="-1.5619883420428444 0.20453809018239721 -1.5769911911783454" name="j2s7s300_link_7" pos="0.0 0.18 0.0654">
                 <inertial diaginertia="0.00034532 0.00034532 0.00058160" mass="0.727" pos="0 0 -0.06" />
 
                 <joint axis="0 1 0" limited="true" name="j2s7s300_slide_x" pos="0 0 0" range="-0.5 0.5" type="slide" />
