@@ -130,7 +130,7 @@ class KinovaGripper_Env(gym.Env):
         self._numSteps = 0
         self._simulator = "Mujoco"
         self.action_scale = 0.0333
-        self.max_episode_steps = 45
+        self.max_episode_steps = 60
         self.site_count = 0
         # Parameters for cost function
         self.state_des = 0.20

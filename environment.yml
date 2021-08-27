@@ -1,0 +1,12 @@
+name: kinovagraping_conda_env
+dependencies:
+  - python=3.6
+  - pip:
+    - numpy
+    - pandas
+    - torch
+    - gpytorch
+    - matplotlib
+    - tensorboardX
+    - gym
+    - mujoco_py==1.50.1.0
