@@ -3,8 +3,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 # logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/evaluating_more_pretrains_aug17.log', 'a'))
 #logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
-#logger.addHandler(logging.FileHandler('C:/Users/vanil/OSU_Robotics_GitHub/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
-logger.addHandler(logging.FileHandler('/scratch/hugheste/Steph_KinovaGrasping/01_Reinforcement_Learning/Pre_Training/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
+#logger.addHandler(logging.FileHandler('C:/Users/vanil/OSU_Robotics_GitHub/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain1k_train_eval.log', 'a'))
+logger.addHandler(logging.FileHandler('/scratch/hugheste/Steph_KinovaGrasping/01_Reinforcement_Learning/Pre_Training/Sim2Real_New_Grasp_Check/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain_train_new_grasp_check.log', 'a'))
 print = lambda *x: logger.info("".join(str(item) for item in x))
 print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
 
@@ -307,13 +307,15 @@ def check_grasp(f_dist_old, f_dist_new, total_distal_change):
     # Sum of changes in distal fingers
     f_all_change = f1_diff + f2_diff + f3_diff
 
-    total_distal_change += f_all_change
+    total_distal_change["finger_1"] += f1_diff
+    total_distal_change["finger_2"] += f2_diff
+    total_distal_change["finger_3"] += f3_diff
 
     #print("In check grasp, f1_change: {}, f2_change: {}, f3_change: {}, f_all_change: {}".format(f1_change,f2_change,f3_change,f_all_change))
 
     # If the fingers have only changed a small amount, we assume the object is grasped
 #     if f_all_change < 0.0001 and total_distal_change > 0.0001:
-    if f_all_change < 0.00002 and total_distal_change > 0.0001:
+    if f_all_change < 0.00002 and total_distal_change["finger_1"] > 0.0001 and total_distal_change["finger_2"] > 0.0001 and total_distal_change["finger_3"] > 0.0001:
         return True, total_distal_change
     else:
         return False, total_distal_change
@@ -433,7 +435,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         final_grasp_reward = 0 # Used to determine the final grasp reward value (that will be replaced)
         ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
         lift_success = 0
-        total_distal_change = 0 # Cumulative change in the distal finger tips over the course of the episode
+        total_distal_change = {"finger_1": 0, "finger_2": 0, "finger_3": 0,} # Cumulative change in the distal finger tips over the course of the episode
 
         # Beginning of episode time steps, done is max time steps or lift reward achieved
         timestep = 1
@@ -688,7 +690,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         episode_reward = 0 # Cumulative reward over a single episode
         ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
         lift_success = 0
-        total_distal_change = 0  # Cumulative change in the distal finger tips over the course of the episode
+        total_distal_change = {"finger_1": 0, "finger_2": 0, "finger_3": 0,}  # Cumulative change in the distal finger tips over the course of the episode
 
         replay_buffer_recorded_ts = 0  # Number of RL time steps recorded by the replay buffer
         replay_buffer.add_episode(1)  # Start recording the episode within the replay buffer
