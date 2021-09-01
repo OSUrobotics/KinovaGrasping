@@ -2,8 +2,9 @@ import logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 # logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/evaluating_more_pretrains_aug17.log', 'a'))
-logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
+#logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
 #logger.addHandler(logging.FileHandler('C:/Users/vanil/OSU_Robotics_GitHub/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
+logger.addHandler(logging.FileHandler('/scratch/hugheste/Steph_KinovaGrasping/01_Reinforcement_Learning/Pre_Training/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
 print = lambda *x: logger.info("".join(str(item) for item in x))
 print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
 
