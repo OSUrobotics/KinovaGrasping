@@ -595,7 +595,7 @@ def NaiveController(lift_check, velocities):
     """ Move fingers at a constant speed, return action """
 
     # By default, close all fingers at a constant speed
-    action = np.array([velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
+    action = np.array([1.5, 1.5, 1.5])
 
     # If ready to lift, set fingers to constant lifting velocities
     if lift_check is True:
