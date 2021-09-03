@@ -499,7 +499,7 @@ class ExpertPIDController(object):
         constant_velocity = velocities["constant_velocity"]
         wrist_lift_velocity = velocities["wrist_lift_velocity"]
         finger_lift_velocity = velocities["finger_lift_velocity"]
-        min_velocity = velocities["min_velocity"] + 1.3 # Add 1.3 so fingers are always moving
+        min_velocity = velocities["min_velocity"] + 1 # Add 1 so fingers are always moving
         max_velocity = velocities["max_velocity"]
 
         # Note: only comparing initial X position of object. because we know
@@ -595,7 +595,7 @@ def NaiveController(lift_check, velocities):
     """ Move fingers at a constant speed, return action """
 
     # By default, close all fingers at a constant speed
-    action = np.array([1.5, 1.5, 1.5])
+    action = np.array(["constant_velocity", "constant_velocity", "constant_velocity"])
 
     # If ready to lift, set fingers to constant lifting velocities
     if lift_check is True:

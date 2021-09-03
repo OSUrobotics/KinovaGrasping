@@ -3,8 +3,8 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger()
 # logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/evaluating_more_pretrains_aug17.log', 'a'))
 #logger.addHandler(logging.FileHandler('/home/jovyan/work/rl-stuff/terminal_logs/half_speed_pretrain1k_train2k.log', 'a'))
-#logger.addHandler(logging.FileHandler('C:/Users/vanil/OSU_Robotics_GitHub/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain1k_train_eval.log', 'a'))
-logger.addHandler(logging.FileHandler('/scratch/hugheste/Steph_KinovaGrasping/01_Reinforcement_Learning/Pre_Training/Sim2Real_New_Grasp_Check/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain_train_new_grasp_check.log', 'a'))
+logger.addHandler(logging.FileHandler('C:/Users/vanil/OSU_Robotics_GitHub/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_variable_speed.log', 'a'))
+#logger.addHandler(logging.FileHandler('/scratch/hugheste/Steph_KinovaGrasping/01_Reinforcement_Learning/Pre_Training/Sim2Real_New_Grasp_Check/KinovaGrasping/gym-kinova-gripper/experiments/terminal_logs/half_speed_pretrain_train_new_grasp_check.log', 'a'))
 print = lambda *x: logger.info("".join(str(item) for item in x))
 print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
 
@@ -1519,7 +1519,7 @@ if __name__ == "__main__":
     n = 5   # n step look ahead for the policy
     max_q_value = 50  # Should match the maximum reward value
 #     velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 3, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
-    velocities = {"constant_velocity": 1, "min_velocity": 0, "max_velocity": 1.5, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
+    velocities = {"constant_velocity": 1.5, "min_velocity": 0, "max_velocity": 1.5, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
 
     ''' Set values from command line arguments '''
     requested_shapes = args.shapes                   # Sets list of desired objects for experiment
