@@ -31,7 +31,7 @@ import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import xml.etree.ElementTree as ET
+# import xml.etree.ElementTree as ET
 import re
 from scipy.stats import triang
 import copy  # Used to copy coordinate values from the environment
@@ -42,7 +42,8 @@ import threading  # oh boy this might get messy
 from PIL import Image, ImageFont, ImageDraw  # Used to save images from rendering simulation
 import shutil
 
-import xml.etree.ElementTree as ET
+# import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
