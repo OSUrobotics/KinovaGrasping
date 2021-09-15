@@ -98,7 +98,7 @@ def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,cur
 
     # Fill training object list using latin square
     if env.check_obj_file_empty("objects.csv"):
-        env.Generate_Latin_Square(5000, "objects.csv", shape_keys=requested_shape)
+        env.Generate_Latin_Square(6000, "objects.csv", shape_keys=requested_shape)
 
     state = env.reset(shape_keys=requested_shape, hand_orientation=hand_orientation, with_grasp=with_grasp,
                       env_name="env", mode=mode, orient_idx=curr_orient_idx, with_noise=with_noise, start_pos=obj_coords, hand_rotation=hand_rotation)
@@ -268,7 +268,7 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
         requested_shape = [shape_name]
 
         # Generate randomized list of objects to select from
-        env.Generate_Latin_Square(5000, "objects.csv", shape_keys=requested_shape)
+        env.Generate_Latin_Square(6000, "objects.csv", shape_keys=requested_shape)
 
         valid_hand_object_coords = []
         bad_hand_object_coords = []
@@ -370,10 +370,10 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
         create_hand_object_plots(all_hand_object_coords, shape_name, "all", valid_shape_coords_filepath + "/")
 
 if __name__ == "__main__":
-    all_shapes = ["Vase1M"] #["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    all_shapes = ["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
     adjust_coords = {}
     adjust_coords["obj_coords_change"] = [0,0,0]
-    adjust_coords["hand_rotation_angle_change"] = [0,0,0]#[-0.15,0,0] #[-0.0872665,0,0]
+    adjust_coords["hand_rotation_angle_change"] = [0,0,0]
     for shape in all_shapes:
         shape_keys = [shape]
         print("*** Filtering ",shape_keys)
