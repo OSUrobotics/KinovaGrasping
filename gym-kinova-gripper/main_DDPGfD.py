@@ -314,8 +314,7 @@ def check_grasp(f_dist_old, f_dist_new, total_distal_change):
     #print("In check grasp, f1_change: {}, f2_change: {}, f3_change: {}, f_all_change: {}".format(f1_change,f2_change,f3_change,f_all_change))
 
     # If the fingers have only changed a small amount, we assume the object is grasped
-#     if f_all_change < 0.0001 and total_distal_change > 0.0001:
-    if f_all_change < 0.00001 and total_distal_change["finger_1"] > 0.0001 and total_distal_change["finger_2"] > 0.0001 and total_distal_change["finger_3"] > 0.0001:
+    if f_all_change < 0.0001 and total_distal_change["finger_1"] > 0.0001 and total_distal_change["finger_2"] > 0.0001 and total_distal_change["finger_3"] > 0.0001:
         return True, total_distal_change
     else:
         return False, total_distal_change

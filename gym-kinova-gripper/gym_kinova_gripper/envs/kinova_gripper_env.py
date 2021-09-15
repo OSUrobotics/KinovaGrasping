@@ -61,7 +61,7 @@ class KinovaGripper_Env(gym.Env):
         elif arm_or_end_effector == "hand":
             pass
             self._model, self.obj_size, self.filename = load_model_from_path(
-                self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+                self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"), 'm', "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
             # self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
             # self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
             # self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
@@ -152,7 +152,7 @@ class KinovaGripper_Env(gym.Env):
         self.obj_keys = list()
 
         # Shape data for determining correct expert data to retrieve for sampling
-        self.random_shape = 'CubeS'
+        self.random_shape = 'CubeM'
 
         # Default index for orientation data files (coords and noise) based on hand pose
         self.orientation_idx = 0
@@ -1562,9 +1562,9 @@ class KinovaGripper_Env(gym.Env):
             pos = [-0.00364792, 0.01415926, 0.25653749]
 
             if size == 'M':  # Medium object - add 0.01 to z
-                pos = pos[2] + 0.01
+                pos[2] += 0.01
             elif size == 'B':  # Big object - add 0.02 to z
-                pos = pos[2] + 0.02
+                pos[2] += 0.02
 
         elif orientation == 'rotated':
             # Small, Medium, Big objects (Cube, Cylinder, Vase, Cone) all have the same starting position for the hand
@@ -1818,8 +1818,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to display the current state in a video. The video is always paused when it first starts up.
     def render(self,
-               mode='human'):  # TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        setPause = False
+               mode='human',setPause=False):  # TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
             self._viewer._paused = setPause
