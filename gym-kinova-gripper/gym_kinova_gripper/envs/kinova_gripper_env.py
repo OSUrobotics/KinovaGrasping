@@ -1721,7 +1721,7 @@ class KinovaGripper_Env(gym.Env):
         self.set_orientation(orientation)
 
         # Determine location of x, y, z joint locations and proximal finger locations of the hand
-        xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
+        xloc, yloc, zloc, f1prox, f2prox, f3prox = 0, 0, 0, 0, 0, 0
         print()
 
         # STEPH Use pre-set qpos (joint velocities?) and pre-set initial object initial object position
@@ -1802,6 +1802,9 @@ class KinovaGripper_Env(gym.Env):
         # Sets the object coordinates for heatmap tracking and plotting
         self.set_obj_coords(obj_x, obj_y, obj_z)
         self._get_trans_mat_wrist_pose()
+
+        # Reset the hand pose coordinates
+        self.starting_coords = [10, 10, 10]
 
         ##Testing Code
         '''
