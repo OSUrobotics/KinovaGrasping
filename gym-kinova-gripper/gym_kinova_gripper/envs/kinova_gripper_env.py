@@ -31,7 +31,7 @@ import pdb
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import xml.etree.ElementTree as ET
+# import xml.etree.ElementTree as ET
 import re
 from scipy.stats import triang
 import copy  # Used to copy coordinate values from the environment
@@ -42,9 +42,97 @@ import threading  # oh boy this might get messy
 from PIL import Image, ImageFont, ImageDraw  # Used to save images from rendering simulation
 import shutil
 
-import xml.etree.ElementTree as ET
+# import xml.etree.ElementTree as ET
+import lxml.etree as ET
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+
+
+def rotate_around_origin(vec, how_much_rotation):
+    # vec: xyz
+    # how_much_rotation: in radians. use np.radians to covert if necessary
+    # roll, pitch, yaw.
+    rotation = R.from_euler('xyz', how_much_rotation)
+
+    rotated_vec = rotation.apply(vec)
+    return rotated_vec
+
+
+def rotate_around_sphere_mucrappo(rotvec_noise, local_rotation_pos_shift=np.array([0, 0, 0]),
+                                  default_orientation=np.array([0, 0, 0]),
+                                  grasp_translation=np.array([0, 0.18, 0.0654]),
+                                  grasp_orientation=np.array([-1.57, 0, -1.57]),
+                                  post_rotation_pos_shift=np.array([0, 0, 0])):
+    """
+    rotates a point around a sphere
+
+    rotvec_noise: rotation noise to be apply extrinsically, and to rotate the coordinates accordingly
+    default_orientation: the default orientation. should stay at 0s
+    grasp_translation: mujoco's euler value for whatever grasp position you're using
+    grasp_orientation: mujoco's pos value for whatever grasp position you're using
+    local_rotation_pos_shift: shifting the hand in local coordinates before the shift
+    post_rotation_pos_shift: shifting the hand in global coordinates, after the inner shift...
+
+    indep_rotation_noise: rotation noise that rotates without any consequence to th
+    """
+    # get rotation objects from starting grasp orientation, and the default orientation (should be 0 0 0)
+    grasp_orientation_rotation = R.from_euler(seq='XYZ', angles=grasp_orientation,
+                                              degrees=False)  # caps because instrinsic rotation
+    default_orientation_rotation = R.from_euler(seq='XYZ', angles=default_orientation, degrees=False)
+
+    # apply the orientation onto each other
+    rotation_orientation = np.matmul(default_orientation_rotation.as_matrix(), grasp_orientation_rotation.as_matrix())
+
+    # apply rotation noise
+    desired_noise_rotation = R.from_rotvec(rotvec_noise)
+    noisy_ori = np.matmul(desired_noise_rotation.as_matrix(), rotation_orientation)
+    noisy_mujoco_euler = R.from_matrix(noisy_ori).as_euler(seq='XYZ')
+
+    # get new postition
+    noisy_mujoco_pos = rotate_around_origin(grasp_translation + local_rotation_pos_shift,
+                                            rotvec_noise) + post_rotation_pos_shift
+
+    return noisy_mujoco_euler, noisy_mujoco_pos
+
+
+def real_like_hov_noise(rotvec_noise, post_rotation_pos_shift=np.array([0, 0, 0]),
+                        default_orientation=np.array([0, 0, 0]),
+                        grasp_translation=np.array([0, 0.18, 0.0654]),
+                        grasp_orientation=np.array([-1.57, 0, -1.57])):
+    """
+    rotates the wrist position and orientation just like the real world input. Give roll pitch and yaw!
+
+    rotvec_noise: rotation noise to be apply extrinsically, and to rotate the coordinates accordingly
+    post_rotation_pos_shift: shifting the hand in global coordinates, after the inner shift...
+    default_orientation: the default orientation. should stay at 0s
+    grasp_translation: mujoco's euler value for whatever grasp position you're using
+    grasp_orientation: mujoco's pos value for whatever grasp position you're using
+    """
+    # get rotation objects from starting grasp orientation, and the default orientation (should be 0 0 0)
+    grasp_orientation_rotation = R.from_euler(seq='XYZ', angles=grasp_orientation,
+                                              degrees=False)  # caps because instrinsic rotation
+    default_orientation_rotation = R.from_euler(seq='XYZ', angles=default_orientation, degrees=False)
+
+    # apply the orientation onto each other
+    rotation_orientation = np.matmul(default_orientation_rotation.as_matrix(), grasp_orientation_rotation.as_matrix())
+
+    # apply rotation noise
+    desired_noise_rotation = R.from_rotvec(rotvec_noise)
+    noisy_ori = np.matmul(desired_noise_rotation.as_matrix(), rotation_orientation)
+    noisy_mujoco_euler = R.from_matrix(noisy_ori).as_euler(seq='XYZ')
+
+    # get new postition
+    noisy_mujoco_pos = grasp_translation + post_rotation_pos_shift
+
+    return noisy_mujoco_euler, noisy_mujoco_pos
+
+
+def stringify_mucrappo(noisy_mujoco_euler_arr, noisy_mujoco_pos_arr):
+    return 'euler: ' + ' '.join(noisy_mujoco_euler_arr.astype(str)) + '\n' + 'pos: ' + ' '.join(
+        noisy_mujoco_pos_arr.astype(str))
 
 
 class KinovaGripper_Env(gym.Env):
@@ -1688,6 +1776,80 @@ class KinovaGripper_Env(gym.Env):
                 new_path = Path(new_dir)
                 new_path.mkdir(parents=True, exist_ok=True)
 
+    def reset_new_noise(self, shape, rot_noise, pos_noise):
+        """
+        contact Adam for documentation help.
+
+        I just wrote a new thing for time saving but ideally you might want to integrate the other logging features in here.
+
+        Resets the environment.
+
+        shape: a string
+        TODO: hardcode the shape cases... aw fuck
+        rot_noise: array of [roll, pitch, yaw]. only changes the wrist's orientation exstrinsically
+        pos_noise: array of [x, y, z] noises.
+
+
+        """
+
+        # you could use a helper function or dictionary mapping for these two.
+        hardcoded_grasp_position, hardcoded_grasp_orientation = np.array([0, 0.18, 0.0654]), np.array([-1.57, 0, -1.57])
+
+        # example usage of rotating using settings similar to how real-life HOV is done.
+        kwarg_dict = {
+            'rotvec_noise': rot_noise,  # extrinsic rotation here
+            'post_rotation_pos_shift': pos_noise,  # positional noise here
+            'grasp_translation': hardcoded_grasp_position,
+            # the grasp position here (built to work with our previous positioning system)
+            'grasp_orientation': hardcoded_grasp_orientation
+            # the grasp orientation here (built to work with our previous orientation system)
+        }
+
+        # we get these as numpy arrays of floats. luckily write_xml handles the conversion process
+        noisy_mujoco_euler_arr, noisy_mujoco_pos_arr = real_like_hov_noise(**kwarg_dict)
+
+        # write to xml
+        self.write_xml(new_wrist_pos=noisy_mujoco_pos_arr, new_rotation=noisy_mujoco_euler_arr)
+
+        '''
+        this next section i blindly copied and pasted from the reset() fn. I don't know what it does.
+        '''
+        # Determine location of x, y, z joint locations and proximal finger locations of the hand
+        xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
+        obj_x, obj_y, obj_z = 0, 0, 0.053
+        # all_states should be in the following format [xloc,yloc,zloc,f1prox,f2prox,f3prox,obj_x,obj_y,obj_z]
+        self.all_states_1 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x, obj_y, obj_z])
+        # if coords=='local':
+        #    world_coords=np.matmul(self.Twf[0:3,0:3],np.array([x,y,z]))
+        #    self.all_states_1=np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, world_coords[0], world_coords[1], world_coords[2]])
+        self.Grasp_Reward = False
+        self.all_states_2 = np.array([xloc, yloc, zloc, f1prox, f2prox, f3prox, 0.0, 0.0, 0.055])
+        self.all_states = [self.all_states_1, self.all_states_2]
+
+        self._set_state(self.all_states[0])
+
+        states = self._get_obs()
+        obj_pose = self._get_obj_pose()
+        deltas = [obj_x - obj_pose[0], obj_y - obj_pose[1], obj_z - obj_pose[2]]
+
+        if np.linalg.norm(deltas) > 0.05:
+            self.all_states_1 = np.array(
+                [xloc, yloc, zloc, f1prox, f2prox, f3prox, obj_x + deltas[0], obj_y + deltas[1], obj_z + deltas[2]])
+            self.all_states = [self.all_states_1, self.all_states_2]
+            self._set_state(self.all_states[0])
+            states = self._get_obs()
+
+        # These two varriables are used when the action space is in joint states
+        self.t_vel = 0
+        self.prev_obs = []
+
+        # Sets the object coordinates for heatmap tracking and plotting
+        self.set_obj_coords(obj_x, obj_y, obj_z)
+        self._get_trans_mat_wrist_pose()
+
+        return states
+
+
     def reset(self, shape_keys, hand_orientation, with_grasp=False, env_name="env", mode="train", start_pos=None,
               hand_rotation=None, obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False):
         """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
@@ -1747,6 +1909,9 @@ class KinovaGripper_Env(gym.Env):
 
                 # Determine the initial position of the wrist based on the orientation and shape/size
                 new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, random_shape)
+
+                # wrist_orientation, wrist_pos = rotate_around_sphere_mucrappo(hand_rotation, local_rotation_pos_shift=np.array([-obj_x, -obj_y, -obj_z]), grasp_translation=np.array(new_wrist_pos))
+                # self.write_xml(wrist_pos, wrist_orientation)
 
                 # Writes the new hand orientation and wrist position to the xml file to be simulated in the environment
                 self.write_xml(new_wrist_pos, hand_rotation)
@@ -1834,6 +1999,9 @@ class KinovaGripper_Env(gym.Env):
             self._viewer._paused = True
 
     def just_render_img(self, w=1000, h=1000):
+        '''
+        Just renders a single image of the current simulator frame. No strings attached.
+        '''
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
             self._viewer.cam.fixedcamid = 0  # set to the camera provided by the simulator!!!

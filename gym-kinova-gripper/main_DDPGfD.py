@@ -45,6 +45,54 @@ from replay_stats_plot import get_selected_episode_metrics, actual_values_plot
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #device = torch.device('cpu')
 
+import numpy as np
+from scipy.spatial.transform import Rotation as R
+
+
+def rotate_around_origin(vec, how_much_rotation):
+    # vec: xyz
+    # how_much_rotation: in radians. use np.radians to covert if necessary
+    # roll, pitch, yaw.
+    rotation = R.from_euler('xyz', how_much_rotation)
+
+    rotated_vec = rotation.apply(vec)
+    return rotated_vec
+
+
+def rotate_around_sphere_mucrappo(rotvec_noise, local_rotation_pos_shift=np.array([0, 0, 0]),
+                                  default_orientation=np.array([0, 0, 0]),
+                                  grasp_translation=np.array([0, 0.18, 0.0654]),
+                                  grasp_orientation=np.array([-1.57, 0, -1.57]),
+                                  post_rotation_pos_shift=np.array([0, 0, 0])):
+    """
+    rotates a point around a sphere
+
+    rotvec_noise: rotation noise to be apply extrinsically
+    default_orientation: the default orientation. should stay at 0s
+    grasp_translation: mujoco's euler value for whatever grasp position you're using
+    grasp_orientation: mujoco's pos value for whatever grasp position you're using
+    local_rotation_pos_shift: shifting the hand in local coordinates before the shift
+    post_rotation_pos_shift: shifting the hand in global coordinates, after the inner shift...
+    """
+    # get rotation objects from starting grasp orientation, and the default orientation (should be 0 0 0)
+    grasp_orientation_rotation = R.from_euler(seq='XYZ', angles=grasp_orientation,
+                                              degrees=False)  # caps because instrinsic rotation
+    default_orientation_rotation = R.from_euler(seq='XYZ', angles=default_orientation, degrees=False)
+
+    # apply the orientation onto each other
+    rotation_orientation = np.matmul(default_orientation_rotation.as_matrix(), grasp_orientation_rotation.as_matrix())
+
+    # apply rotation noise
+    desired_noise_rotation = R.from_rotvec(rotvec_noise)
+    noisy_ori = np.matmul(desired_noise_rotation.as_matrix(), rotation_orientation)
+    noisy_mujoco_euler = R.from_matrix(noisy_ori).as_euler(seq='XYZ')
+
+    # get new postition
+    noisy_mujoco_pos = rotate_around_origin(grasp_translation + local_rotation_pos_shift,
+                                            rotvec_noise) + post_rotation_pos_shift
+
+    return list(noisy_mujoco_euler), list(noisy_mujoco_pos)
+
 
 def compare_test():
     """ Compare policy performance """
@@ -1471,8 +1519,8 @@ def state_dim_setup(state_dim_option):
         # this one is based on sim2real
         'adam_sim2real_v02': np.concatenate((f1_prox_pos_idx, f1_dist_pos_idx, f2_prox_pos_idx, f2_dist_pos_idx,
                                              obj_pos_idx, f1_f2_joint_angles_idx, obj_size_idx,
-                                             finger_obj_dist_f1_dist_1, finger_obj_dist_f1_prox_1,
-                                             finger_obj_dist_f2_dist_1, finger_obj_dist_f2_prox_1))
+                                             finger_obj_dist_f1_prox_1, finger_obj_dist_f1_dist_1,
+                                             finger_obj_dist_f2_prox_1, finger_obj_dist_f2_dist_1))
         # this one removes wrist position and third finger joints.
     }
 
