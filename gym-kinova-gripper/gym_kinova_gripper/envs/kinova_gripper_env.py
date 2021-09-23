@@ -61,7 +61,7 @@ class KinovaGripper_Env(gym.Env):
         elif arm_or_end_effector == "hand":
             pass
             self._model, self.obj_size, self.filename = load_model_from_path(
-                self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"), 's', "/kinova_description/j2s7s300_end_effector_v1_CubeS.xml"
+                self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"), 'm', "/kinova_description/j2s7s300_end_effector_v1_CubeM.xml"
             # self._model,self.obj_size,self.filename = load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_scyl.xml"),'s',"/kinova_description/j2s7s300_end_effector_v1_scyl.xml"
             # self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mbox.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mbox.xml"
             # self._model,self.obj_size,self.filename= load_model_from_path(self.file_dir + "/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"),'m',"/kinova_description/j2s7s300_end_effector_v1_mcyl.xml"
@@ -150,7 +150,7 @@ class KinovaGripper_Env(gym.Env):
         self.obj_keys = list()
 
         # Shape data for determining correct expert data to retrieve for sampling
-        self.random_shape = 'CubeS'
+        self.random_shape = 'CubeM'
 
         # Default index for orientation data files (coords and noise) based on hand pose
         self.orientation_idx = 0
@@ -1560,9 +1560,9 @@ class KinovaGripper_Env(gym.Env):
             pos = [-0.00364792, 0.01415926, 0.25653749]
 
             if size == 'M':  # Medium object - add 0.01 to z
-                pos = pos[2] + 0.01
+                pos[2] += 0.01
             elif size == 'B':  # Big object - add 0.02 to z
-                pos = pos[2] + 0.02
+                pos[2] += 0.02
 
         elif orientation == 'rotated':
             # Small, Medium, Big objects (Cube, Cylinder, Vase, Cone) all have the same starting position for the hand
@@ -1719,7 +1719,7 @@ class KinovaGripper_Env(gym.Env):
         self.set_orientation(orientation)
 
         # Determine location of x, y, z joint locations and proximal finger locations of the hand
-        xloc, yloc, zloc, f1prox, f2prox, f3prox = self.determine_hand_location()
+        xloc, yloc, zloc, f1prox, f2prox, f3prox = 0,0,0,0,0,0
         print()
 
         # STEPH Use pre-set qpos (joint velocities?) and pre-set initial object initial object position
@@ -1800,6 +1800,9 @@ class KinovaGripper_Env(gym.Env):
         # Sets the object coordinates for heatmap tracking and plotting
         self.set_obj_coords(obj_x, obj_y, obj_z)
         self._get_trans_mat_wrist_pose()
+
+        # Reset the hand pose coordinates
+        self.starting_coords = [10, 10, 10]
 
         ##Testing Code
         '''
