@@ -83,7 +83,7 @@ for f in range(3):
     for k in range(10):
         start=time.time()
         thing=np.append([0,0,0],act)
-        env.reset(env_name='s')
+        env.reset(['CubeM'],env_name='s')
         StateSpaceBase._sim=env.get_sim()
         StateMetricBase._sim=env.get_sim()
         controller = GenericController('naive')
