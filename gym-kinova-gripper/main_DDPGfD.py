@@ -1836,7 +1836,7 @@ if __name__ == "__main__":
         Orientations_HOV = {"variation_name": "Orientations_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "random", "with_orientation_noise": True}
 
         # Contains all input variation types
-        variations_dict = {"Baseline": Baseline, "Baseline_HOV": Baseline_HOV, "Sizes_HOV": Sizes_HOV, "Shapes_HOV": Shapes_HOV} #, "Orientations_HOV": Orientations_HOV}
+        variations_dict = {"Baseline": Baseline, "Baseline_HOV": Baseline_HOV, "Sizes_HOV": Sizes_HOV, "Shapes_HOV": Shapes_HOV,"Orientations_HOV": Orientations_HOV}
 
         if input_variations is None or input_variations == "all_variations":
             all_variations = variations_dict.keys()

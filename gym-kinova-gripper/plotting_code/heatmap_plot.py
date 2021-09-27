@@ -47,9 +47,10 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
     plt.scatter(total_x,total_y, label = label, color = color_value)
 
     # Plot the position of each of the fingers on top of the heatmap plot
-    plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
-    plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
-    plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
+    if hand_lines is not None:
+        plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
+        plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
+        plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
 
     ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
@@ -84,8 +85,8 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
     cb_label = 'Frequency count of all grasp trials'
     x_min = -0.12
     x_max = 0.12
-    y_min = 0
-    y_max = 0.09
+    y_min = -0.12
+    y_max = 0.12
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -104,9 +105,10 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
     im = ax.imshow(total_data.T, cmap=plt.cm.Purples, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
 
     # Plot the position of each of the fingers on top of the heatmap plot
-    plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
-    plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
-    plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
+    if hand_lines is not None:
+        plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
+        plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
+        plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
 
     ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
@@ -138,8 +140,8 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,st
 
     x_min = -0.12
     x_max = 0.12
-    y_min = 0
-    y_max = 0.09
+    y_min = -0.12
+    y_max = 0.12
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -196,9 +198,10 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,st
         plt.imshow(neg_success_data.T, cmap=plt.cm.RdBu, origin='lower', extent=[x_min, x_max, y_min, y_max], vmin=-1, vmax=1)
 
     # Plot the position of each of the fingers on top of the heatmap plot
-    plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
-    plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
-    plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
+    if hand_lines is not None:
+        plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
+        plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
+        plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
 
     ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
@@ -320,7 +323,10 @@ def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,shape,orie
 
     title_str += ", " + shape + ", " + orientation.capitalize() + " Hand Orientation"
 
-    hand_lines = get_hand_lines(state_rep,wrist_coords,finger_coords)
+    if orientation == "normal":
+        hand_lines = get_hand_lines(state_rep,wrist_coords,finger_coords)
+    else:
+        hand_lines = None
 
     # Plot frequency heatmap
     freq_plot_title = "Grasp Trial Frequency per Initial Pose of Object\n" + title_str

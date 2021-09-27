@@ -1819,8 +1819,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to display the current state in a video. The video is always paused when it first starts up.
     def render(self,
-               mode='human'):  # TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
-        setPause = False
+               mode='human',setPause=False):  # TODO: Fix the rendering issue where a new window gets built every time the environment is reset or the window freezes when it is reset
         if self._viewer is None:
             self._viewer = MjViewer(self._sim)
             self._viewer._paused = setPause
