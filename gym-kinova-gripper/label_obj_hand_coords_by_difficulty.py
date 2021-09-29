@@ -208,10 +208,11 @@ if __name__ == "__main__":
                 policy.load(policy_filepath)
 
                 # Get the object-hand pose coordinate file indexes
-                indexes, coords_file, coords_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise)
+                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise)
 
                 # Setup the output directories
-                all_saving_dirs = setup_directories(env, saving_dir=coords_directory, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")
+                coords_saving_dir = coords_file_directory + "/" + shape_name + "/"
+                all_saving_dirs = setup_directories(env, saving_dir=coords_saving_dir, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")
 
                 # Go through each of the object-hand coordinates
                 labelled_obj_hand_coords = loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs)
