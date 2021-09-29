@@ -28,9 +28,9 @@ def get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,orient_idx
     else:
         indexes = [orient_idx]
 
-    coords_directory = os.path.dirname(coords_file)
+    coords_file_directory = os.path.dirname(coords_file)
 
-    return indexes, coords_file, coords_directory
+    return indexes, coords_file, coords_file_directory
 
 
 def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientation,with_noise,max_num_timesteps,policy,all_saving_dirs):
@@ -55,7 +55,7 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
                                       render_imgs=False,
                                       all_saving_dirs=all_saving_dirs,
                                       velocities=velocities,
-                                      output_dir=coords_directory,
+                                      output_dir=all_saving_dirs["output_dir"],
                                       with_noise=with_noise,
                                       orient_idx=curr_orient_idx,
                                       max_num_timesteps=max_num_timesteps,
@@ -225,9 +225,9 @@ if __name__ == "__main__":
         for hand_orientation in all_orientations:
             for shape_name in all_shapes:
                 # Get the object-hand pose coordinate file indexes
-                indexes, coords_file, coords_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise)
+                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise)
 
-                output_saving_dir = coords_directory + "/output/"
+                output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/" + "/output/"
 
                 # Read in pre-labelled coordinate dictionaries from a file
                 labelled_obj_hand_coords = read_obj_hand_pose_dict_list(output_saving_dir)
