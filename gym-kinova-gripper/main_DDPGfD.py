@@ -375,7 +375,7 @@ def get_hand_object_coords_dict(curr_env):
     return hand_object_coords
 
 # Runs policy for X episodes and returns average reward -- evaluate the policy per shape and per hand orientation
-def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, velocities, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False, state_idx_arr=np.arange(82)):
+def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation, with_noise, controller_type, max_num_timesteps, all_saving_dirs, velocities, n_steps=5, output_dir=None, start_pos=None,hand_rotation=None,eval_episodes=100, compare=False, render_imgs=False, state_idx_arr=np.arange(82), orient_idx=None, mode="eval"):
     """ Evaluate policy in its given state over eval_episodes amount of grasp trials """
     num_success=0
     # Initial (timestep = 1) transformation matrices (from Global to Local) for each episode
@@ -404,7 +404,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=args.with_grasp_reward,hand_orientation=requested_orientation,mode="eval",env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+        if orient_idx is None:
+            orient_idx = i
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=False,hand_orientation=requested_orientation,mode=mode,env_name="eval_env",orient_idx=orient_idx,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
 
         # Initialize the controller if the controller type is not a policy
         if controller_type != "policy":
@@ -904,7 +906,7 @@ def create_paths(dir_list):
             new_path.mkdir(parents=True, exist_ok=True)
 
 
-def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, create_dirs=True):
+def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, mode, create_dirs=True):
     """ Setup directories where information will be saved
     env: Pass in current environment to have access to getting environment variables for recording purposes
     saving_dir: main name for all related files (ex: train_DDPGfD_CubeS)
@@ -916,7 +918,7 @@ def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_fil
     all_saving_dirs = {}
 
     # Experiment output
-    if args.mode == "experiment":
+    if mode == "experiment":
         model_save_path = saving_dir + "/policy/exp_policy"
         tensorboard_dir = saving_dir + "/output/tensorboard/"
         output_dir = saving_dir + "/output"
@@ -924,7 +926,7 @@ def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_fil
         heatmap_dir = saving_dir + "/output/heatmap/"
         boxplot_dir = saving_dir + "/output/boxplot/"
         results_saving_dir = saving_dir + "/output/results"
-    elif args.mode == "combined" or args.mode == "naive" or args.mode == "position-dependent":
+    elif mode == "combined" or mode == "naive" or mode == "position-dependent":
         output_dir = saving_dir + "/output/"
         replay_buffer_dir = saving_dir + "/replay_buffer/"  # Directory to hold replay buffer
         heatmap_dir = output_dir + "heatmap/"
@@ -932,7 +934,7 @@ def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_fil
         model_save_path = "None"
         results_saving_dir = "None"
         tensorboard_dir = "None"
-    elif args.mode == "eval":
+    elif mode == "eval":
         output_dir = saving_dir + "/output/"
         heatmap_dir = output_dir + "heatmap/"
         replay_buffer_dir = "None"
@@ -1702,7 +1704,7 @@ if __name__ == "__main__":
     if args.mode == "naive" or args.mode == "position-dependent" or args.mode == "combined":
         print("MODE: " + args.mode)
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, "None", "None", "None",create_dirs=True)
+        all_saving_dirs = setup_directories(env, saving_dir, "None", "None", "None", mode=args.mode, create_dirs=True)
 
         # The controller only fills the replay_buffer, it does not access any previous expert replay buffers
         expert_buffers = None
@@ -1742,7 +1744,7 @@ if __name__ == "__main__":
                     expert_buffers[shape_to_load] = copy.deepcopy(expert_buffer)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, mode=args.mode)
 
         # Initialize timer to analyze run times
         train_time = Timer()
@@ -1797,7 +1799,7 @@ if __name__ == "__main__":
             policy.load(pretrain_model_save_path)
 
         # Create directories where information will be saved
-        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+        all_saving_dirs = setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, mode=args.mode)
 
         # Train the policy and save it
         # Initialize timer to analyze run times
@@ -1894,7 +1896,7 @@ if __name__ == "__main__":
             for variation_type in variations:
                 variation_name = variation_type["variation_name"]
                 variation_saving_dir = saving_dir + "/" + variation_type["variation_name"]
-                variation_saving_dirs = setup_directories(env, variation_saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path)
+                variation_saving_dirs = setup_directories(env, variation_saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, mode=args.mode)
 
                 print("Now evaluating: ", variation_type.items())
                 print("eval_point_saving_dir: ",eval_point_saving_dir)
@@ -2021,7 +2023,7 @@ if __name__ == "__main__":
         # Save directory info for info file
         all_saving_dirs = setup_directories(env, exp_dir, expert_replay_file_path,
                                             agent_replay_file_path,
-                                            prev_exp_dir, create_dirs=False)
+                                            prev_exp_dir, mode=args.mode, create_dirs=False)
 
         # Run experiment
         rl_experiment(policy, exp_num, exp_name, prev_exp_dir, requested_shapes, requested_orientation_list, all_saving_dirs, state_idx_arr=state_idx_arr)

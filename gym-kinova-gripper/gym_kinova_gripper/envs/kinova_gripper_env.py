@@ -919,16 +919,8 @@ class KinovaGripper_Env(gym.Env):
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
         #self.objects = {}
 
-        print('EXPERIMENT FUNCTION before')
-        print(self.objects)
-        print(shape_keys)
-
         for key in shape_keys:
             self.objects[key] = self.all_objects[key]
-
-        print('EXPERIMENT FUNCTION')
-        print(self.objects)
-        print(shape_keys)
 
         if len(shape_keys) == 0:
             print("No shape keys")
@@ -979,8 +971,6 @@ class KinovaGripper_Env(gym.Env):
         # step 1: open the xml file
         # xml_filepath = os.path.join(self.file_dir, self.filename)
         xml_filepath = self.file_dir + self.filename
-        print('XML FILEPATH:', xml_filepath)
-        print(self.file_dir + self.filename)
 
         # ASSUMPTIONS: ROOT IS FIRST BODY, THEN J2S7S300_LINK_7 IS THE NEXT FIRST NESTED BODY
 
@@ -1542,9 +1532,7 @@ class KinovaGripper_Env(gym.Env):
 
     def determine_wrist_pos_coords(self, orientation, shape):
         """Determine the initial coodinate position of the wrist center [x,y,z] to start with based on the current orientation and shape"""
-        print('well hello THERE! DETERMINE_WRIST_POS_COORDS')
-        print(orientation)
-        print(shape)
+
         size = shape[-1]
 
         # TODO: dude.... it's all hardcoded.
@@ -1651,7 +1639,6 @@ class KinovaGripper_Env(gym.Env):
         new_wrist_pos = self.determine_wrist_pos_coords(self.orientation, random_shape)
 
         # Writes the new hand orientation and wrist position to the xml file to be simulated in the environment
-        print('being called under determine_obj_hand_coords')
         self.write_xml(new_wrist_pos, new_rotation)
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename

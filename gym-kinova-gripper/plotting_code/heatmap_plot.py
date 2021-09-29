@@ -8,7 +8,7 @@ import os
 import argparse
 from pathlib import Path
 
-def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,x_min=-0.12,x_max=0.12,y_min=0,y_max=0.09):
+def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,x_min=-0.10,x_max=0.10,y_min=0,y_max=0.09):
     """ Create heatmap displaying the actual locations of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -70,7 +70,7 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir):
+def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples):
     """ Create heatmap displaying frequency of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -79,10 +79,10 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
 
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_min = -0.12
-    x_max = 0.12
-    y_min = -0.12
-    y_max = 0.12
+    x_min = -0.10
+    x_max = 0.10
+    y_min = -0.10
+    y_max = 0.10
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -98,7 +98,7 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
     ax = fig.add_subplot(111)
 
     # Plot heatmap from data
-    im = ax.imshow(total_data.T, cmap=plt.cm.Purples, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
+    im = ax.imshow(total_data.T, cmap=color_map, interpolation='none', origin='lower',extent=[x_min, x_max, y_min, y_max])
 
     # Plot the position of each of the fingers on top of the heatmap plot
     if hand_lines is not None:
@@ -131,10 +131,10 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,st
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
 
-    x_min = -0.12
-    x_max = 0.12
-    y_min = -0.12
-    y_max = 0.12
+    x_min = -0.10
+    x_max = 0.10
+    y_min = -0.10
+    y_max = 0.10
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -213,9 +213,12 @@ def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,st
     cb.ax.set_yticklabels(['0%', '25%', '50%', '75%', '100%'])
     cb.set_label(cb_label)
 
-    plt.savefig(saving_dir+fig_filename)
-    plt.close()
-    #plt.show()
+    if saving_dir is None:
+        plt.show()
+        plt.close(fig)
+    else:
+        plt.savefig(saving_dir+fig_filename)
+        plt.close()
 
 
 def change_image_transparency(image_filepath,alpha=0):
