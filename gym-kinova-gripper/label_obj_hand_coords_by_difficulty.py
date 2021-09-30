@@ -3,6 +3,7 @@ import os,sys
 import numpy as np
 import copy
 import csv
+import json
 import DDPGfD
 import matplotlib.pyplot as plt
 from main_DDPGfD import eval_policy, setup_directories
@@ -12,14 +13,14 @@ sys.path.insert(1, plot_path)
 from heatmap_plot import heatmap_freq
 
 
-def get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,orient_idx=None):
+def get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type="shape",orient_idx=None):
     """
         Get a list of file indexes based on the number of lines in the object-hand pose coordinate file
         (per shape/size/hand orientation)
     """
     env.set_orientation(hand_orientation)
     if orient_idx is None:
-        _, _, _, _, _, _, _, coords_file = env.determine_obj_hand_coords(random_shape=shape_name, mode="shape", orient_idx=0, with_noise=with_noise)
+        _, _, _, _, _, _, _, coords_file = env.determine_obj_hand_coords(random_shape=shape_name, mode=coords_type, orient_idx=0, with_noise=with_noise)
         num_lines = 0
         with open(coords_file) as f:
             for line in f:
@@ -33,7 +34,7 @@ def get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,orient_idx
     return indexes, coords_file, coords_file_directory
 
 
-def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientation,with_noise,max_num_timesteps,policy,all_saving_dirs):
+def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientation,with_noise,max_num_timesteps,policy,all_saving_dirs,coords_type="shape"):
     """
         Determine the difficulty of an object-hand pose based on the constant-speed controller, variable-speed controller,
         and policy's ability to successfully grasp and lift the obejct.
@@ -44,7 +45,7 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
     controller_options = ["naive","position-dependent","policy"]
 
     # Store object-hand pose info, incl. if controllers are successful given this pose and subsequent difficulty label
-    coord_info = {"obj_coord":[],"hov":[],"shape":shape_name,"hand_orientation":hand_orientation,"naive_success":None,"position-dependent_success":None,"policy_success":None,"difficulty":None}
+    coord_info = {"obj_coord":[],"local_obj_coord":[],"hov":[],"shape":shape_name,"hand_orientation":hand_orientation,"naive_success":None,"position-dependent_success":None,"policy_success":None,"difficulty":None}
 
     # Attempt a grasp trial with each controller
     for controller_type in controller_options:
@@ -60,11 +61,12 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
                                       orient_idx=curr_orient_idx,
                                       max_num_timesteps=max_num_timesteps,
                                       controller_type=controller_type,
-                                      mode="shape",
+                                      mode=coords_type,
                                       state_idx_arr=np.arange(82))
 
         hand_object_coords = eval_ret["all_hand_object_coords"][0]
         coord_info["obj_coord"] = hand_object_coords["global_obj_coords"]
+        coord_info["local_obj_coord"] = hand_object_coords["local_obj_coords"]
         coord_info["hov"] = hand_object_coords["hand_orient_variation"]
         coord_info[controller_type+"_success"] = hand_object_coords["success"]
 
@@ -80,7 +82,7 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
     return coord_info
 
 
-def loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs):
+def loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs, coords_type):
     """
         Loop through each object-hand pose coordinates, determine its difficulty, and store that information in a dictionary
     """
@@ -88,7 +90,7 @@ def loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, m
 
     for curr_orient_idx in indexes:
         print("Coord File Idx: ", curr_orient_idx)
-        coord_info = determine_obj_hand_pose_difficulty(curr_orient_idx, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs)
+        coord_info = determine_obj_hand_pose_difficulty(curr_orient_idx, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs, coords_type)
         labelled_obj_hand_coords.append(coord_info)
 
     return labelled_obj_hand_coords
@@ -164,7 +166,7 @@ def write_obj_hand_pose_dict_list(saving_dir,labelled_obj_hand_coords):
     """
     Write the object-hand pose dictionary to a csv file
     """
-    dict_file = open(saving_dir + "/labelled_obj_hand_coords.csv", "w", newline='')
+    dict_file = open(saving_dir + "/new_labelled_obj_hand_coords.csv", "w", newline='')
     keys = labelled_obj_hand_coords[0].keys()
     dict_writer = csv.DictWriter(dict_file, keys)
     dict_writer.writeheader()
@@ -180,18 +182,26 @@ def read_obj_hand_pose_dict_list(saving_dir):
     with open(saving_dir + "/labelled_obj_hand_coords.csv", newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-            labelled_obj_hand_coords.append(row)
+           obj_coord = row["obj_coord"].strip('][').split(', ')
+           hov = row["hov"].strip('][')
+           hov = hov.split(' ')
+           hov = [h for h in hov if h != ' ' and h != '']
+           row["obj_coord"] = [float(coord) for coord in obj_coord]
+           row["hov"] = [float(coord) for coord in hov]
+           labelled_obj_hand_coords.append(row)
+
     return labelled_obj_hand_coords
 
 
 if __name__ == "__main__":
     # TODO: Make into command-line arguments
-    coords_option = "label"
+    coords_option = "plot"
 
     with_noise = True
-    policy_filepath = "./experiments/pre-train/Pre-train_Baseline_FULL_DIM/policy/pre-train_DDPGfD_kinovaGrip"
-    all_shapes = ["CubeM"] #["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
+    policy_filepath = "./experiments/pre-train/Pre-train_Baseline/policy/pre-train_DDPGfD_kinovaGrip"
+    all_shapes = ["CubeM"] #, "CubeB", "CylinderM", "Vase1M"] #["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
     all_orientations = ["normal"] #["normal", "top", "rotated"]
+    coords_type = "shape"
 
     # Initialize the environment
     env_name = 'gym_kinova_gripper:kinovagripper-v0'
@@ -208,14 +218,14 @@ if __name__ == "__main__":
                 policy.load(policy_filepath)
 
                 # Get the object-hand pose coordinate file indexes
-                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise)
+                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type)
 
                 # Setup the output directories
                 coords_saving_dir = coords_file_directory + "/" + shape_name + "/"
                 all_saving_dirs = setup_directories(env, saving_dir=coords_saving_dir, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")
 
                 # Go through each of the object-hand coordinates
-                labelled_obj_hand_coords = loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs)
+                labelled_obj_hand_coords = loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs, coords_type)
 
                 # Write coordinate difficulty info to a file
                 write_obj_hand_pose_dict_list(all_saving_dirs["output_dir"],labelled_obj_hand_coords)
@@ -225,7 +235,7 @@ if __name__ == "__main__":
         for hand_orientation in all_orientations:
             for shape_name in all_shapes:
                 # Get the object-hand pose coordinate file indexes
-                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise)
+                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type)
 
                 output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/" + "/output/"
 
@@ -233,4 +243,4 @@ if __name__ == "__main__":
                 labelled_obj_hand_coords = read_obj_hand_pose_dict_list(output_saving_dir)
 
                 # Plot coordinates based on difficulty (bar chart, heatmap)
-                #plot_coords_by_difficulty(labelled_obj_hand_coords)
+                plot_coords_by_difficulty(labelled_obj_hand_coords)
