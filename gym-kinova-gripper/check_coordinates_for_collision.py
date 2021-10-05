@@ -371,12 +371,15 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
 
 if __name__ == "__main__":
     all_shapes = ["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    hand_orientation = "rotated"
+    with_noise = True
+
     adjust_coords = {}
     adjust_coords["obj_coords_change"] = [0,0,0]
     adjust_coords["hand_rotation_angle_change"] = [0,0,0]
     for shape in all_shapes:
         shape_keys = [shape]
         print("*** Filtering ",shape_keys)
-        coord_check_loop(shape_keys=shape_keys, with_noise=True, orient_idx=None, hand_orientation="normal", adjust_coords=adjust_coords, render_coord=False)
+        coord_check_loop(shape_keys=shape_keys, with_noise=with_noise, orient_idx=None, hand_orientation=hand_orientation, adjust_coords=adjust_coords, render_coord=False)
     #print("Done looping through coords - Quitting")
     #plot_coords_for_each_shape(shape_keys,with_noise=True,hand_orientation="normal")
