@@ -1,9 +1,9 @@
-import logging
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger()
-logger.addHandler(logging.FileHandler('./experiments/terminal_logs/exp_log.log', 'a'))
-print = lambda *x: logger.info("".join(str(item) for item in x))
-print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
+# import logging
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger()
+# logger.addHandler(logging.FileHandler('./experiments/terminal_logs/exp_log.log', 'a'))
+# print = lambda *x: logger.info("".join(str(item) for item in x))
+# print('============================================================================================================================ NEW_FILE =============================================================================================================================================================')
 
 import numpy as np
 import torch
@@ -318,11 +318,11 @@ def check_grasp(f_dist_old, f_dist_new, total_distal_change):
 def get_hand_object_coords_dict(curr_env):
     """Create dictionary containing info about the hand-object pose from a single episode"""
     # Global object and hand coordinates
-    hand_object_coords = {"local_obj_coords": [], "global_obj_coords": [], "local_to_global_obj_coords": [],
-                          "local_wrist_coords": [], "global_wrist_coords": [], "local_to_global_wrist_coords": [],
-                          "global_to_local_transf": [], "shape": [], "orientation": [], "hand_orient_variation": [],
-                          "local_finger_coords": [], "global_finger_coords": [], "local_to_global_finger_coords": [],
-                          "local_coord_region": "None", "total_episode_reward": 0, "success": 0}
+    hand_object_coords = {"local_obj_coords": [], "obj_coords": [],
+                          "local_wrist_coords": [], "wrist_coords": [],
+                          "global_to_local_transf": [], "shape": [], "orientation": [], "hov": [],
+                          "local_finger_coords": [], "finger_coords": [],
+                          "local_coord_region": "None", "difficulty": "None", "total_episode_reward": 0, "success": 0}
     global_to_local_transf = curr_env.Tfw
     hand_orient_variation = curr_env.hand_orient_variation
 
@@ -348,29 +348,18 @@ def get_hand_object_coords_dict(curr_env):
 
     # Save the hand-object coordinates to track the transformations
     hand_object_coords["local_obj_coords"] = local_obj_coords
-    hand_object_coords["global_obj_coords"] = global_obj_coords
+    hand_object_coords["obj_coords"] = global_obj_coords
     hand_object_coords["local_wrist_coords"] = local_wrist_coords
     hand_object_coords["local_finger_coords"] = local_finger_coords
-    hand_object_coords["global_finger_coords"] = global_finger_coords
-    hand_object_coords["global_wrist_coords"] = global_wrist_coords
+    hand_object_coords["finger_coords"] = global_finger_coords
+    hand_object_coords["wrist_coords"] = global_wrist_coords
     hand_object_coords["global_to_local_transf"] = global_to_local_transf
     hand_object_coords["orientation"] = orientation
     hand_object_coords["shape"] = shape
-    hand_object_coords["hand_orient_variation"] = hand_orient_variation
+    hand_object_coords["hov"] = hand_orient_variation
     hand_object_coords["coords_file"] = coords_file
     hand_object_coords["coords_file_idx"] = coords_file_idx
-
-    # Local to Global coordinate conversion (from our observation)
-    local_to_global_temp = np.append(local_obj_coords, 1)
-    local_to_global_temp = np.matmul(np.linalg.inv(global_to_local_transf), local_to_global_temp)
-    local_to_global_obj_coords = local_to_global_temp[0:3].tolist()
-
-    hand_object_coords["local_to_global_wrist_coords"] = local_to_global_transf(local_wrist_coords,
-                                                                                global_to_local_transf)
-    hand_object_coords["local_to_global_obj_coords"] = local_to_global_transf(local_obj_coords, global_to_local_transf)
-    for coord_idx in range(0, len(local_finger_coords), 3):
-        transf_coords = local_to_global_transf(local_finger_coords[coord_idx:coord_idx + 3], global_to_local_transf)
-        hand_object_coords["local_to_global_finger_coords"].extend(transf_coords)
+    hand_object_coords["difficulty"] = copy.deepcopy(curr_env.difficulty)
 
     return hand_object_coords
 
@@ -404,9 +393,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
-        if orient_idx is None:
-            orient_idx = i
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=False,hand_orientation=requested_orientation,mode=mode,env_name="eval_env",orient_idx=orient_idx,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=False,hand_orientation=requested_orientation,mode=mode,env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
 
         # Initialize the controller if the controller type is not a policy
         if controller_type != "policy":
@@ -1883,7 +1870,7 @@ if __name__ == "__main__":
                         eval_point_str = "/policy_" + str(ep_num) + "/"
 
                     eval_point_policy_path = test_policy_path + eval_point_str
-                    eval_point_saving_dir = saving_dir
+                    eval_point_saving_dir = saving_dir + eval_point_str
 
                     print("Loading policy: ",eval_point_policy_path)
                     policy.load(eval_point_policy_path)
@@ -1895,7 +1882,7 @@ if __name__ == "__main__":
 
             for variation_type in variations:
                 variation_name = variation_type["variation_name"]
-                variation_saving_dir = saving_dir + "/" + variation_type["variation_name"]
+                variation_saving_dir = saving_dir + "/" + variation_type["variation_name"] + eval_point_str
                 variation_saving_dirs = setup_directories(env, variation_saving_dir, expert_replay_file_path, agent_replay_file_path, pretrain_model_save_path, mode=args.mode)
 
                 print("Now evaluating: ", variation_type.items())

@@ -45,7 +45,7 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
     controller_options = ["naive","position-dependent","policy"]
 
     # Store object-hand pose info, incl. if controllers are successful given this pose and subsequent difficulty label
-    coord_info = {"obj_coord":[],"local_obj_coord":[],"hov":[],"shape":shape_name,"hand_orientation":hand_orientation,"naive_success":None,"position-dependent_success":None,"policy_success":None,"difficulty":None}
+    coord_info = {"obj_coords":[],"local_obj_coords":[],"hov":[],"shape":shape_name,"hand_orientation":hand_orientation,"naive_success":None,"position-dependent_success":None,"policy_success":None,"difficulty":None}
 
     # Attempt a grasp trial with each controller
     for controller_type in controller_options:
@@ -65,9 +65,9 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
                                       state_idx_arr=np.arange(82))
 
         hand_object_coords = eval_ret["all_hand_object_coords"][0]
-        coord_info["obj_coord"] = hand_object_coords["global_obj_coords"]
-        coord_info["local_obj_coord"] = hand_object_coords["local_obj_coords"]
-        coord_info["hov"] = hand_object_coords["hand_orient_variation"]
+        coord_info["obj_coords"] = hand_object_coords["obj_coords"]
+        coord_info["local_obj_coords"] = hand_object_coords["local_obj_coords"]
+        coord_info["hov"] = hand_object_coords["hov"]
         coord_info[controller_type+"_success"] = hand_object_coords["success"]
 
     # Determine the difficulty of the pose based on the amount off success
@@ -99,16 +99,16 @@ def plot_coords_by_difficulty(labelled_obj_hand_coords,saving_dir=None):
     """
     Sort the coordinates by difficulty and plot their frequency per difficulty (easy,med,hard)
     """
-    easy_coords = [d["obj_coord"] for d in labelled_obj_hand_coords if d["difficulty"] == "easy"]
-    med_coords = [d["obj_coord"] for d in labelled_obj_hand_coords if d["difficulty"] == "med"]
-    hard_coords = [d["obj_coord"] for d in labelled_obj_hand_coords if d["difficulty"] == "hard"]
-    all_coords_x = [d["obj_coord"][0] for d in labelled_obj_hand_coords]
-    all_coords_y = [d["obj_coord"][1] for d in labelled_obj_hand_coords]
+    easy_coords = [d["local_obj_coords"] for d in labelled_obj_hand_coords if d["difficulty"] == "easy"]
+    med_coords = [d["local_obj_coords"] for d in labelled_obj_hand_coords if d["difficulty"] == "med"]
+    hard_coords = [d["local_obj_coords"] for d in labelled_obj_hand_coords if d["difficulty"] == "hard"]
+    all_coords_x = [d["local_obj_coords"][0] for d in labelled_obj_hand_coords]
+    all_coords_y = [d["local_obj_coords"][1] for d in labelled_obj_hand_coords]
     coords_by_difficulty = {"Easy":{"coords":easy_coords,"color_map":plt.cm.Greens},"Medium":{"coords":med_coords,"color_map":plt.cm.Blues},"Hard":{"coords":hard_coords,"color_map":plt.cm.Reds}}
 
     # Plot all coordinates frequency
     freq_plot_title = "Frequency of all object-hand pose coordinates"
-    heatmap_freq(all_coords_x, all_coords_y, hand_lines=None, state_rep="global", plot_title=freq_plot_title, fig_filename=None, saving_dir=None)
+    heatmap_freq(all_coords_x, all_coords_y, hand_lines=None, state_rep="global", plot_title=freq_plot_title, fig_filename="all_coord_frequency.png", saving_dir=saving_dir, y_min=0)
 
     for difficulty,coords in coords_by_difficulty.items():
         x_coords = [c[0] for c in coords["coords"]]
@@ -116,36 +116,31 @@ def plot_coords_by_difficulty(labelled_obj_hand_coords,saving_dir=None):
 
         # Plot frequency heatmap
         freq_plot_title = "Frequency of object-hand pose coordinates with an " + difficulty + " grasp trial difficulty"
-        heatmap_freq(x_coords, y_coords, hand_lines=None, state_rep="global", plot_title=freq_plot_title, fig_filename=None,saving_dir=None,color_map=coords['color_map'])
+        heatmap_freq(x_coords, y_coords, hand_lines=None, state_rep="global", plot_title=freq_plot_title, fig_filename=difficulty +"_coord_frequency.png", saving_dir=saving_dir,color_map=coords['color_map'],y_min=0)
 
     # Plot each of the controllers by difficulty
-    difficulty_bar_plot(coords_by_difficulty)
+    difficulty_bar_plot(coords_by_difficulty,"difficulty_bar_plot.png",saving_dir)
 
     # Success/failure heatmap per controller
 
 
-def difficulty_bar_plot(coords_by_difficulty):
+def difficulty_bar_plot(coords_by_difficulty,fig_filename,saving_dir):
     labels = ['normal']
     difficulty_by_controller = {"easy":0,"medium":0,"hard":0}
     difficulty_by_controller["easy"] = len(coords_by_difficulty["Easy"]["coords"])
     difficulty_by_controller["med"] = len(coords_by_difficulty["Medium"]["coords"])
     difficulty_by_controller["hard"] = len(coords_by_difficulty["Hard"]["coords"])
 
-    #for difficulty in ["easy","med","hard"]:
-    #    difficulty_by_controller[difficulty] = [sum([d["naive_success"] for d in labelled_obj_hand_coords if d["difficulty"] == difficulty]),
-    #     sum([d["position-dependent_success"] for d in labelled_obj_hand_coords if d["difficulty"] == difficulty]),
-    #     sum([d["policy_success"] for d in labelled_obj_hand_coords if d["difficulty"] == difficulty])]
-
     x = np.arange(len(labels))  # the label locations
 
     fig, ax = plt.subplots()
-    easy_rect = ax.bar(x + 0, difficulty_by_controller["easy"], width=0.25, label='Easy')
-    med_rect = ax.bar(x + 0.25, difficulty_by_controller["med"], width=0.25, label='Medium')
-    hard_rect = ax.bar(x + 0.50, difficulty_by_controller["hard"], width=0.25, label='Hard')
+    easy_rect = ax.bar(x + 0, difficulty_by_controller["easy"], width=0.25, color='green', label='Easy')
+    med_rect = ax.bar(x + 0.25, difficulty_by_controller["med"], width=0.25, color='blue', label='Medium')
+    hard_rect = ax.bar(x + 0.50, difficulty_by_controller["hard"], width=0.25, color='red', label='Hard')
 
     # Add some text for labels, title and custom x-axis tick labels, etc.
     ax.set_ylabel('Hand Orientation')
-    ax.set_title('Object-hand pose success frequency by difficulty per controller')
+    ax.set_title('Object-hand pose dataset frequency by difficulty')
     ax.set_xticks(x)
     ax.set_xticklabels(labels)
     ax.legend()
@@ -159,7 +154,11 @@ def difficulty_bar_plot(coords_by_difficulty):
 
     fig.tight_layout()
 
-    plt.show()
+    if saving_dir is None:
+        plt.show()
+    else:
+        plt.savefig(saving_dir+fig_filename)
+        plt.close(fig)
     
     
 def write_obj_hand_pose_dict_list(saving_dir,labelled_obj_hand_coords):
@@ -182,11 +181,14 @@ def read_obj_hand_pose_dict_list(saving_dir):
     with open(saving_dir + "/labelled_obj_hand_coords.csv", newline='') as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
-           obj_coord = row["obj_coord"].strip('][').split(', ')
+           obj_coords = row["obj_coords"].strip('][').split(', ')
+           row["obj_coords"] = [float(coord) for coord in obj_coords]
+           local_obj_coords = row["local_obj_coords"].strip('][').split(', ')
+           row["local_obj_coords"] = [float(coord) for coord in local_obj_coords]
+
            hov = row["hov"].strip('][')
            hov = hov.split(' ')
            hov = [h for h in hov if h != ' ' and h != '']
-           row["obj_coord"] = [float(coord) for coord in obj_coord]
            row["hov"] = [float(coord) for coord in hov]
            labelled_obj_hand_coords.append(row)
 
@@ -198,10 +200,10 @@ if __name__ == "__main__":
     coords_option = "plot"
 
     with_noise = True
-    policy_filepath = "./experiments/pre-train/Pre-train_Baseline/policy/pre-train_DDPGfD_kinovaGrip"
-    all_shapes = ["CubeM"] #, "CubeB", "CylinderM", "Vase1M"] #["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
+    policy_filepath = "./experiments/pre-train/Pre-train_Baseline_FULL_DIM/policy/pre-train_DDPGfD_kinovaGrip"
+    all_shapes = ["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
     all_orientations = ["normal"] #["normal", "top", "rotated"]
-    coords_type = "shape"
+    coords_type = "eval"
 
     # Initialize the environment
     env_name = 'gym_kinova_gripper:kinovagripper-v0'
@@ -235,12 +237,13 @@ if __name__ == "__main__":
         for hand_orientation in all_orientations:
             for shape_name in all_shapes:
                 # Get the object-hand pose coordinate file indexes
-                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type)
 
-                output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/" + "/output/"
+                coords_file_directory = "./gym_kinova_gripper/envs/kinova_description/obj_hand_coords/with_noise/"+coords_type+"_coords/normal/"
+
+                output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
 
                 # Read in pre-labelled coordinate dictionaries from a file
                 labelled_obj_hand_coords = read_obj_hand_pose_dict_list(output_saving_dir)
 
                 # Plot coordinates based on difficulty (bar chart, heatmap)
-                plot_coords_by_difficulty(labelled_obj_hand_coords)
+                plot_coords_by_difficulty(labelled_obj_hand_coords,saving_dir=output_saving_dir)

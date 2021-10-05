@@ -70,7 +70,7 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples):
+def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples,x_min=-0.10,x_max=0.10,y_min=-0.10,y_max=0.10):
     """ Create heatmap displaying frequency of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -79,10 +79,6 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
 
     title = plot_title
     cb_label = 'Frequency count of all grasp trials'
-    x_min = -0.10
-    x_max = 0.10
-    y_min = -0.10
-    y_max = 0.10
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
@@ -127,14 +123,9 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success):
+def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success,x_min=-0.10,x_max=0.10,y_min=-0.10,y_max=0.10):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
-
-    x_min = -0.10
-    x_max = 0.10
-    y_min = -0.10
-    y_max = 0.10
 
     x_range = x_max - (x_min)
     y_range = y_max - y_min
