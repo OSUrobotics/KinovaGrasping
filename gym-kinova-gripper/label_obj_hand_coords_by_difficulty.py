@@ -165,7 +165,7 @@ def write_obj_hand_pose_dict_list(saving_dir,labelled_obj_hand_coords):
     """
     Write the object-hand pose dictionary to a csv file
     """
-    dict_file = open(saving_dir + "/new_labelled_obj_hand_coords.csv", "w", newline='')
+    dict_file = open(saving_dir + "/labelled_obj_hand_coords.csv", "w", newline='')
     keys = labelled_obj_hand_coords[0].keys()
     dict_writer = csv.DictWriter(dict_file, keys)
     dict_writer.writeheader()
@@ -200,6 +200,10 @@ if __name__ == "__main__":
     coords_option = "plot"
 
     with_noise = True
+    if with_noise is True:
+        noise_str = "with_noise"
+    else:
+        noise_str = "no_noise"
     policy_filepath = "./experiments/pre-train/Pre-train_Baseline_FULL_DIM/policy/pre-train_DDPGfD_kinovaGrip"
     all_shapes = ["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
     all_orientations = ["normal"] #["normal", "top", "rotated"]
@@ -223,14 +227,14 @@ if __name__ == "__main__":
                 indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type)
 
                 # Setup the output directories
-                coords_saving_dir = coords_file_directory + "/" + shape_name + "/"
+                coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
                 all_saving_dirs = setup_directories(env, saving_dir=coords_saving_dir, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")
 
                 # Go through each of the object-hand coordinates
                 labelled_obj_hand_coords = loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs, coords_type)
 
                 # Write coordinate difficulty info to a file
-                write_obj_hand_pose_dict_list(all_saving_dirs["output_dir"],labelled_obj_hand_coords)
+                write_obj_hand_pose_dict_list(all_saving_dirs["saving_dir"],labelled_obj_hand_coords)
 
     elif coords_option == "plot":
         # Plot each object-hand pose coordinates by difficulty per object size/shape and hand orientation
@@ -238,7 +242,7 @@ if __name__ == "__main__":
             for shape_name in all_shapes:
                 # Get the object-hand pose coordinate file indexes
 
-                coords_file_directory = "./gym_kinova_gripper/envs/kinova_description/obj_hand_coords/with_noise/"+coords_type+"_coords/normal/"
+                coords_file_directory = "./gym_kinova_gripper/envs/kinova_description/obj_hand_coords/"+noise_str+"/"+coords_type+"_coords/normal/"
 
                 output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
 

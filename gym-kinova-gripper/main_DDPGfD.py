@@ -393,7 +393,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
 
     for i in range(eval_episodes):
         print("***Eval episode: ", i)
-        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=False,hand_orientation=requested_orientation,mode=mode,env_name="eval_env",orient_idx=i,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
+        # If a pre-defined coordinate file index is given, use that, otherwise, loop through the file
+        if orient_idx is None:
+            orient_idx = i
+        state, done = eval_env.reset(shape_keys=requested_shapes, with_grasp=False,hand_orientation=requested_orientation,mode=mode,env_name="eval_env",orient_idx=orient_idx,with_noise=with_noise,start_pos=start_pos,hand_rotation=hand_rotation), False
 
         # Initialize the controller if the controller type is not a policy
         if controller_type != "policy":

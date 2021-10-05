@@ -1603,7 +1603,7 @@ class KinovaGripper_Env(gym.Env):
 
         elif orientation == 'rotated':
             # Small, Medium, Big objects (Cube, Cylinder, Vase, Cone) all have the same starting position for the hand
-            pos = [0.00071209, 0.1701473, 0.16491089]
+            pos = [0.00071209, 0.14, 0.19] #[0.00071209, 0.1701473, 0.16491089]
 
             # If the shape is a medium or big hourglass, set a different position for the hand
             if shape.find("HourM") != -1:
@@ -1641,6 +1641,7 @@ class KinovaGripper_Env(gym.Env):
             coords_file_dir = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(
                 mode) + "_coords/" + str(self.orientation) + "/" + random_shape
             obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, difficulty, coords_filename = self.sample_labelled_object_hand_pos(coords_file_dir, with_noise=with_noise, orient_idx=orient_idx, region=self.obj_coord_region)
+            self.difficulty = difficulty
         else:
             # Hand and object coordinates filename
             coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(
@@ -1648,18 +1649,10 @@ class KinovaGripper_Env(gym.Env):
             obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(
                 coords_filename, with_noise=with_noise, orient_idx=orient_idx, region=self.obj_coord_region)
         """
-            # Hand and object coordinates filename
-            coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(
-                mode) + "_coords/" + str(self.orientation) + "/" + random_shape + ".txt"
-    
-            if self.check_obj_file_empty(coords_filename) == False:
-                obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(
-                    coords_filename, with_noise=with_noise, orient_idx=orient_idx, region=self.obj_coord_region)
-            else:
-                print('i am randomly generating coords')
-                # If coordinate file is empty or does not exist, randomly generate coordinates
-                obj_x, obj_y, obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
-                coords_filename = None
+            print('i am randomly generating coords')
+            # If coordinate file is empty or does not exist, randomly generate coordinates
+            obj_x, obj_y, obj_z = self.randomize_initial_pos_data_collection(orientation=self.orientation)
+            coords_filename = None
         """
         # Use the exact hand orientation from the coordinate file
         if with_noise:
@@ -1695,8 +1688,6 @@ class KinovaGripper_Env(gym.Env):
 
         # Kepp track of the hand orientation variation (hand orientation euler rotation) for recording purposes
         self.hand_orient_variation = new_rotation
-
-        self.difficulty = difficulty
         self.orient_idx = orient_idx
 
         # Determine the initial position of the wrist based on the orientation and shape/size
