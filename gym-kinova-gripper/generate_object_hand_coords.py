@@ -26,7 +26,7 @@ def generate_object_coordinates(num_points,shape_name,orient_name):
 
     """
     object_half_heights = {"CubeS": 0.04792,"CubeM": 0.05274,"CubeB": 0.05745,"CylinderM": 0.05498, "Vase1M": 0.05500}
-    graspable_regions = {"normal": [-0.09,0.09,-0.01,0.04],"rotated": [-0.06, 0.06,-0.04, 0.03],"top": [-0.06, 0.06,-0.09, 0.09]} # x_min, x_max, y_min, y_max
+    graspable_regions = {"normal": [-0.09,0.09,-0.01,0.04],"rotated": [-0.05, 0.05,-0.05, 0.03],"top": [-0.06, 0.06,-0.09, 0.09]} # x_min, x_max, y_min, y_max
     x_min, x_max, y_min, y_max = graspable_regions[orient_name][0], graspable_regions[orient_name][1], graspable_regions[orient_name][2], graspable_regions[orient_name][3]
 
     # Generate x,y coordinates within the graspable region
@@ -69,7 +69,7 @@ def generate_hand_rotations(num_points,orient_name):
     hand_rotations = np.zeros([num_points, 3])
     rotation_variation = np.zeros([3])
 
-    orient_euler_angles = {"normal": [-1.57, 0, -1.57], "rotated": [-1.2, 0, 0], "top": [0, 0, 0]}
+    orient_euler_angles = {"normal": [-1.57, 0, -1.57], "rotated": [-0.7853, 0, 0], "top": [0, 0, 0]}
 
     for i in range(num_points):
         # Added random variation +/- 5 degrees

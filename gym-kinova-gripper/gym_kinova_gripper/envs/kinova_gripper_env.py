@@ -1656,7 +1656,7 @@ class KinovaGripper_Env(gym.Env):
 
         elif orientation == 'rotated':
             # Small, Medium, Big objects (Cube, Cylinder, Vase, Cone) all have the same starting position for the hand
-            pos = [0.00071209, 0.1701473, 0.16491089]
+            pos = [0.00071209, 0.14, 0.19]
 
             # If the shape is a medium or big hourglass, set a different position for the hand
             if shape.find("HourM") != -1:
@@ -1712,7 +1712,7 @@ class KinovaGripper_Env(gym.Env):
             elif self.orientation == 'top':
                 new_rotation = np.array([0, 0, 0])  # Top
             else:
-                new_rotation = np.array([1.2, 0, 0])  # Rotated
+                new_rotation = np.array([0.7853, 0, 0])  # Rotated
             hand_x = new_rotation[0]
             hand_y = new_rotation[1]
             hand_z = new_rotation[2]
@@ -1724,7 +1724,7 @@ class KinovaGripper_Env(gym.Env):
             elif self.orientation == 'top':
                 new_rotation = np.array([0, 0, 0])  # Top
             else:
-                new_rotation = np.array([-1.2, 0, 0])  # Rotated
+                new_rotation = np.array([-0.7853, 0, 0])  # Rotated
             hand_x = new_rotation[0]
             hand_y = new_rotation[1]
             hand_z = new_rotation[2]
