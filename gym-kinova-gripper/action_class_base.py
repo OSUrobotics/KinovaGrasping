@@ -43,9 +43,9 @@ class ActionBase():
 
         # Set up the current and last speed values with max and min speeds and
         # the order of actions pulled from the json file
-        action_struct = json_conts['Action']
-        self.action_order = list(action_struct.keys())
-        action_min_and_max = np.array(list(action_struct.values()))
+        self.action_struct = json_conts['Action']
+        self.action_order = list(self.action_struct.keys())
+        action_min_and_max = np.array(list(self.action_struct.values()))
         self.current_speed = StatsTrackerArray(action_min_and_max[:, 0],
                                                action_min_and_max[:, 1])
         self.last_speed = StatsTrackerArray(action_min_and_max[:, 0],
@@ -62,6 +62,15 @@ class ActionBase():
         """Returns the speeds to get from old speed to new speed as a list
         of lists"""
         return self.action_profile
+
+    def get_action_dict(self):
+        return_dict = OrderedDict()
+        actions = self.get_action()[-1]
+        count = 0
+        for name in self.action_struct.keys():
+            return_dict[name] = actions[count]
+            count += 1
+        return return_dict
 
     def build_action(self):
         """Builds the action profile (speed profile to get from old speed to

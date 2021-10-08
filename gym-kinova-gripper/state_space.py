@@ -91,6 +91,22 @@ class StateSpaceBase():
             data = self.data[keys[0]].get_value()
         return data
 
+    def get_data_dict(self):
+        data_dict = StateSpaceBase._generate_dict(self.data)
+        return data_dict
+        
+    @staticmethod
+    def _generate_dict(starting_dict):
+        full_dict = OrderedDict()
+        for name, value in starting_dict.items():
+            print('this is the name and val',name,value)
+            try:
+                temp = value.data.value
+            except AttributeError:
+                temp = StateSpaceBase._generate_dict(value.data)
+            full_dict[name] = temp
+        return full_dict
+            
     def update(self):
         for name, value in self.data.items():
             self.data[name].update(name)
@@ -101,3 +117,5 @@ class StateSpaceBase():
 if __name__ == "__main__":
     a = StateSpaceBase()
     print(a.get_obs())
+    print(a.data)
+    print(a.get_data_dict())
