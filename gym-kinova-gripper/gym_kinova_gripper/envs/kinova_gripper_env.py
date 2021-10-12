@@ -1297,11 +1297,13 @@ class KinovaGripper_Env(gym.Env):
             reader = csv.DictReader(csvfile)
             for row in reader:
                 obj_coord = row["obj_coords"].strip('][').split(', ')
+
                 hov = row["hov"].strip('][')
                 hov = hov.split(' ')
-                hov = [h for h in hov if h != ' ' and h != '']
-                row["obj_coords"] = [float(coord) for coord in obj_coord]
+                hov = [h.strip(',') for h in hov if h != ' ' and h != '']
                 row["hov"] = [float(coord) for coord in hov]
+
+                row["obj_coords"] = [float(coord) for coord in obj_coord]
                 labelled_obj_hand_coords.append(row)
 
         # Orientation index cooresponds to the hand orientation and object position noise coordinate file index
