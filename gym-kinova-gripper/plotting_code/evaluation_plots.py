@@ -10,10 +10,11 @@ def create_paths(dir_list):
             new_path = Path(new_dir)
             new_path.mkdir(parents=True, exist_ok=True)
 
-def reward_plot(eval_points, variation_input_policies, variation_input_name, policy_colors, start_episode, eval_freq, max_episode, saving_dir):
+def reward_plot(eval_points, variation_input_policies, variation_input_name, policy_colors, start_episode, eval_freq, max_episode, shape_name="", orientation="", saving_dir=None):
     """ Plot the reward values from evaluation """
     reward_fig, axs = pyplt.subplots(1)
-    reward_fig.suptitle("Variation Input: {}\nAvg. Reward from 500 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation over each policy variation type".format(variation_input_name,eval_freq))
+    reward_fig.set_size_inches(11, 8)
+    reward_fig.suptitle("Variation Input: {}\nSuccess rate over 400 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation with a {} shape and {} hand orientation".format(variation_input_name,eval_freq,shape_name,orientation),fontsize=14)
 
     shape_marker_types = {"CubeM":'.', "CubeS":'d', "CubeB": 'D', "CylinderM": 'o', "Vase1M": 'v'}
 
@@ -22,24 +23,36 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
             policy_colors[policy_name] = "green"
 
         for rewards_combo_dict in policy_rewards:
-            rewards = rewards_combo_dict["rewards"]
+            reward_values = rewards_combo_dict["rewards"]
+            rewards = [(reward/50)*100 for reward in reward_values]
             combo = rewards_combo_dict["orientation_shape"]
             if shape_marker_types.get(combo[1]) is None: # Default marker type is '.'
                 shape_marker_types[combo[1]] = '.'
 
-            axs.plot(eval_points, rewards, label=policy_name + " " + combo[0] + ", " + combo[1], color=policy_colors[policy_name], marker=shape_marker_types[combo[1]])
+            if "naive" in policy_name:
+                line_style = "dotted"
+            elif "position-dependent" in policy_name:
+                line_style = '-.'
+            else:
+                line_style = '-'
 
-    axs.set_xlabel("Evaluation Point (Episode)")
-    axs.set_ylabel("Reward")
-    axs.legend(title="Policy Type", loc='best')
+            #label = policy_name + " " + combo[0] + ", " + combo[1]
+            axs.plot(eval_points, rewards, label=policy_name, color=policy_colors[policy_name], marker=shape_marker_types[combo[1]], linestyle=line_style, linewidth=3)
+
+    axs.set_xlabel("Evaluation Point (Episode)",fontsize=14)
+    axs.set_ylabel("Grasp trial success rate %",fontsize=14)
+    axs.legend(title="Evaluation Type", loc='best')
     tick_points = np.arange(start_episode, max_episode+1, step=max(1,eval_freq))
     axs.set_xticks(tick_points)
-    axs.set_ylim(0, 55)
+    axs.set_ylim(0, 100)
     axs.set_xlim(0, max_episode)
 
     pyplt.grid()
-    reward_fig.savefig(saving_dir + "/"+variation_input_name+"_Reward_Evaluation_Plot.png")
-    pyplt.close()
+    if saving_dir is None:
+        reward_fig.show()
+    else:
+        reward_fig.savefig(saving_dir + "/"+variation_input_name+"_"+shape_name+"_"+orientation+"_Reward_Evaluation_Plot.png")
+        pyplt.close()
 
 
 def generate_heatmaps_by_orientation_frame(variation_type, shape, orientation, coord_frames, ep_num, all_hand_object_coords, variation_heatmap_path):
