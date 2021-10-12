@@ -1334,8 +1334,7 @@ class KinovaGripper_Env(gym.Env):
         hand_z = labelled_obj_hand_coords[orient_idx]["hov"][2]
         difficulty = {"difficulty": labelled_obj_hand_coords[orient_idx]["difficulty"],
                       "naive_success": labelled_obj_hand_coords[orient_idx]["naive_success"],
-                      "position-dependent_success": labelled_obj_hand_coords[orient_idx]["position-dependent_success"],
-                      "policy_success": labelled_obj_hand_coords[orient_idx]["policy_success"]}
+                      "position-dependent_success": labelled_obj_hand_coords[orient_idx]["position-dependent_success"]}
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, difficulty, coords_filename
 
