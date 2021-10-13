@@ -836,8 +836,19 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
 
                 # Save a copy of the current policy for evaluation purposes
                 evaluated_policy_path = all_saving_dirs["results_saving_dir"] + "/policy_" + str(episode_num) + "/"
-                create_paths([evaluated_policy_path])
+                labelled_evaluation_coords_path = evaluated_policy_path + "/output/"
+
+                create_paths([evaluated_policy_path,labelled_evaluation_coords_path])
                 policy.save(evaluated_policy_path)
+
+                # Save the object-hand coordinates used during evaluation
+                dict_file = open(labelled_evaluation_coords_path + "/all_hand_object_coords.csv", "w", newline='')
+                keys = eval_hand_object_coords[0].keys()
+                dict_writer = csv.DictWriter(dict_file, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(eval_hand_object_coords)
+                dict_file.close()
+
                 print("Evaluation from "+str(episode_num)+"Saving current policy at: ",all_saving_dirs["results_saving_dir"]+"policy_"+str(episode_num)+"/")
 
                 # Check if the current policy is the best policy
