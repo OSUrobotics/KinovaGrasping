@@ -10,8 +10,11 @@ sys.path.insert(1, plot_path)
 from heatmap_plot import heatmap_actual_coords
 from heatmap_coords import sort_and_save_heatmap_coords
 
+
 def create_coord_filepaths(env, mode, with_noise, shape_keys):
-    # coords filename structure: "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(mode)+"_coords/" + str(env.orientation) + "/" + random_shape + ".txt"
+    """
+    Create output directories.
+    """
     if with_noise is False:
         noise_str = "no_noise/"
     else:
@@ -37,6 +40,7 @@ def create_coord_filepaths(env, mode, with_noise, shape_keys):
         env.create_paths([bad_all_coords_filepath+shape_name])
 
     return valid_all_coords_filepath, bad_all_coords_filepath
+
 
 def check_collison_for_all_geoms(env):
     """Check each geom in the simulation to see if there are any collisions due to points of contact between two geoms.
@@ -83,12 +87,12 @@ def check_collison_for_all_geoms(env):
     return True
 
 
-def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,curr_orient_idx,with_noise,render_coord,obj_coords=None,hand_rotation=None,adjust_coords=None,adjusted_coord_check=0):
+def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,curr_orient_idx,with_noise,render_coord,obj_coords=None,hand_rotation=None,adjust_coords=None,adjusted_coord_check=0,coord_difficulty=None):
     """ Checks for collision with the hand and the object """
     has_collision = False
 
     if obj_coords is None:
-        obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, _, coords_file = env.determine_obj_hand_coords(requested_shape[0], mode, orient_idx=curr_orient_idx, with_noise=with_noise)
+        obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, _, coords_file = env.determine_obj_hand_coords(requested_shape[0], mode, orient_idx=curr_orient_idx, with_noise=with_noise, coord_difficulty=coord_difficulty)
         obj_coords = [obj_x, obj_y, obj_z]
         hand_rotation = [hand_x, hand_y, hand_z]
         if adjust_coords is not None:
@@ -101,7 +105,7 @@ def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,cur
         env.Generate_Latin_Square(5000, "objects.csv", shape_keys=requested_shape)
 
     state = env.reset(shape_keys=requested_shape, hand_orientation=hand_orientation, with_grasp=with_grasp,
-                      env_name="env", mode=mode, orient_idx=curr_orient_idx, with_noise=with_noise, start_pos=obj_coords, hand_rotation=hand_rotation)
+                      env_name="env", mode=mode, orient_idx=curr_orient_idx, with_noise=with_noise, start_pos=obj_coords, hand_rotation=hand_rotation, coord_difficulty=coord_difficulty)
 
     # Print which file you're running through
     if curr_orient_idx == 0:
@@ -110,15 +114,8 @@ def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,cur
 
     # Record the hand-object pose within a dict for plotting and saving
     hand_object_coords = get_hand_object_coords_dict(env)
-
-    # Get the current object coordinate and hand orientation pair
-    #obj_coords = env.get_obj_coords()
-    #local_state = env.get_obs_from_coord_frame(coord_frame="local")
-    #local_obj_coords = local_state[21:24]
-
     before_env_obj_coords = env.get_env_obj_coords()
     before_env_hand_coords = env.get_env_hand_coords()
-    #hand_orient_variation = env.hand_orient_variation
 
     # Take a step in the simulation (with no action) to see if the object moves based on a collision with the hand
     if render_coord is True:
@@ -135,22 +132,26 @@ def check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,cur
 
     threshold = 0.0001
     object_collision = np.any(abs(before_env_obj_coords - after_env_obj_coords) > threshold)
+    # Check if the object is in collision by its movement after placement
     if object_collision:
         print("Object is in collision!!")
-        #print("Object moved -- Trying adjustment...")
+
+        # If the object has moved due to falling, check the new location for collision
+        # This allows the simulaiton to adjust itself for up to 5 attempts given the new object location
         if adjusted_coord_check == 5:
             print("A collision still exists for the object!! Bad coordinate...")
             print("Difference: ",abs(before_env_obj_coords - after_env_obj_coords))
             has_collision = True
         else:
-            has_collision, hand_object_coords = check_for_collision(env, requested_shape, hand_orientation, with_grasp, mode, curr_orient_idx, with_noise, render_coord,obj_coords=after_env_obj_coords.tolist(),hand_rotation=hand_rotation,adjusted_coord_check=adjusted_coord_check+1)
-            #print("After adjustment!! obj_coords: ",obj_coords)
+            # Check for collision after the object location adjustment
+            has_collision, hand_object_coords = check_for_collision(env, requested_shape, hand_orientation, with_grasp, mode, curr_orient_idx, with_noise, render_coord,obj_coords=after_env_obj_coords.tolist(),hand_rotation=hand_rotation,adjusted_coord_check=adjusted_coord_check+1,coord_difficulty=coord_difficulty)
+    # Check for collision in the hand as well
     elif np.any(abs(before_env_hand_coords - after_env_hand_coords) > threshold):
         print("Hand has moved or is in collision!!")
-        #print("Checking which geoms are in collision!! obj_coords: {}, hov: {}".format(obj_coords, hand_orient_variation))
         has_collision = check_collison_for_all_geoms(env)
 
         """
+        # Optionally render the object-hand pose to understand the collision
         if has_collision is True:
             print("Hand has a collision!!")
             done = False
@@ -167,13 +168,13 @@ def check_within_range(obj_coords, local_obj_coords,x_min,x_max,y_min):
     """ Checks if the coordinate is within the range (minimum/maximum x and y coordinate ranges)
     Determines using the global representation of the object coordinates (obj_coords)
     """
-
     # Check if the coordinate is within range for the global frame (x,y) limits)
     # Also check the x-axis of the local frame as there are some outlier positions due to the rotation of the hand
     if (x_min <= obj_coords[0] <= x_max and obj_coords[1] >= y_min) and (x_min <= local_obj_coords[0] <= x_max):
         return True
     else:
         return False
+
 
 def get_coords_from_file(coords_filename):
     """Get the hand-pose coordinates from the desired file and append them to an array.
@@ -197,6 +198,7 @@ def get_coords_from_file(coords_filename):
                 global_valid_y.append(float(coord[1]))
     return data, global_valid_x, global_valid_y
 
+
 def plot_coords(coords_filename, fig_name, saving_dir, plot_title=""):
     """ Plot coordinates within a certain range -- This plots coordinates that are already saved"""
     x_min = -0.12
@@ -211,7 +213,11 @@ def plot_coords(coords_filename, fig_name, saving_dir, plot_title=""):
                           fig_filename=fig_name+' Coords_global_actual_heatmap.png', saving_dir=saving_dir,
                           hand_lines=None, state_rep="global",x_min=x_min,x_max=x_max,y_min=y_min,y_max=y_max)
 
+
 def plot_coords_for_each_shape(shape_keys,with_noise,hand_orientation):
+    """
+    Plot the object-hand coordinates for each shape.
+    """
     if with_noise is False:
         noise_str = "no_noise/"
     else:
@@ -227,7 +233,9 @@ def plot_coords_for_each_shape(shape_keys,with_noise,hand_orientation):
 
 
 def create_hand_object_plots(all_hand_object_coords, shape, coord_type, saving_dir):
-        """Generate actual coordinate location plots given the hand-object positions"""
+        """
+        Generate plots displaying the actual coordinate location of each object-hand position
+        """
         actual_plot_title = "Initial Coordinate Position of the Object\n"
         x_min = -0.12
         x_max = 0.12
@@ -245,7 +253,8 @@ def create_hand_object_plots(all_hand_object_coords, shape, coord_type, saving_d
                                   saving_dir=saving_dir, hand_lines=None, state_rep=frame, x_min=x_min,
                                   x_max=x_max, y_min=y_min, y_max=y_max)
 
-def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adjust_coords=None, orient_idx=None):
+
+def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adjust_coords=None, orient_idx=None, coord_difficulty=None):
     """Loop through each coordinate within the all_shapes file based on the given shape, hand orientation amd
        hand orientation variation.
     """
@@ -254,14 +263,18 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
     with_grasp = False
     mode = "shape"
     env.set_orientation(hand_orientation)
+    if coord_difficulty is None:
+        coord_difficulty_str = ""
+    else:
+        coord_difficulty_str = "_" + coord_difficulty
     
     valid_all_coords_filepath, bad_all_coords_filepath = create_coord_filepaths(env,mode,with_noise,shape_keys)
 
     for shape_name in shape_keys:
         valid_data = []
         bad_data =[]
-        valid_shape_coords_filepath = valid_all_coords_filepath + shape_name
-        bad_shape_coords_filepath = bad_all_coords_filepath + shape_name
+        valid_shape_coords_filepath = valid_all_coords_filepath + shape_name + coord_difficulty_str
+        bad_shape_coords_filepath = bad_all_coords_filepath + shape_name + coord_difficulty_str
         requested_shape = [shape_name]
 
         # Generate randomized list of objects to select from
@@ -272,7 +285,7 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
 
         # If no desired file index is selected, loop through whole file
         if orient_idx is None:
-            _, _, _, _, _, _, _, coords_file = env.determine_obj_hand_coords(random_shape=shape_name, mode="shape", orient_idx=0, with_noise=with_noise)
+            _, _, _, _, _, _, _, coords_file = env.determine_obj_hand_coords(random_shape=shape_name, mode="shape", orient_idx=0, with_noise=with_noise, coord_difficulty=coord_difficulty)
             num_lines = 0
             with open(coords_file) as f:
                 for line in f:
@@ -286,7 +299,7 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
             print("Coord File Idx: ", curr_orient_idx)
 
             # Returns True is there is a collision
-            has_collision, hand_object_coords = check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,curr_orient_idx,with_noise,render_coord,adjust_coords=adjust_coords)
+            has_collision, hand_object_coords = check_for_collision(env,requested_shape,hand_orientation,with_grasp,mode,curr_orient_idx,with_noise,render_coord,adjust_coords=adjust_coords,coord_difficulty=coord_difficulty)
 
             # Returns True if the coordinate is within the min and max x,y coordinate ranges
             within_range = True
@@ -378,14 +391,19 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
         create_hand_object_plots(bad_hand_object_coords, shape_name, "bad", bad_shape_coords_filepath + "/")
         create_hand_object_plots(all_hand_object_coords, shape_name, "all", valid_shape_coords_filepath + "/")
 
+
 if __name__ == "__main__":
-    all_shapes = ["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    all_shapes = ["CubeM"] #["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+
     adjust_coords = {}
     adjust_coords["obj_coords_change"] = [0,0,0]
     adjust_coords["hand_rotation_angle_change"] = [0,0,0]#[-0.15,0,0] #[-0.0872665,0,0]
+    difficulty = None
+
     for shape in all_shapes:
         shape_keys = [shape]
         print("*** Filtering ",shape_keys)
-        coord_check_loop(shape_keys=shape_keys, with_noise=True, orient_idx=None, hand_orientation="rotated", adjust_coords=adjust_coords, render_coord=False)
+        coord_check_loop(shape_keys=shape_keys, with_noise=False, orient_idx=None, hand_orientation="normal", adjust_coords=adjust_coords, render_coord=False, coord_difficulty=difficulty)
+
     #print("Done looping through coords - Quitting")
     #plot_coords_for_each_shape(shape_keys,with_noise=True,hand_orientation="normal")

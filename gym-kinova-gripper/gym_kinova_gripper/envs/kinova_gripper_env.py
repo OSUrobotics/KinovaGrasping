@@ -918,7 +918,7 @@ class KinovaGripper_Env(gym.Env):
 
     # Function to run all the experiments for RL training
     def experiment(self, shape_keys): #TODO: Talk to people thursday about adding the hourglass and bottles to this dataset.
-        #self.objects = {}
+        self.objects = {}
 
         for key in shape_keys:
             self.objects[key] = self.all_objects[key]
@@ -1623,7 +1623,7 @@ class KinovaGripper_Env(gym.Env):
 
         return pos
 
-    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None,use_labelled_data=True):
+    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None,use_labelled_data=True,coord_difficulty=None):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
         with_noise: Set to True if coordinates to be used are selected from the object/hand coordinate files with positional noise added
@@ -1649,8 +1649,12 @@ class KinovaGripper_Env(gym.Env):
             self.difficulty = difficulty
         else:
             # Hand and object coordinates filename
+            if coord_difficulty is None:
+                coord_difficulty_str = ""
+            else:
+                coord_difficulty_str = "_" + coord_difficulty
             coords_filename = "gym_kinova_gripper/envs/kinova_description/obj_hand_coords/" + noise_file + str(
-                mode) + "_coords/" + str(self.orientation) + "/" + random_shape + ".txt"
+                mode) + "_coords/" + str(self.orientation) + "/" + random_shape + coord_difficulty_str + ".txt"
             obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx = self.sample_initial_object_hand_pos(
                 coords_filename, with_noise=with_noise, orient_idx=orient_idx, region=self.obj_coord_region)
         """
@@ -1734,7 +1738,7 @@ class KinovaGripper_Env(gym.Env):
                 new_path.mkdir(parents=True, exist_ok=True)
 
     def reset(self, shape_keys, hand_orientation, with_grasp=False, env_name="env", mode="train", start_pos=None,
-              hand_rotation=None, obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False):
+              hand_rotation=None, obj_params=None, qpos=None, obj_coord_region=None, orient_idx=None, with_noise=False, coord_difficulty=None):
         """ Reset the environment; All parameters (hand and object coordinate postitions, rewards, parameters) are set to their initial values
         shape_keys: List of object shape names (CubeS, CylinderM, etc.) to be referenced
         hand_orientation: Orientation of the hand relative to the object
@@ -1747,6 +1751,8 @@ class KinovaGripper_Env(gym.Env):
         obj_coord_region: Specific region to sample initial object coordinate location from for testing purposes - default to None
         with_noise: Set to true to use object and hand orientation coordinates from initial coordinate location dataset with noise
         returns the state (current state representation after reset of the environment)
+        coord_difficulty: Set to "easy", "med", or "hard" if you want to use object-hand coordinates from a text file
+        split into regions by approximate difficulty
         """
         # All possible shape keys - default shape keys will be used for expert data generation
         # shape_keys=["CubeS","CubeB","CylinderS","CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
@@ -1775,7 +1781,7 @@ class KinovaGripper_Env(gym.Env):
             if start_pos is None:
                 # Select object and hand orientation coordinates from file then write them to the xml file for simulation in the current environment
                 obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, coords_filename = self.determine_obj_hand_coords(
-                    random_shape, mode, orient_idx=orient_idx, with_noise=with_noise)
+                    random_shape, mode, orient_idx=orient_idx, with_noise=with_noise, coord_difficulty=coord_difficulty)
                 self.set_orientation_idx(orient_idx)  # Set orientation index value for reference and recording purposes
                 self.set_coords_filename(coords_filename)
 

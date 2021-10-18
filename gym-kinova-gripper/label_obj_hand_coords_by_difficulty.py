@@ -67,7 +67,7 @@ def conduct_grasp_trial(coord_info,curr_orient_idx,shape_name,hand_orientation,w
 
     # Attempt a grasp trial with each controller
     for controller_type in controller_options:
-        eval_ret = eval_policy(policy, env_name, seed,
+        eval_ret = eval_policy(None, env_name, seed,
                                       requested_shapes=[shape_name],
                                       requested_orientation=hand_orientation,
                                       eval_episodes=1,
@@ -110,14 +110,14 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
     return coord_info
 
 
-def loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs, pre_labelled_obj_hand_coords, coords_type):
+def loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, all_saving_dirs, pre_labelled_obj_hand_coords, coords_type):
     """
         Loop through each object-hand pose coordinates, determine its difficulty, and store that information in a dictionary
     """
     labelled_obj_hand_coords = [] # List of coordinates and their difficulty
 
     for curr_orient_idx in indexes:
-        print("Coord File Idx: ", curr_orient_idx)
+        print("COORDINATE FILE INDEX: ", curr_orient_idx)
         coord_info = determine_obj_hand_pose_difficulty(curr_orient_idx, shape_name, hand_orientation, with_noise, max_num_timesteps, all_saving_dirs, pre_labelled_obj_hand_coords, coords_type)
         labelled_obj_hand_coords.append(coord_info)
 
@@ -187,8 +187,21 @@ def difficulty_bar_plot(coords_by_difficulty,fig_filename,saving_dir):
     else:
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
-    
-    
+
+
+def save_coord_dicts_by_difficulty(labelled_obj_hand_coords, saving_dir):
+    """
+    Write the object-hand coord dictionaries to csv files separated by difficulty
+    """
+    easy_coord_dicts = [d for d in labelled_obj_hand_coords if d["difficulty"] == "easy"]
+    med_coord_dicts = [d for d in labelled_obj_hand_coords if d["difficulty"] == "med"]
+    hard_coord_dicts = [d for d in labelled_obj_hand_coords if d["difficulty"] == "hard"]
+
+    write_obj_hand_pose_dict_list(saving_dir, "EASY_labelled_hand_coords.csv", easy_coord_dicts)
+    write_obj_hand_pose_dict_list(saving_dir, "MED_labelled_hand_coords.csv", med_coord_dicts)
+    write_obj_hand_pose_dict_list(saving_dir, "HARD_labelled_hand_coords.csv", hard_coord_dicts)
+
+
 def write_obj_hand_pose_dict_list(saving_dir,filename,labelled_obj_hand_coords):
     """
     Write the object-hand pose dictionary to a csv file
@@ -228,12 +241,13 @@ def read_obj_hand_pose_dict_list(saving_dir,num_coords=None,filename="labelled_o
                 row["difficulty"] = d["difficulty"]
                 row["naive_success"] = d["naive_success"]
                 row["position-dependent_success"] = d["position-dependent_success"]
-                row["policy_success"] = d["policy_success"]
 
             idx += 1
             labelled_obj_hand_coords.append(row)
 
-    return labelled_obj_hand_coords
+            indexes = range(idx)
+
+    return labelled_obj_hand_coords, indexes
 
 
 def get_difficulty_success_rate(labelled_obj_hand_coords):
@@ -261,14 +275,16 @@ def get_difficulty_success_rate(labelled_obj_hand_coords):
     difficulty_success_rate["all_coords"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["success"] == 'True']) / len(labelled_obj_hand_coords))*50
     difficulty_success_rate["naive"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["naive_success"] == 'True']) / len(labelled_obj_hand_coords)) * 50
     difficulty_success_rate["position-dependent"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["position-dependent_success"] == 'True']) / len(labelled_obj_hand_coords)) * 50
-    difficulty_success_rate["pre-trained_policy"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["policy_success"] == 'True']) / len(labelled_obj_hand_coords)) * 50
 
     return difficulty_success_rate
 
 
 def plot_success_rate_by_difficulty(all_policy_coords, eval_points, start_episode, eval_freq, max_episode, orientation, shape_name, variation_input_name, saving_dir):
-    line_types = ["all_coords","easy","med","hard","naive","position-dependent","pre-trained_policy"]
-    policy_colors = {"all_coords": "black", "easy": "green","med": "blue", "hard": "red", "naive": "grey", "position-dependent": "grey", "pre-trained_policy": "grey"}
+    """
+    Plot the success rate over each evaluation point based on the difficulty of the object-hand coordinates
+    """
+    line_types = ["all_coords","easy","med","hard","naive","position-dependent"]
+    policy_colors = {"all_coords": "black", "easy": "green","med": "blue", "hard": "red", "naive": "grey", "position-dependent": "grey"}
     variation_input_policies = {}
 
     for type in line_types:
@@ -303,17 +319,19 @@ def get_variation_input(variation_input_name):
 if __name__ == "__main__":
     # TODO: Make into command-line arguments
     coords_option = "plot_coords"
-    start_episode, eval_freq, max_episode = 0, 400, 10000
+    start_episode, eval_freq, max_episode = 0, 200, 10000
     with_noise = False
     variation_input_name = "Baseline"
-    policy_filepath = "./experiments/pre-train/Pre-train_Baseline_FULL_DIM/policy/pre-train_DDPGfD_kinovaGrip"
-    #policy_filepath = "./experiments/eval/Eval_Pre-Trained_Policy_400/" + variation_input_name
-    #policy_filepath = "./experiments/eval/Eval_Pre-Trained_Policy_Diff/" + variation_input_name
+    policy_filepath = "./experiments/pre-train/Pre-train_Baseline/" + variation_input_name
     variation_input_dict = get_variation_input(variation_input_name)
 
-    all_shapes = ["CubeM"] #["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
-    all_orientations = ["normal"] #["normal", "top", "rotated"]
-    coords_type = "train"
+    all_shapes = ["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
+    all_orientations = ["normal", "top", "rotated"]
+    all_coords_types = ["shape","train","eval"]
+    # Get labelled coordinates from the file to re-label them by difficulty
+    get_labelled_coords_from_file = False
+    # Decide if you want to write the coordinates to csv files by difficulty or not
+    save_coords_by_difficulty = False
 
     if start_episode is None or eval_freq is None or max_episode is None:
         plot_policies_over_time = False
@@ -325,9 +343,6 @@ if __name__ == "__main__":
     else:
         noise_str = "no_noise"
 
-    # Get labelled coordinates from the file to re-label them by difficulty
-    get_labelled_coords_from_file = False
-
     # Initialize the environment
     env_name = 'gym_kinova_gripper:kinovagripper-v0'
     env = gym.make(env_name)  # Initialize environment
@@ -336,47 +351,50 @@ if __name__ == "__main__":
     if coords_option == "label":
         # Go through all object-hand pose coordinates and label them by difficulty (easy, med, hard)
         for hand_orientation in all_orientations:
-            for shape_name in all_shapes:
-                # Initialize the policy
-                policy = DDPGfD.DDPGfD()
-                policy.sampling_decay_rate = 0
-                policy.load(policy_filepath)
+            for coords_type in all_coords_types:
+                for shape_name in all_shapes:
+                    print("**** LABELLING ***\nShape: {}\nHand Orientation: {}\nWith/Without HOV: {}\nCoordinate type: {}\nUsing labelled coordinates: {}".format(shape_name,hand_orientation,with_noise,coords_type,get_labelled_coords_from_file))
 
-                # Get the object-hand pose coordinate file indexes
-                indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type)
+                    # Get the object-hand pose coordinate file indexes
+                    indexes, coords_file, coords_file_directory = get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_type)
 
-                # Setup the output directories
-                coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
-                all_saving_dirs = setup_directories(env, saving_dir=coords_saving_dir, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")
+                    if get_labelled_coords_from_file is True:
+                        coords_saving_dir = coords_file_directory + "/"
+                        pre_labelled_obj_hand_coords, indexes = read_obj_hand_pose_dict_list(coords_saving_dir)
+                        filename = "NEW_labelled_obj_hand_coords.csv"
+                    else:
+                        coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
+                        pre_labelled_obj_hand_coords = None
+                        filename = "labelled_obj_hand_coords.csv"
 
-                if get_labelled_coords_from_file is True:
-                    pre_labelled_obj_hand_coords = read_obj_hand_pose_dict_list(coords_saving_dir)
-                    filename = "NEW_labelled_obj_hand_coords.csv"
-                else:
-                    pre_labelled_obj_hand_coords = None
-                    filename = "labelled_obj_hand_coords.csv"
+                    # Setup the output directories
+                    all_saving_dirs = setup_directories(env, saving_dir=coords_saving_dir, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")
 
-                # Go through each of the object-hand coordinates
-                labelled_obj_hand_coords = loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, policy, all_saving_dirs, pre_labelled_obj_hand_coords, coords_type)
+                    # Go through each of the object-hand coordinates
+                    labelled_obj_hand_coords = loop_through_coord_file(indexes, shape_name, hand_orientation, with_noise, max_num_timesteps, all_saving_dirs, pre_labelled_obj_hand_coords, coords_type)
 
-                # Write coordinate difficulty info to a file
-                write_obj_hand_pose_dict_list(all_saving_dirs["saving_dir"],filename,labelled_obj_hand_coords)
+                    # Write coordinate difficulty info to a file
+                    write_obj_hand_pose_dict_list(all_saving_dirs["saving_dir"],filename,labelled_obj_hand_coords)
 
     elif coords_option == "plot_coords":
         # Plot each object-hand pose coordinates by difficulty per object size/shape and hand orientation
         for hand_orientation in all_orientations:
             for shape_name in all_shapes:
-                # Get the object-hand pose coordinate file indexes
+                for coords_type in all_coords_types:
+                    # Get the object-hand pose coordinate file indexes
+                    coords_file_directory = "./gym_kinova_gripper/envs/kinova_description/obj_hand_coords/"+noise_str+"/"+coords_type+"_coords/"+hand_orientation+"/"
 
-                coords_file_directory = "./gym_kinova_gripper/envs/kinova_description/obj_hand_coords/"+noise_str+"/"+coords_type+"_coords/"+hand_orientation+"/"
+                    output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
 
-                output_saving_dir = coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
+                    # Read in pre-labelled coordinate dictionaries from a file
+                    labelled_obj_hand_coords, _ = read_obj_hand_pose_dict_list(output_saving_dir)
 
-                # Read in pre-labelled coordinate dictionaries from a file
-                labelled_obj_hand_coords = read_obj_hand_pose_dict_list(output_saving_dir)
+                    # Plot coordinates based on difficulty (bar chart, heatmap)
+                    plot_coords_by_difficulty(labelled_obj_hand_coords,saving_dir=output_saving_dir)
 
-                # Plot coordinates based on difficulty (bar chart, heatmap)
-                plot_coords_by_difficulty(labelled_obj_hand_coords,saving_dir=output_saving_dir)
+                    # Save coordinates by difficulty
+                    if save_coords_by_difficulty is True:
+                        save_coord_dicts_by_difficulty(labelled_obj_hand_coords,saving_dir=output_saving_dir)
 
     elif coords_option == "plot_policy_coords":
         all_policy_coords = {}
@@ -391,7 +409,7 @@ if __name__ == "__main__":
                 eval_point_filepath = policy_filepath + "/policy_" + str(eval_point) + "/output/"
 
                 # Read in pre-labelled coordinate dictionaries from a file
-                labelled_obj_hand_coords = read_obj_hand_pose_dict_list(eval_point_filepath,num_coords=100,filename="all_hand_object_coords.csv")
+                labelled_obj_hand_coords, _ = read_obj_hand_pose_dict_list(eval_point_filepath,num_coords=100,filename="all_hand_object_coords.csv")
 
                 difficulty_success_rate = get_difficulty_success_rate(labelled_obj_hand_coords)
 

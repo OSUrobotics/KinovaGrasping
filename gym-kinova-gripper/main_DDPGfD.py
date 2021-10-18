@@ -842,7 +842,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 policy.save(evaluated_policy_path)
 
                 # Save the object-hand coordinates used during evaluation
-                dict_file = open(labelled_evaluation_coords_path + "/all_hand_object_coords.csv", "w", newline='')
+                dict_file = open(labelled_evaluation_coords_path + "/eval_all_hand_object_coords.csv", "w", newline='')
                 keys = eval_hand_object_coords[0].keys()
                 dict_writer = csv.DictWriter(dict_file, keys)
                 dict_writer.writeheader()
@@ -904,6 +904,14 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
     print("Saving Agent replay buffer experience...")
     replay_buffer.save_replay_buffer(all_saving_dirs["replay_buffer"])
     print("Saved agent replay buffer at: ", all_saving_dirs["replay_buffer"])
+
+    # Save the object-hand coordinates used during the full training period
+    dict_file = open(all_saving_dirs["output_dir"] + "/train_all_hand_object_coords.csv", "w", newline='')
+    keys = all_hand_object_coords[0].keys()
+    dict_writer = csv.DictWriter(dict_file, keys)
+    dict_writer.writeheader()
+    dict_writer.writerows(all_hand_object_coords)
+    dict_file.close()
 
     return num_success, num_fail
 
