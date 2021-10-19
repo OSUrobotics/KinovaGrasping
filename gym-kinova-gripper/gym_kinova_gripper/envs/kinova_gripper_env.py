@@ -1598,7 +1598,7 @@ class KinovaGripper_Env(gym.Env):
 
         if orientation == 'top':
             # Small object
-            pos = [-0.00364792, 0.01415926, 0.25653749]
+            pos = [0.0, 0.0, 0.25653749] #[-0.00364792, 0.01415926, 0.25653749]
 
             if size == 'M':  # Medium object - add 0.01 to z
                 pos[2] += 0.01
@@ -1623,7 +1623,7 @@ class KinovaGripper_Env(gym.Env):
 
         return pos
 
-    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None,use_labelled_data=True,coord_difficulty=None):
+    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None,use_labelled_data=False,coord_difficulty=None):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
         with_noise: Set to True if coordinates to be used are selected from the object/hand coordinate files with positional noise added
@@ -1671,7 +1671,7 @@ class KinovaGripper_Env(gym.Env):
             if self.orientation == 'normal':
                 new_rotation = np.array([0, 0, 0])  # Normal
             elif self.orientation == 'top':
-                new_rotation = np.array([0, 0, 0])  # Top
+                new_rotation = np.array([0, 0,  1.57])  # Top
             else:
                 new_rotation = np.array([0.7853, 0, 1.57])  # Rotated
             hand_x = new_rotation[0]
@@ -1683,7 +1683,7 @@ class KinovaGripper_Env(gym.Env):
                 new_rotation = np.array([-1.57, 0, -1.57])  # Normal
             # Top orientation
             elif self.orientation == 'top':
-                new_rotation = np.array([0, 0, 0])  # Top
+                new_rotation = np.array([0, 0, -1.57])  # Top
             else:
                 new_rotation = np.array([-0.7853, 0, -1.57])  # Rotated
             hand_x = new_rotation[0]

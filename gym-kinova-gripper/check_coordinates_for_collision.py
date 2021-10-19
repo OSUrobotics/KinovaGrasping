@@ -201,10 +201,10 @@ def get_coords_from_file(coords_filename):
 
 def plot_coords(coords_filename, fig_name, saving_dir, plot_title=""):
     """ Plot coordinates within a certain range -- This plots coordinates that are already saved"""
-    x_min = -0.12
-    x_max = 0.12
-    y_min = -0.12
-    y_max = 0.12
+    x_min = -0.11
+    x_max = 0.11
+    y_min = -0.11
+    y_max = 0.11
 
     data, global_valid_x, global_valid_y = get_coords_from_file(coords_filename)
 
@@ -237,10 +237,10 @@ def create_hand_object_plots(all_hand_object_coords, shape, coord_type, saving_d
         Generate plots displaying the actual coordinate location of each object-hand position
         """
         actual_plot_title = "Initial Coordinate Position of the Object\n"
-        x_min = -0.12
-        x_max = 0.12
-        y_min = -0.12
-        y_max = 0.12
+        x_min = -0.11
+        x_max = 0.11
+        y_min = -0.11
+        y_max = 0.11
 
         for frame in ["local_",""]:
             x_vals = [d[frame + "obj_coords"][0] for d in all_hand_object_coords]
@@ -308,13 +308,13 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
                 x_max = 0.09
                 y_min = -0.01
             elif hand_orientation == "rotated":
-                x_min = -0.06
-                x_max = 0.06
+                x_min = -0.09
+                x_max = 0.09
                 y_min = -0.06
             elif hand_orientation == "top":
-                x_min = -0.06
-                x_max = 0.06
-                y_min = -0.09
+                x_min = -0.10
+                x_max = 0.10
+                y_min = -0.04
 
             within_range = check_within_range(hand_object_coords["obj_coords"],hand_object_coords["local_obj_coords"],x_min,x_max,y_min)
 
@@ -393,7 +393,7 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
 
 
 if __name__ == "__main__":
-    all_shapes = ["CubeM"] #["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    all_shapes = ["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
     adjust_coords = {}
     adjust_coords["obj_coords_change"] = [0,0,0]
@@ -403,7 +403,7 @@ if __name__ == "__main__":
     for shape in all_shapes:
         shape_keys = [shape]
         print("*** Filtering ",shape_keys)
-        coord_check_loop(shape_keys=shape_keys, with_noise=False, orient_idx=None, hand_orientation="normal", adjust_coords=adjust_coords, render_coord=False, coord_difficulty=difficulty)
+        coord_check_loop(shape_keys=shape_keys, with_noise=True, orient_idx=None, hand_orientation="normal", adjust_coords=adjust_coords, render_coord=False, coord_difficulty=difficulty)
 
     #print("Done looping through coords - Quitting")
     #plot_coords_for_each_shape(shape_keys,with_noise=True,hand_orientation="normal")

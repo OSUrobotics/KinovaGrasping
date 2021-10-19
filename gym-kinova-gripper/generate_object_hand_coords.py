@@ -113,8 +113,8 @@ def plot_points(obj_coords, orient_name, difficulty, graspable_region_border):
     fig.set_size_inches(11,8)   # Figure size
     fig.set_dpi(100)           # Pixel amount
     ax = fig.add_subplot(111)
-    ax.set_xlim([-0.10, 0.10])
-    ax.set_ylim([-0.10, 0.10])
+    ax.set_xlim([-0.11, 0.11])
+    ax.set_ylim([-0.11, 0.11])
 
     # Plot the boarder of the full graspable region
     plt.plot(*border.exterior.xy)
@@ -137,7 +137,7 @@ def generate_hand_rotations(num_coords,orient_name):
     hand_rotations = np.zeros([num_coords, 3])
     rotation_variation = np.zeros([3])
 
-    orient_euler_angles = {"normal": [-1.57, 0, -1.57], "rotated": [-0.7853, 0, -1.57], "top": [0, 0, 0]}
+    orient_euler_angles = {"normal": [-1.57, 0, -1.57], "rotated": [-0.7853, 0, -1.57], "top": [0, 0, -1.57]}
 
     for i in range(num_coords):
         # Added random variation +/- 5 degrees
@@ -196,8 +196,8 @@ def define_grasping_regions(all_orient_names):
         "top": {"easy": {}, "med": {}, "hard": {}}}
     percent_difficult = {"easy": .30, "med": .30, "hard": .40}
     graspable_regions = {"normal": {"x_min": -0.09, "x_max": 0.09, "y_min": -0.01, "y_max": 0.04},
-                          "rotated": {"x_min":-0.06, "x_max": 0.06, "y_min": -0.06, "y_max": 0.03},
-                         "top": {"x_min":-0.06, "x_max":0.06, "y_min":-0.09, "y_max":0.09}}  # x_min, x_max, y_min, y_max
+                          "rotated": {"x_min":-0.09, "x_max": 0.09, "y_min": -0.06, "y_max": 0.02},
+                         "top": {"x_min":-0.10, "x_max":0.10, "y_min":-0.04, "y_max":0.04}}  # x_min, x_max, y_min, y_max
 
     print("\nGRASPING REGION BOUNDARIES BY DIFFICULTY")
 
@@ -223,10 +223,10 @@ def define_grasping_regions(all_orient_names):
 
 
 if __name__ == "__main__":
-    total_num_coords = 3000 # Number of HOV points to generate
+    total_num_coords = 10000 # Number of HOV points to generate
     shape_names= ["CubeS","CubeM","CubeB", "CylinderM", "Vase1M"]
     orient_names= ["normal","rotated","top"]
-    with_noise = False
+    with_noise = True
     difficulty = "None"
 
     grasping_regions_by_difficulty, full_graspable_regions = define_grasping_regions(orient_names)

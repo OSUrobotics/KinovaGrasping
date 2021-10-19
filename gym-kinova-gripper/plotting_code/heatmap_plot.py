@@ -8,7 +8,7 @@ import os
 import argparse
 from pathlib import Path
 
-def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,x_min=-0.10,x_max=0.10,y_min=0,y_max=0.09):
+def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,x_min=-0.11,x_max=0.11,y_min=-0.11,y_max=0.11):
     """ Create heatmap displaying the actual locations of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -70,7 +70,7 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples,x_min=-0.10,x_max=0.10,y_min=-0.10,y_max=0.10):
+def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples,x_min=-0.11,x_max=0.11,y_min=-0.11,y_max=0.11):
     """ Create heatmap displaying frequency of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -123,7 +123,7 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success,x_min=-0.10,x_max=0.10,y_min=-0.10,y_max=0.10):
+def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success,x_min=-0.11,x_max=0.11,y_min=-0.11,y_max=0.11):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
 
@@ -282,6 +282,14 @@ def get_hand_lines(state_rep,wrist_coords=None,finger_coords=None):
 
     return hand_lines
 
+# TODO: Plot the boundary lines in relation to the local coordinate frame
+# def get_coord_boundary_lines(orientation):
+#     """
+#     Return the lines in the form of a shapely polygon to plot the boundary of all possible object-hand coordinates
+#     """
+#     graspable_regions = {"normal": {"x_min": -0.09, "x_max": 0.09, "y_min": -0.01, "y_max": 0.04},
+#                           "rotated": {"x_min":-0.09, "x_max": 0.09, "y_min": -0.06, "y_max": 0.02},
+#                          "top": {"x_min":-0.10, "x_max":0.10, "y_min":-0.04, "y_max":0.04}}
 
 def create_heatmaps(success_x,success_y,fail_x,fail_y,total_x,total_y,shape,orientation,state_rep,saving_dir,ep_num="",title_str="",wrist_coords=None,finger_coords=None):
     """ Calls ferquency and success/fail heatmap plots 
