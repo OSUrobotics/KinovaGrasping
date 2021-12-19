@@ -22,12 +22,15 @@ import matplotlib.pyplot as plt
 import utils
 from pathlib import Path
 import copy # For copying over coordinates
+import math
 
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
 sys.path.insert(1, plot_path)
 from heatmap_coords import sort_and_save_heatmap_coords, coords_dict_to_array, save_coordinates
 from trajectory_plot import plot_trajectory
+from heatmap_plot import heatmap_actual_coords, get_hand_lines
+from replay_stats_plot import actual_values_plot
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -324,7 +327,7 @@ class PID(object):
         self.sampling_time = 15
         self.action_range = [action_space.low, action_space.high]
 
-    def velocity(self, dot_prod, velocities):
+    def object_palm_normal_PID(self, dot_prod, velocities, velocity_scale=0.7):
         err = 1 - dot_prod
         diff = (err) / self.sampling_time
         vel = err * self.kp + diff * self.kd
@@ -332,9 +335,13 @@ class PID(object):
 
         # Scale the velocity to the maximum velocity -
         # the PID was determined originally with a max of 0.8 rad/sec
-        action = (vel / 0.8) * velocities["max_velocity"]
+        action = (vel / 0.8) * velocities["max_velocity"] * velocity_scale
 
-        return action
+        #action = max(action,0.3)
+
+        controller_pid_metrics = {"action": action, "error": err, "diff": diff, "velocity": vel, "obj_dot_prod": dot_prod}
+
+        return action, controller_pid_metrics
 
     def joint(self, dot_prod):
         err = 1 - dot_prod
@@ -343,14 +350,150 @@ class PID(object):
         action = (joint / 1.25) * 2  # 1.25 means dot product equals to 1
         return action
 
-    def touch_vel(self, obj_dotprod, finger_dotprod, velocities):
-        err = obj_dotprod - finger_dotprod
+    def finger_object_distance_PID(self, finger_obj_distance, velocities, velocity_scale=9):
+        """
+        Determines the finger velocity based on the distance between the finger and the object.
+        """
+        target_distance = 0
+        err = abs(target_distance - finger_obj_distance)
         diff = err / self.sampling_time
         vel = err * self.kp + diff * self.kd
 
-        action = (vel/0.8) * velocities["max_velocity"]
+        action = (vel/0.8) * velocities["max_velocity"] * velocity_scale
 
-        return action
+        # print("*** err: ", err)
+        # print("*** diff: ", err)
+        # print("*** vel: ", err)
+        # print("*** action: ", action)
+        controller_pid_metrics = {"action": action,"error": err, "diff": diff, "velocity": vel, "finger_obj_distance": finger_obj_distance}
+
+        return action, controller_pid_metrics
+
+    def get_angle_between_two_vectors(self, point1_start, point1_end, point2_start, point2_end):
+        """Get angle between two vectors"""
+        vector_1 = [point1_start[0]-point1_end[0], point1_start[1]-point1_end[1]]
+        vector_2 = [point2_start[0]-point2_end[0], point2_start[1]-point2_end[1]]
+
+        # Get the unit vectors
+        unit_vector_1 = vector_1 / np.linalg.norm(vector_1)
+        unit_vector_2 = vector_2 / np.linalg.norm(vector_2)
+
+        # Take the dot product between the two vectors
+        dot_product = np.dot(unit_vector_1, unit_vector_2)
+
+        # Determine the angle using the arc cosine
+        angle = np.arccos(dot_product)
+
+        return angle
+
+    def finger_angle_based_pid(self,shape_name,timestep,obj_vectors,f1_vectors,f2_vectors,f3_vectors):
+        """
+        Get the velocity of all three fingers based on the current angle between the fingers and the object
+        vs the desired finger and object angles wrt the palm center.
+        """
+        palm_center_coord = obj_vectors["palm_vec_points"]["palm_center"]
+        point_along_palm_coord = obj_vectors["palm_vec_points"]["point_along_palm_center"]
+        obj_coord = obj_vectors["geom_vec_points"]["geom_center_point"]
+        finger1_coord = f1_vectors["geom_vec_points"]["geom_center_point"]
+        finger2_coord = f2_vectors["geom_vec_points"]["geom_center_point"]
+        finger3_coord = f3_vectors["geom_vec_points"]["geom_center_point"]
+
+        # Object widths in meters
+        object_widths = {"CubeS": 0.034, "CubeM": 0.041, "CubeB": 0.048, "CylinderM": 0.042,"Vase1M": 0.042}
+
+        # AlphaOBJ angle between object and palm
+        AlphaOBJ = self.get_angle_between_two_vectors(point1_start=palm_center_coord, point1_end=obj_coord, point2_start=palm_center_coord, point2_end=point_along_palm_coord)
+
+        # AlphaL angle between obj and fingers (left)
+        AlphaL = self.get_angle_between_two_vectors(point1_start=palm_center_coord, point1_end=finger1_coord, point2_start=palm_center_coord, point2_end=obj_coord)
+
+        # AlphaR angle between obj and fingers (right)
+        AlphaR = self.get_angle_between_two_vectors(point1_start=palm_center_coord, point1_end=finger2_coord, point2_start=palm_center_coord, point2_end=obj_coord)
+
+        # AlphaL* desired angle at contact (AlphaL - atan2(width/2, dist to obj))
+        dist_to_obj = 0.07 # meters
+        half_width = object_widths[shape_name]/2
+        target_Alpha = math.atan2(half_width, dist_to_obj)
+
+        desired_AlphaL= target_Alpha
+
+        # alphaR* desired angle at contact (AlphaR - atan2(width/2, dist to obj))
+        desired_AlphaR = target_Alpha
+
+        # DeltaMin Minimum angle change at contact
+        DeltaMin = 0.017 * 2# 1 degree
+        # DeltaMax Maximum angle change allowed
+        # Max angle from finger to object is around 160 degrees / 30 timesteps
+        DeltaMax = 0.017 * 5 #0.087 # 5 degrees
+
+        # N - number of timesteps to desired contact
+        N = 25 #30
+
+        # DeltaDesiredL = DeltaMin + (alphaL - alphaL*) / N
+        DeltaDesiredL = (AlphaL - desired_AlphaL)
+        # DeltaDesiredR = DeltaMin + (alphaL - alphaL*) / N
+        DeltaDesiredR = (AlphaR - desired_AlphaR)
+        DeltaDesiredL = DeltaMin + DeltaDesiredL / N
+        DeltaDesiredR = DeltaMin + DeltaDesiredR / N
+
+        # Proportion of left angle change
+        Prop = AlphaL / (AlphaL + AlphaR)
+
+        if DeltaDesiredL > DeltaMax or DeltaDesiredR > DeltaMax:
+            Decrease_perc = DeltaMax / max(DeltaDesiredL, DeltaDesiredR)
+            DeltaDesiredL = DeltaDesiredL * Decrease_perc
+            DeltaDesiredR = DeltaDesiredR * Decrease_perc
+
+        #DeltaDesiredL = DeltaMin
+        #DeltaDesiredR = DeltaMin
+
+        """
+        # if we have to cap one, then scale both by cap
+        if DeltaDesiredL > DeltaMax and Prop >= 0.5:
+            # Delta DesiredR has to be less than DeltaDesiredL
+            DeltaDesiredL = DeltaMax
+            DeltaDesiredR = min(DeltaMax, DeltaDesiredR * (1 - Prop))
+        elif DeltaDesiredR > DeltaMax and Prop <= 0.5:
+            # Delta DesiredL has to be less than DeltaDesiredR
+            DeltaDesiredR = DeltaMax
+            DeltaDesiredL = min(DeltaMax, DeltaDesiredL * (1 - Prop))
+        """
+
+        # Change in angle (rad) / timestep = change in angle (rad) / second
+        # timestep (sec) = simulation timestep (sec) * # frames
+        timestep_sec = 0.002 * 15 # 0.03 sec
+
+        # radians / second
+        f1_velocity = DeltaDesiredL / timestep_sec
+        f2_velocity = DeltaDesiredR / timestep_sec
+        f3_velocity = f2_velocity
+
+        return f1_velocity, f2_velocity, f3_velocity
+
+"""" NEW IMPLEMENTATION
+AlphaOBJ angle between object and palm
+AlphaL angle between obj and fingers (left)
+AlphaR angle between obj and fingers (right)
+AlphaL* desired angle at contact (AlphaL - atan2(width/2, dist to obj))
+alphaR* desired angle at contact (AlphaR - atan2(width/2, dist to obj))
+
+DeltaMin Minimum angle change at contact
+DeltaMax Maximum angle change allowed
+N - number of timesteps to desired contact
+
+DeltaDesiredL = DeltaMin + (alphaL - alphaL*) / N
+DeltaDesiredR = DeltaMin + (alphaR - alphaR*) / N
+
+Prop = AlphaL/ (AlphaL + alphaR)
+Alternative
+If DeltaDesiredL > DeltaMax or DeltaDesireR > DeltaMax
+     Decrease_perc = DeltaMax / max(DeltaDesiredL,DeltaDesireR) 
+     DeltaDesiredL = DeltaDesiredL * Decrease_perc
+     DeltaDesiredR = DeltaDesiredR * Decrease_perc
+
+"""
+
+
 
 ##############################################################################
 ### PID nudge controller ###
@@ -382,107 +525,95 @@ class ExpertPIDController(object):
     def _count(self):
         self.step += 1
 
-    def center_action(self, constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check):
+    def center_action(self, constant_velocity, obj_dot_prod):
         """ Object is in a center location within the hand, so lift with constant velocity or adjust for lifting """
-        wrist, f1, f2, f3 = 0, constant_velocity, constant_velocity, constant_velocity
+        print("CENTER action")
 
         # Check if change in object dot product to wrist center versus the initial dot product is greater than 0.01
         if abs(obj_dot_prod - self.init_dot_prod) > 0.01:
+            # POST-Contact
             #print("CHECK 2: Obj dot product to wrist has changed more than 0.01")
             # Start lowering velocity of finger 2 and 3 so the balance of force is equal (no tipping)
             f1, f2, f3 = constant_velocity, (constant_velocity / 2), (constant_velocity / 2)
+            print("POST-Contact")
+        else:
+            # PRE-Constact
+            f1, f2, f3 = constant_velocity, constant_velocity, constant_velocity
+            print("PRE-Contact")
 
-        # Lift check determined by grasp check (distal finger tip movements)
-        # and this check has occurred over multiple time steps
-        if lift_check is True:
-            # Ready to lift, so slow down Finger 1 to allow for desired grip
-            # (where Fingers 2 and 3 have dominance)
-            #print("Check 2A: Object is grasped, ready for lift")
-            f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
         return np.array([f1, f2, f3])
 
-    def right_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities):
+    def right_action(self, pid, states, min_constant_velocity, obj_dot_prod, velocities):
         """ Object is in an extreme right-side location within the hand, so Finger 2 and 3 move the
         object closer to the center """
+        print("RIGHT action")
         # Only Small change in object dot prod to wrist from initial position, must move more
         # Object has not moved much, we want the fingers to move closer to the object to move it
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
+            print("PRE-Contact")
             #print("CHECK 5: Only Small change in object dot prod to wrist, moving f2 & f3")
-            f1 = 0.0  # frontal finger doesn't move
-            f2 = pid.touch_vel(obj_dot_prod, states[79], velocities)  # f2_dist dot product to object
+            f1 = min_constant_velocity
+            f2 = pid.finger_object_distance_PID(obj_dot_prod, states[79], velocities)  # f2_dist dot product to object
             f3 = f2  # other double side finger moves at same speed
-            wrist = 0.0
         else:
             """ POST-contact """
             # now finger-object distance has been changed a decent amount.
             #print("CHECK 6: Object dot prod to wrist has Changed More than 0.01")
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
+                print("POST-Contact, OUT of target range")
                 #print("CHECK 7: Obj dot prod to wrist is > 0.01, so moving ALL f1, f2 & f3")
                 # start to close the PID stuff
-                f1 = min_velocity  # frontal finger moves slightly
-                f2 = pid.velocity(obj_dot_prod, velocities)  # get PID velocity
+                f1 = min_constant_velocity  # frontal finger moves slightly
+                f2 = pid.object_palm_normal_PID(obj_dot_prod, velocities)  # get PID velocity
                 f3 = f2  # other double side finger moves at same speed
-                wrist = 0.0
             else:  # goal is within 0.01 of being reached:
                 #print("CHECK 8: Obj dot prod to wrist is Within reach of 0.01 or less, Move F1 Only")
                 # start to close from the first finger
-                f1 = pid.touch_vel(obj_dot_prod, states[78], velocities)  # f1_dist dot product to object
-                f2 = 0.0
-                f3 = 0.0
-                wrist = 0.0
-
-            #print("Check 9a: Check for grasp (small distal finger movement)")
-            # Lift check determined by grasp check (distal finger tip movements)
-            # and this check has occurred over multiple time steps
-            if lift_check is True:
-                #print("CHECK 9: Yes! Good grasp, move ALL fingers")
-                f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
+                print("POST-Contact, IN target range")
+                f1 = pid.finger_object_distance_PID(obj_dot_prod, states[78], velocities)  # f1_dist dot product to object
+                f2 = min_constant_velocity
+                f3 = min_constant_velocity
 
         return np.array([f1, f2, f3])
 
-    def left_action(self, pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities):
+    def left_action(self, pid, states, min_constant_velocity, obj_dot_prod, velocities):
         """ Object is in an extreme left-side location within the hand, so Finger 1 moves the
                 object closer to the center """
+        print("** LEFT action")
         # Only Small change in object dot prod to wrist from initial position, must move more
         if abs(obj_dot_prod - self.init_dot_prod) < 0.01:
             """ PRE-contact """
+            print("PRE-contact")
             #print("CHECK 11: Only Small change in object dot prod to wrist, moving F1")
-            f1 = pid.touch_vel(obj_dot_prod, states[78], velocities)  # f1_dist dot product to object
-            f2 = 0.0
-            f3 = 0.0
-            wrist = 0.0
+            f1 = pid.finger_object_distance_PID(obj_dot_prod, states[78], velocities)  # f1_dist dot product to object
+            f2 = min_constant_velocity
+            f3 = min_constant_velocity
         else:
             """ POST-contact """
             # now finger-object distance has been changed a decent amount.
             #print("CHECK 12: Object dot prod to wrist has Changed More than 0.01")
             # Goal is 1 b/c obj_dot_prod is based on comparison of two normalized vectors
             if abs(1 - obj_dot_prod) > 0.01:
+                print("POST-Contact, OUT of target range")
                 #print("CHECK 13: Obj dot prod to wrist is > 0.01, so kep moving f1, f2 & f3")
-                f1 = pid.velocity(obj_dot_prod, velocities)
-                f2 = min_velocity  # 0.05
-                f3 = min_velocity  # 0.05
-                wrist = 0.0
+                f1 = pid.object_palm_normal_PID(obj_dot_prod, velocities)
+                f2 = min_constant_velocity
+                f3 = min_constant_velocity
             else:
+                print("POST-Contact, IN target range")
                 # Goal is within 0.01 of being reached:
                 #print("CHECK 14: Obj dot prod to wrist is Within reach of 0.01 or less, Move F2 & F3 Only")
                 # start to close from the first finger
                 # nudge with thumb
-                f2 = pid.touch_vel(obj_dot_prod, states[79], velocities)  # f2_dist dot product to object
+                f2 = pid.finger_object_distance_PID(obj_dot_prod, states[79], velocities)  # f2_dist dot product to object
                 f3 = f2
-                f1 = 0.0
-                wrist = 0.0
+                f1 = min_constant_velocity
 
-            #print("Check 15a: Check for grasp (small distal finger movement)")
-            # Lift check determined by grasp check (distal finger tip movements)
-            # and this check has occurred over multiple time steps
-            if lift_check is True:
-                #print("CHECK 15b: Good grasp - moving ALL fingers")
-                f1, f2, f3 = (finger_lift_velocity / 2), finger_lift_velocity, finger_lift_velocity
         return np.array([f1, f2, f3])
 
-    def PDController(self, lift_check, states, action_space, velocities):
+    def PDController(self, states, action_space, velocities):
         """ Position-Dependent (PD) Controller that is dependent on the x-axis coordinate position of the object to 
         determine the individual finger velocities.
         """
@@ -499,7 +630,8 @@ class ExpertPIDController(object):
         constant_velocity = velocities["constant_velocity"]
         wrist_lift_velocity = velocities["wrist_lift_velocity"]
         finger_lift_velocity = velocities["finger_lift_velocity"]
-        min_velocity = velocities["min_velocity"] + 1.3 # Add 1.3 so fingers are always moving
+        min_constant_velocity = velocities["min_constant_velocity"]
+        min_velocity = velocities["min_velocity"]
         max_velocity = velocities["max_velocity"]
 
         # Note: only comparing initial X position of object. because we know
@@ -508,23 +640,27 @@ class ExpertPIDController(object):
         # Check if the object is near the center area (less than x-axis 0.03)
         if abs(self.init_obj_pose) <= 0.03:
             #print("CHECK 1: Object is near the center")
-            controller_action = self.center_action(constant_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check)
+            controller_action = self.center_action(constant_velocity, obj_dot_prod)
         else:
             #print("CHECK 3: Object is on extreme left OR right sides")
             # Object on right hand side, move 2-fingered side
             # Local representation: POS X --> object is on the RIGHT (two fingered) side of hand
             if self.init_obj_pose > 0.0:
                 #print("CHECK 4: Object is on RIGHT side")
-                controller_action = self.right_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities)
+                controller_action = self.right_action(pid, states, min_constant_velocity, obj_dot_prod, velocities)
 
             # object on left hand side, move 1-fingered side
             # Local representation: NEG X --> object is on the LEFT (thumb) side of hand
             else:
                 #print("CHECK 10: Object is on the LEFT side")
-                controller_action = self.left_action(pid, states, min_velocity, wrist_lift_velocity, finger_lift_velocity, obj_dot_prod, lift_check, velocities)
+                controller_action = self.left_action(pid, states, min_constant_velocity, obj_dot_prod, velocities)
+
+        #print("BEFORE Range check action: f1: {}, f2: {}, f3: {}".format(controller_action[0], controller_action[1], controller_action[2]))
 
         self._count()
-        controller_action = check_vel_in_range(controller_action, min_velocity, max_velocity, finger_lift_velocity)
+        controller_action = check_vel_in_range(controller_action, velocities)
+
+        #print("AFTER Final action: f1: {}, f2: {}, f3: {}\n".format(controller_action[0], controller_action[1], controller_action[2]))
 
         #print("f1: ", controller_action[0], " f2: ", controller_action[1], " f3: ", controller_action[2])
         self.f1_vels.append(f1)
@@ -534,16 +670,233 @@ class ExpertPIDController(object):
 
         return controller_action, self.f1_vels, self.f2_vels, self.f3_vels, self.wrist_vels
 
+    def Stage_1_finger_obj_dist(self,pid,finger_obj_distance,velocities,velocity_scale=9):
+        """
+        Determines the finger velocity based on the finger-object distance based PID velocity
+        """
+        finger_velocity, finger_pid_metrics = pid.finger_object_distance_PID(finger_obj_distance, velocities, velocity_scale)
 
-def check_vel_in_range(action, min_velocity, max_velocity, finger_lift_velocity):
+        return finger_velocity, finger_pid_metrics
+
+    def Stage_1_finger_angle(self,pid,finger_name,shape_name,timestep,obj_vectors,f1_distance,f2_distance,f3_distance,f1_vectors,f2_vectors,f3_vectors):
+        """
+        Determines the finger velocity based on the angle between the finger and the object
+        """
+        f1_velocity, f2_velocity, f3_velocity = pid.finger_angle_based_pid(shape_name,timestep,obj_vectors,f1_vectors,f2_vectors,f3_vectors)
+
+        f1_pid_metrics = {"action": f1_velocity, "finger_obj_distance": f1_distance}
+        f2_pid_metrics = {"action": f2_velocity, "finger_obj_distance": f2_distance}
+        f3_pid_metrics = {"action": f3_velocity, "finger_obj_distance": f3_distance}
+
+        if finger_name == "finger_1":
+            return f1_velocity, f1_pid_metrics
+        elif finger_name == "finger_2":
+            return f2_velocity, f2_pid_metrics
+        elif finger_name == "finger_3":
+            return f3_velocity, f3_pid_metrics
+
+    def Stage_2(self,pid,obj_dot_prod,velocities,velocity_scale):
+        """
+        Determines the finger velocity based on the Object palm normal based PID
+        """
+        finger_velocity, finger_pid_metrics = pid.object_palm_normal_PID(obj_dot_prod, velocities,velocity_scale)
+
+        return finger_velocity, finger_pid_metrics
+
+    def Controller_A(self, env, states, timestep, action_space, velocities):
+        """ Contact-Dependent (CD) Controller is a controller that is dependent on whether or not the object has come
+        in contact with the fingers. If the object has not come in contact with the hand yet (PRE-Contact), then the
+        TOUCH Veclocity PID determines each of the individual finger velocities. Otherwise, the object is considered
+        POST-contact and the Velocity PID controller sets the individual finger velocities.
+        """
+        pid = PID(action_space) # Define pid controller
+        contact_str = "Controller A\nStage 1"
+        shape_name = env.random_shape
+
+        # Get the dot product with respect to the palm center and a point along the y-axis
+        obj_dot_prod, obj_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='object')
+        f1_dot_prod, f1_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f1_dist')
+        f2_dot_prod, f2_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f2_dist')
+        f3_dot_prod, f3_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f3_dist')
+
+        f1_distance = math.sqrt(((f1_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f1_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+        f2_distance = math.sqrt(((f2_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f2_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+        f3_distance = math.sqrt(((f3_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f3_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+
+        f1_velocity, f2_velocity, f3_velocity = pid.finger_angle_based_pid(shape_name,timestep,obj_vectors,f1_vectors,f2_vectors,f3_vectors)
+
+        f1_pid_metrics = {"action": f1_velocity, "finger_obj_distance": f1_distance}
+        f2_pid_metrics = {"action": f2_velocity, "finger_obj_distance": f2_distance}
+        f3_pid_metrics = {"action": f3_velocity, "finger_obj_distance": f3_distance}
+
+        # vectors = {"geom_vec_points": [palm_center, geom_center_point], "palm_vec_points": [palm_center, point_along_palm_center]}
+        obj_hand_vectors = {"finger_1": {"vectors":f1_vectors,"finger-object_distance":f1_distance}, "finger_2": {"vectors":f2_vectors,"finger-object_distance":f2_distance}, "finger_3": {"vectors":f3_vectors,"finger-object_distance":f3_distance}, "object":{"vectors":obj_vectors,"finger-object_distance":None}}
+
+        controller_action = np.array([f1_velocity,f2_velocity,f3_velocity])
+        controller_pid_metrics = np.array([f1_pid_metrics,f2_pid_metrics,f3_pid_metrics])
+
+        self._count()
+        controller_action = check_vel_in_range(controller_action, velocities)
+
+        #print("Final action: f1: {}, f2: {}, f3: {}\n".format(controller_action[0], controller_action[1], controller_action[2]))
+
+        return controller_action, obj_hand_vectors, controller_pid_metrics, contact_str
+
+    def Controller_B(self, env, states, timestep, action_space, velocities):
+        """ Contact-Dependent (CD) Controller is a controller that is dependent on whether or not the object has come
+        in contact with the fingers. If the object has not come in contact with the hand yet (PRE-Contact), then the
+        TOUCH Veclocity PID determines each of the individual finger velocities. Otherwise, the object is considered
+        POST-contact and the Velocity PID controller sets the individual finger velocities.
+        """
+        pid = PID(action_space) # Define pid controller
+        if timestep == 1:
+            self.init_dot_prod, _ = env.get_dot_product_wrt_to_palm_center(geom_name='object')
+
+        # Get the dot product with respect to the palm center and a point along the y-axis
+        obj_dot_prod, obj_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='object')
+        f1_dot_prod, f1_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f1_dist')
+        f2_dot_prod, f2_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f2_dist')
+        f3_dot_prod, f3_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f3_dist')
+        obj_hand_vectors = {"finger_1": {"vectors":f1_vectors,"finger-object_distance":None}, "finger_2": {"vectors":f2_vectors,"finger-object_distance":None}, "finger_3": {"vectors":f3_vectors,"finger-object_distance":None}, "object":{"vectors":obj_vectors,"finger-object_distance":None}}
+
+        f1_distance = math.sqrt(((f1_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f1_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+        f2_distance = math.sqrt(((f2_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f2_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+        f3_distance = math.sqrt(((f3_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f3_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+        finger_obj_distances = {"finger_1": f1_distance, "finger_2": f2_distance, "finger_3": f3_distance}
+        finger_obj_dist_sum = f1_distance + f2_distance + f3_distance
+
+        contact_str = ""
+        controller_action = np.array([])
+        controller_pid_metrics = np.array([])
+        shape_name = env.random_shape
+
+        # Check if the object has moved
+        object_has_moved = False
+        if abs(obj_dot_prod - self.init_dot_prod) >= 0.01:
+            object_has_moved = True
+
+        # Determine PRE- or POST- contact stage for each finger
+        for finger_name,finger_obj_distance in finger_obj_distances.items():
+            # Object has NOT moved - PRE-CONTACT
+            if object_has_moved is False:
+                """ Stage 1: PRE-contact """
+                #print("PRE-contact : ",finger_name)
+                contact_str += finger_name + ": Stage 1\nPRE-Contact \n(object has NOT moved)\n"
+                finger_velocity, finger_pid_metrics = self.Stage_1_finger_angle(pid,finger_name,shape_name,timestep,obj_vectors,f1_distance,f2_distance,f3_distance,f1_vectors,f2_vectors,f3_vectors)
+                obj_hand_vectors[finger_name]["finger-object_distance"] = finger_obj_distance
+
+            # Object has moved and finger is far away - PRE-CONTACT
+            elif object_has_moved is True and finger_obj_distance > 0.05:
+                """ Stage 1: PRE-contact """
+                #print("PRE-contact: ",finger_name)
+                contact_str += finger_name + ": Stage 1\nPRE-Contact \n(object has moved, finger too far)\n"
+                finger_velocity, finger_pid_metrics = self.Stage_1_finger_angle(pid,finger_name,shape_name,timestep,obj_vectors,f1_distance,f2_distance,f3_distance,f1_vectors,f2_vectors,f3_vectors)
+                obj_hand_vectors[finger_name]["finger-object_distance"] = finger_obj_distance
+
+            # Object has moved and finger is close - POST-CONTACT
+            elif object_has_moved is True and finger_obj_distance <= 0.05:
+                #if finger_obj_distance >= 0.03:
+                if finger_obj_distance <= 0.02:
+                    velocity_scale = 0.3
+                else:
+                    velocity_scale = 0.7
+                """ Stage 2: POST-contact, Nudge"""
+                #print("POST-contact, Nudge: ", finger_name)
+                contact_str += finger_name + ": Stage 2\nPOST-Contact - Nudge\n"
+                finger_velocity, finger_pid_metrics = self.Stage_2(pid, obj_dot_prod, velocities, velocity_scale)
+                finger_pid_metrics["finger_obj_distance"] = finger_obj_distance
+                obj_hand_vectors[finger_name]["finger-object_distance"] = finger_obj_distance
+                #else:
+                # # Finger is within 0.03 m of object center - POST-CONTACT - FINAL STAGE
+                # """ Stage 3: POST-contact, Final stage, Target zone"""
+                # #print("POST-contact, Final stage, Target zone: ", finger_name)
+                # contact_str += finger_name + ": Stage 1\nPOST-Contact - Final\n"
+                # # Increase the velocity scale when the finger is close so the finger doesn't go too slow
+                # finger_velocity, finger_pid_metrics = self.Stage_1_finger_angle(pid, finger_name, shape_name, timestep, obj_vectors, f1_distance, f2_distance, f3_distance, f1_vectors, f2_vectors, f3_vectors)
+                # obj_hand_vectors[finger_name]["finger-object_distance"] = finger_obj_distance
+
+                #finger_velocity = max(finger_velocity, 0.5)
+                finger_pid_metrics["action"] = finger_velocity
+
+            controller_action = np.append(controller_action,finger_velocity)
+            controller_pid_metrics = np.append(controller_pid_metrics,finger_pid_metrics)
+
+        self._count()
+        controller_action = check_vel_in_range(controller_action, velocities)
+
+        #print("Final action: f1: {}, f2: {}, f3: {}\n".format(controller_action[0], controller_action[1], controller_action[2]))
+
+        return controller_action, obj_hand_vectors, controller_pid_metrics, contact_str
+
+
+def plot_controller_metrics(controller_output,velocities,all_saving_dirs):
+    # Plot the output of each metric
+    # Dot product should decrease over time, same with error
+    for episode_num in controller_output.keys():
+        # Plot all the values over the course of the episode
+        # distance/velocity per finger
+        # obj_hand_vectors = {"finger_1": {"vectors":f1_vectors,"finger-object_distance":f1_distance}, "finger_2": {"vectors":f2_vectors,"finger-object_distance":f2_distance}, "finger_3": {"vectors":f3_vectors,"finger-object_distance":f3_distance}}
+        ep_saving_dir = all_saving_dirs["output_dir"]+"/ep_"+str(episode_num)
+        #new_path = Path(ep_saving_dir)
+        #new_path.mkdir(parents=True, exist_ok=True)
+
+        for finger, finger_idx in zip(controller_output[episode_num]["obj_hand_vectors"][0].keys(), [0,1,2]):
+            # Plot the actions over time
+            controller_actions = [action_value[finger_idx] for action_value in controller_output[episode_num]["actions"]]
+            finger_obj_dists = [dist[finger]["finger-object_distance"] for dist in controller_output[episode_num]["obj_hand_vectors"]]
+            #pid_error = [controller_metric[finger_idx]["error"] for controller_metric in controller_output[episode_num]["controller_pid_metrics"]]
+            #obj_dot_prod = [controller_metric[finger_idx]["obj_dotprod"] for controller_metric in controller_output[episode_num]["controller_pid_metrics"]]
+            #inger_dot_prod = [controller_metric[finger_idx]["finger_dotprod"] for controller_metric in controller_output[episode_num]["controller_pid_metrics"]]
+
+            # Plot the velocity over time
+            axes_limits = {"x_min": 0, "x_max": len(controller_actions), "y_min": 0, "y_max": velocities["max_velocity"]}
+            actual_values_plot(metrics_arr=[controller_actions], episode_idx=0, label_name="Finger " + str(finger_idx + 1) + " Velocity",
+                               y_metric_name="Action Output: Finger " + str(finger_idx + 1) + " Velocity",
+                               metric_name="Timestep",axes_limits=axes_limits, saving_dir=ep_saving_dir)
+
+            # Plot the object dot prod over time
+            #axes_limits = {"x_min": 0, "x_max": len(obj_dot_prod), "y_min": min(obj_dot_prod),
+            #               "y_max": max(obj_dot_prod)}
+            #actual_values_plot(metrics_arr=[obj_dot_prod], episode_idx=0, label_name="object-palm dot prod",
+            #                   metric_name="Timestep", y_metric_name="Object-palm dot product", axes_limits=axes_limits,
+            #                   saving_dir=ep_saving_dir)
+
+            # Plot the finger dot prod over time
+            #axes_limits = {"x_min": 0, "x_max": len(finger_dot_prod), "y_min": min(finger_dot_prod),
+            #               "y_max": max(finger_dot_prod)}
+            #actual_values_plot(metrics_arr=[finger_dot_prod], episode_idx=0, label_name=str(finger) + "-palm dot prod",
+            #                   metric_name="Timestep", y_metric_name=str(finger) + "-palm dot product", axes_limits=axes_limits,
+            #                   saving_dir=ep_saving_dir)
+
+            # Plot the error over time
+            """
+            axes_limits = {"x_min": 0, "x_max": len(pid_error), "y_min": min(pid_error),
+                           "y_max": max(pid_error)}
+            actual_values_plot(metrics_arr=[pid_error], episode_idx=0, label_name=str(finger) + "-object PID error",
+                               metric_name="Timestep", y_metric_name=str(finger) + "-object PID error", axes_limits=axes_limits,
+                               saving_dir=ep_saving_dir)
+            """
+            # Plot the finger-object distance over time
+            axes_limits = {"x_min": 0, "x_max": len(finger_obj_dists), "y_min": min(finger_obj_dists),
+                           "y_max": max(finger_obj_dists)}
+            actual_values_plot(metrics_arr=[finger_obj_dists], episode_idx=0, label_name=str(finger) + "-object distance",
+                               metric_name=str(finger) + "-object distance", y_metric_name="Timestep", axes_limits=axes_limits,
+                               saving_dir=ep_saving_dir)
+
+            # Plot the finger-object distance vs velocity over time
+            axes_limits = {"x_min": min(finger_obj_dists), "x_max": max(finger_obj_dists), "y_min": 0, "y_max": velocities["max_velocity"]}
+            actual_values_plot(metrics_arr=[finger_obj_dists], y_axis_metrics=controller_actions, episode_idx=0, label_name=str(finger) + "-object distance",
+                               metric_name=str(finger) + "-object distance", y_metric_name="Velocity", axes_limits=axes_limits,
+                               saving_dir=ep_saving_dir)
+
+
+def check_vel_in_range(action, velocities):
     """ Checks that each of the finger/wrist velocies values are in range of min/max values """
-    for idx in range(len(action)):
-        if idx > 0:
-            if action[idx] < min_velocity:
-                if action[idx] != 0 or action[idx] != finger_lift_velocity or action[idx] != finger_lift_velocity / 2:
-                    action[idx] = min_velocity
-            elif action[idx] > max_velocity:
-                action[idx] = max_velocity
+    for i in range(len(action)):
+        if action[i] < velocities["min_velocity"]:
+            action[i] = velocities["min_velocity"]
+        elif action[i] > velocities["max_velocity"]:
+            action[i] = velocities["max_velocity"]
 
     return action
 
@@ -591,20 +944,34 @@ def check_pid_grasp(f_dist_old, f_dist_new):
         return [0, f_all_change]
 
 
-def NaiveController(lift_check, velocities):
+def NaiveController(velocities,env=None):
     """ Move fingers at a constant speed, return action """
+    # Get the dot product with respect to the palm center and a point along the y-axis
+    obj_dot_prod, obj_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='object')
+    f1_dot_prod, f1_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f1_dist')
+    f2_dot_prod, f2_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f2_dist')
+    f3_dot_prod, f3_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f3_dist')
+
+    f1_distance = math.sqrt(((f1_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f1_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+    f2_distance = math.sqrt(((f2_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f2_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+    f3_distance = math.sqrt(((f3_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f3_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
 
     # By default, close all fingers at a constant speed
     action = np.array([velocities["constant_velocity"], velocities["constant_velocity"], velocities["constant_velocity"]])
 
-    # If ready to lift, set fingers to constant lifting velocities
-    if lift_check is True:
-        action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
-                           velocities["finger_lift_velocity"]])
+    f1_pid_metrics = {"action": action[0], "finger_obj_distance": f1_distance}
+    f2_pid_metrics = {"action": action[1], "finger_obj_distance": f2_distance}
+    f3_pid_metrics = {"action": action[2], "finger_obj_distance": f3_distance}
+    controller_pid_metrics = np.array([f1_pid_metrics, f2_pid_metrics, f3_pid_metrics])
 
-    return action
+    obj_hand_vectors = {"finger_1": {"vectors": f1_vectors, "finger-object_distance": f1_distance},
+                        "finger_2": {"vectors": f2_vectors, "finger-object_distance": f2_distance},
+                        "finger_3": {"vectors": f3_vectors, "finger-object_distance": f3_distance},
+                        "object": {"vectors": obj_vectors, "finger-object_distance": None}}
 
-def BellShapedController(lift_check, velocities, timestep):
+    return action, obj_hand_vectors, controller_pid_metrics
+
+def BellShapedController(velocities, timestep):
     """ Move fingers at a constant speed, return action """
 
     bell_curve_velocities = [0.202, 0.27864, 0.35046, 0.41696, 0.47814, 0.534, 0.58454, 0.62976, 0.66966, 0.70424, 0.7335, 0.75744, 0.77606, 0.78936, 0.79734, 0.8, 0.79734, 0.78936, 0.77606, 0.75744, 0.7335, 0.70424, 0.66966, 0.62976, 0.58454, 0.534, 0.47814, 0.41696, 0.35046, 0.27864, 0.2015]
@@ -615,17 +982,10 @@ def BellShapedController(lift_check, velocities, timestep):
     # By default, close all fingers at a constant speed
     action = np.array([finger_velocity, finger_velocity, finger_velocity])
 
-    # If ready to lift, set fingers to constant lifting velocities
-    if lift_check is True:
-        action = np.array([velocities["finger_lift_velocity"], velocities["finger_lift_velocity"],
-                           velocities["finger_lift_velocity"]])
-
-    #print("TS: {} action: {}".format(timestep, action))
-
     return action
 
 
-def get_action(obs, lift_check, controller, env, velocities, pid_mode="combined",timestep=None):
+def get_action(obs, controller, env, episode_num, timestep, velocities, pid_mode, all_saving_dirs):
     """ Get action based on controller (Naive, position-dependent, combined interpolation)
         obs: Current state observation
         controller: Initialized expert PID controller
@@ -639,29 +999,61 @@ def get_action(obs, lift_check, controller, env, velocities, pid_mode="combined"
 
     # NAIVE CONTROLLER: Close all fingers at a constant speed
     if pid_mode == "naive":
-        controller_action = NaiveController(lift_check, velocities)
+        controller_action, obj_hand_vectors, controller_pid_metrics = NaiveController(velocities,env)
 
     # POSITION-DEPENDENT CONTROLLER: Only move fingers based on object x-coord position within hand
     elif pid_mode == "position-dependent":
-        controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+        controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(obs, env.action_space, velocities)
 
     elif pid_mode == "bell-shaped":
-        controller_action = BellShapedController(lift_check, velocities, timestep)
+        controller_action = BellShapedController(velocities, timestep)
+
+    elif pid_mode == "controller_a":
+        controller_action, obj_hand_vectors, controller_pid_metrics, contact_str = controller.Controller_A(env, obs, timestep, env.action_space, velocities)
+        finger_coords = obs[0:17]
+        wrist_coords = obs[18:20]
+        hand_lines = get_hand_lines("local", wrist_coords, finger_coords)
+        title = "ep_"+str(episode_num)+"ts_"+str(timestep)
+
+        finger_ob_dist_sum = obj_hand_vectors["finger_1"]["finger-object_distance"] + obj_hand_vectors["finger_2"]["finger-object_distance"] + obj_hand_vectors["finger_3"]["finger-object_distance"]
+        finger_obj_dist_str = "Finger-Object distances:\nfinger 1: {:.3f} m\nfinger 2: {:.3f} m\nfinger 3: {:.3f} m\nSum: {:.3f} m".format(obj_hand_vectors["finger_1"]["finger-object_distance"],obj_hand_vectors["finger_2"]["finger-object_distance"],obj_hand_vectors["finger_3"]["finger-object_distance"],finger_ob_dist_sum)
+        obj_coords = env.get_obj_coords()
+        contact_str += "\nObject coords: \n({:.3f},{:.3f})\n".format(obj_coords[0],obj_coords[1])
+        velocity_str = "Finger Velocities:\nFinger 1 velocity: {:.3f}\nFinger 2 velocity: {:.3f}\nFinger 3 velocity: {:.3f}\n".format(controller_action[0],controller_action[1],controller_action[2])
+        plot_str = [contact_str,velocity_str,finger_obj_dist_str]
+        #if episode_num <= 10:
+        #    heatmap_actual_coords(total_x=obs[21], total_y=obs[22], vector_lines=obj_hand_vectors,hand_lines=hand_lines, state_rep="local", plot_title=title, fig_filename=title+".png", plot_str=plot_str,saving_dir=all_saving_dirs["output_dir"]+"/ep_"+str(episode_num)+"/")
+
+    elif pid_mode == "controller_b":
+        controller_action, obj_hand_vectors, controller_pid_metrics, contact_str = controller.Controller_B(env, obs, timestep, env.action_space, velocities)
+        finger_coords = obs[0:17]
+        wrist_coords = obs[18:20]
+        hand_lines = get_hand_lines("local", wrist_coords, finger_coords)
+        title = "ep_"+str(episode_num)+"ts_"+str(timestep)
+
+        finger_ob_dist_sum = obj_hand_vectors["finger_1"]["finger-object_distance"] + obj_hand_vectors["finger_2"]["finger-object_distance"] + obj_hand_vectors["finger_3"]["finger-object_distance"]
+        finger_obj_dist_str = "Finger-Object distances:\nfinger 1: {:.3f} m\nfinger 2: {:.3f} m\nfinger 3: {:.3f} m\nSum: {:.3f} m".format(obj_hand_vectors["finger_1"]["finger-object_distance"],obj_hand_vectors["finger_2"]["finger-object_distance"],obj_hand_vectors["finger_3"]["finger-object_distance"],finger_ob_dist_sum)
+        obj_coords = env.get_obj_coords()
+        contact_str += "\nObject coords: \n({:.3f},{:.3f})\n".format(obj_coords[0],obj_coords[1])
+        velocity_str = "Finger Velocities:\nFinger 1 velocity: {:.3f}\nFinger 2 velocity: {:.3f}\nFinger 3 velocity: {:.3f}\n".format(controller_action[0],controller_action[1],controller_action[2])
+        plot_str = [contact_str,velocity_str,finger_obj_dist_str]
+        if episode_num <= 10:
+            heatmap_actual_coords(total_x=obs[21], total_y=obs[22], vector_lines=obj_hand_vectors,hand_lines=hand_lines, state_rep="local", plot_title=title, fig_filename=title+".png", plot_str=plot_str,saving_dir=all_saving_dirs["output_dir"]+"/ep_"+str(episode_num)+"/")
 
     # COMBINED CONTROLLER: Interpolate Naive and Position-Dependent controller output based on object x-coord position within hand
     else:
         # If object x position is on outer edges, do expert pid
         if object_x_coord < -0.04 or object_x_coord > 0.04:
             # Expert Nudge controller strategy
-            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+            controller_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(obs, env.action_space, velocities)
 
         # Object x position within the side-middle ranges, interpolate expert/naive velocity output
         elif -0.04 <= object_x_coord <= -0.02 or 0.02 <= object_x_coord <= 0.04:
             # Interpolate between naive and expert velocities
             # position-dependent controller action (finger velocity based on object location within hand)
-            expert_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(lift_check, obs, env.action_space, velocities)
+            expert_action, f1_vels, f2_vels, f3_vels, wrist_vels = controller.PDController(obs, env.action_space, velocities)
             # Naive controller action (fingers move at constant velocity)
-            naive_action = NaiveController(lift_check, velocities)
+            naive_action = NaiveController(velocities)
 
             # Interpolate finger velocity values between position-dependent and Naive action output
             finger_vels = np.interp(np.arange(0, 3), naive_action, expert_action)
@@ -671,11 +1063,11 @@ def get_action(obs, lift_check, controller, env, velocities, pid_mode="combined"
         # Object x position is within center area, so use naive controller
         else:
             # Naive controller action (fingers move at constant velocity)
-            controller_action = NaiveController(lift_check, velocities)
+            controller_action = NaiveController(velocities)
 
     #print("**** action: ",action)
 
-    return controller_action
+    return controller_action, obj_hand_vectors, controller_pid_metrics
 
 
 def set_action_str(action, num_good_grasps, obj_local_pos, obs, reward, naive_ret, info):

@@ -313,7 +313,7 @@ class KinovaGripper_Env(gym.Env):
 
         # get world frame position of the palm
         # should just use center pose of the wrist pose
-        self.wrist_pose = np.copy(self._sim.data.get_geom_xpos('palm'))
+        #self.wrist_pose = np.copy(self._sim.data.get_geom_xpos('palm')) # Why was this also here?
 
         # lol nope
         # Rfa = np.copy(self._sim.data.get_geom_xmat('palm'))
@@ -700,6 +700,62 @@ class KinovaGripper_Env(gym.Env):
 
         dot_prod = np.dot(obj_unit_vec, center_unit_vec)
         return dot_prod ** 20  # cuspy to get distinct reward
+
+    def get_dot_product_wrt_to_palm_center(self,geom_name='object',state_rep='local'):
+        """
+        Get the dot product between two vectors:
+        Geom center vector: A vector between a center point of a geom mesh (either the object center, distal finger tip center, etc.)
+        and the center of the palm
+        Palm center vector: A vector between the palm center and a point exactly 1 m north of the palm center
+        Return the dot product along with the geom center vector and the palm center vector for plotting purposes.
+        """
+        if geom_name is None or geom_name == 'object':
+            geom_center_point = np.copy(self._get_obj_pose())
+        else:
+            geom_center_point = np.copy(self._sim.data.get_geom_xpos(geom_name))
+
+        # Define the palm center
+        palm_center = np.copy(self._sim.data.get_site_xpos('palm'))
+
+        if state_rep == 'local':
+            # Global to Local coordinate conversion of the geom and palm center
+            geom_local_temp = np.append(geom_center_point, 1)
+            geom_local_temp = np.matmul(self.Tfw, geom_local_temp)
+            geom_center_point = geom_local_temp[0:3].tolist()
+
+            palm_local_temp = np.append(palm_center, 1)
+            palm_local_temp = np.matmul(self.Tfw, palm_local_temp)
+            palm_center = palm_local_temp[0:3].tolist()
+
+        # Define a point along the y-axis 1m out from the palm center
+        point_along_palm_center = np.copy(palm_center)
+        point_along_palm_center[1] += 1
+
+        # Geom center vector
+        geom_center_point_x = abs(geom_center_point[0] - palm_center[0])
+        geom_center_point_y = abs(geom_center_point[1] - palm_center[1])
+        geom_center_point_vec = np.array([geom_center_point_x, geom_center_point_y])
+
+        # Normalize the Geom center vector
+        geom_center_point_vec_norm = np.linalg.norm(geom_center_point_vec)
+        geom_center_point_unit_vec = geom_center_point_vec / geom_center_point_vec_norm
+
+        # Palm center vector
+        palm_center_x = abs(point_along_palm_center[0] - palm_center[0])
+        palm_center_y = abs(point_along_palm_center[1] - palm_center[1])
+        palm_center_vec = np.array([palm_center_x, palm_center_y])
+
+        # Normalize the Palm center vector
+        palm_center_vec_norm = np.linalg.norm(palm_center_vec)
+        palm_center_unit_vec = palm_center_vec / palm_center_vec_norm
+
+        # Get the dot product between the Geom center and Palm center vectors
+        dot_prod = np.dot(geom_center_point_unit_vec, palm_center_unit_vec)
+        dot_prod = dot_prod ** 20  # cuspy to get distinct reward
+
+        vectors = {"geom_vec_points": {"palm_center": palm_center, "geom_center_point": geom_center_point}, "palm_vec_points": {"palm_center": palm_center, "point_along_palm_center": point_along_palm_center}}
+
+        return dot_prod, vectors
 
     # Function to get rewards based only on the lift reward. This is primarily used to generate data for the grasp classifier
     def _get_reward_DataCollection(self):
@@ -1336,7 +1392,7 @@ class KinovaGripper_Env(gym.Env):
         hand_z = labelled_obj_hand_coords[orient_idx]["hov"][2]
         difficulty = {"difficulty": labelled_obj_hand_coords[orient_idx]["difficulty"],
                       "naive_success": labelled_obj_hand_coords[orient_idx]["naive_success"],
-                      "position-dependent_success": labelled_obj_hand_coords[orient_idx]["position-dependent_success"]}
+                      "controller_a_success": labelled_obj_hand_coords[orient_idx]["controller_a_success"]}
 
         return obj_x, obj_y, obj_z, hand_x, hand_y, hand_z, orient_idx, difficulty, coords_filename
 
@@ -1623,7 +1679,7 @@ class KinovaGripper_Env(gym.Env):
 
         return pos
 
-    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None,use_labelled_data=False,coord_difficulty=None):
+    def determine_obj_hand_coords(self, random_shape, mode, with_noise=False, orient_idx=None,use_labelled_data=True,coord_difficulty=None):
         """ Select object and hand orientation coordinates then write them to the xml file for simulation in the current environment
         random_shape: Desired shape to be used within the current environment
         with_noise: Set to True if coordinates to be used are selected from the object/hand coordinate files with positional noise added
@@ -1932,6 +1988,7 @@ class KinovaGripper_Env(gym.Env):
         source = episode_dir
         destination = episode_dir
         if final_episode_type != None:
+            print("** EPISODE COORDS (for above episode) is: ",episode_coords)
             if final_episode_type > 0:  # If lift success
                 os.path.join(success_dir, episode_coords)
                 final_dir = success_dir

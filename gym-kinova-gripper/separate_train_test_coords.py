@@ -68,7 +68,10 @@ def separate_coords_by_difficulty(amount_training,amount_evaluation,amount_test,
     dataset_amounts = {"train":{"easy":int(amount_training*.40),"med":int(amount_training*.40),"hard":int(amount_training*.20)}, "eval":{"easy":40,"med":60,"hard":40}, "test":{"easy":int(amount_test*.30),"med":int(amount_test*.30),"hard":int(amount_test*.40)}}
 
     # Training: 40% easy, 40% med, 20% hard
-    train_coords = [all_easy_coords.pop() for _ in range(dataset_amounts["train"]["easy"])] + [all_med_coords.pop() for _ in range(dataset_amounts["train"]["med"])] + [all_hard_coords.pop() for _ in range(dataset_amounts["train"]["hard"])]
+    train_easy = [all_easy_coords.pop() for _ in range(dataset_amounts["train"]["easy"])]
+    train_med = [all_med_coords.pop() for _ in range(dataset_amounts["train"]["med"])]
+    train_hard = [all_hard_coords.pop() for _ in range(dataset_amounts["train"]["hard"])]
+    train_coords = train_easy + train_med + train_hard
 
     # Evaluation:  40 easy /60 med /40 hard
     eval_coords = [all_easy_coords.pop() for _ in range(dataset_amounts["eval"]["easy"])] + [all_med_coords.pop() for _ in range(dataset_amounts["eval"]["med"])] + [all_hard_coords.pop() for _ in range(dataset_amounts["eval"]["hard"])]
@@ -135,10 +138,10 @@ def split_coords(all_data_filepath,all_shapes,all_orientations,with_noise,use_la
                 data = read_coords_from_text_file(with_noise, coords_filepath, filename=shape_name+".txt")
 
             # Split data into train (80%), evaluation (3.5%) and test (16.5%) sets
-            total_num_coords = 4000
-            amount_training = 3200
+            total_num_coords = 1600 #4000
+            amount_training = 1000
             amount_evaluation = 140
-            amount_test = 660
+            amount_test = 460
 
             if separate_by_difficulty is True:
                 train_coords, eval_coords, test_coords = separate_coords_by_difficulty(amount_training,amount_evaluation,amount_test,data)
@@ -156,7 +159,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     all_shapes = ["CubeM"]
-    all_orientations = ["normal", "rotated", "top"]
+    all_orientations = ["normal"] #, "rotated", "top"]
     use_labelled_data = True
     separate_by_difficulty = True
 

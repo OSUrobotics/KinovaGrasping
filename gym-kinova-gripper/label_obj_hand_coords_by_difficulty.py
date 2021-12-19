@@ -23,10 +23,16 @@ def get_coord_file_indexes(env,shape_name,hand_orientation,with_noise,coords_typ
     if orient_idx is None:
         _, _, _, _, _, _, _, coords_file = env.determine_obj_hand_coords(random_shape=shape_name, mode=coords_type, orient_idx=0, with_noise=with_noise)
         num_lines = 0
-        with open(coords_file) as f:
-            for line in f:
-                num_lines = num_lines + 1
+        if coords_file.endswith('.csv'):
+            with open(coords_file, newline='') as csvfile:
+                reader = csv.DictReader(csvfile)
+                num_lines = sum(1 for row in reader)
+        elif coords_file.endswith('.txt'):
+            with open(coords_file) as f:
+                num_lines = sum(1 for row in f)
+
         indexes = range(num_lines)
+
     else:
         indexes = [orient_idx]
 
@@ -43,12 +49,17 @@ def get_difficulty_label(coord_info):
     else:
         naive_success = 0
 
-    if coord_info["position-dependent_success"] == 'True' or coord_info["position-dependent_success"] == 'TRUE' or coord_info["position-dependent_success"] is True:
-        position_dependent_success = 1
+    if coord_info["controller_a_success"] == 'True' or coord_info["controller_a_success"] == 'TRUE' or coord_info["controller_a_success"] is True:
+        controller_a_success = 1
     else:
-        position_dependent_success = 0
+        controller_a_success = 0
 
-    success_sum = naive_success + position_dependent_success
+    #if coord_info["controller_b_success"] == 'True' or coord_info["controller_b_success"] == 'TRUE' or coord_info["controller_b_success"] is True:
+    #    controller_b_success = 1
+    #else:
+    #    controller_b_success = 0
+
+    success_sum = naive_success + controller_a_success #+ controller_b_success
     if success_sum is 2:
         return "easy"
     elif success_sum is 1:
@@ -63,7 +74,7 @@ def conduct_grasp_trial(coord_info,curr_orient_idx,shape_name,hand_orientation,w
     seed = 2
     velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 3, "finger_lift_velocity": 1,
                   "wrist_lift_velocity": 1}
-    controller_options = ["naive","position-dependent"]
+    controller_options = ["naive", "controller_a"]
 
     # Attempt a grasp trial with each controller
     for controller_type in controller_options:
@@ -97,7 +108,7 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
         ability to successfully grasp and lift the obejct.
     """
     # Store object-hand pose info, incl. if controllers are successful given this pose and subsequent difficulty label
-    coord_info = {"obj_coords":[],"local_obj_coords":[],"hov":[],"shape":shape_name,"hand_orientation":hand_orientation,"naive_success":None,"position-dependent_success":None,"policy_success":None,"difficulty":None}
+    coord_info = {"obj_coords":[],"local_obj_coords":[],"hov":[],"shape":shape_name,"hand_orientation":hand_orientation,"naive_success":None,"controller_a_success":None,"controller_b_success":None,"policy_success":None,"difficulty":None}
 
     if pre_labelled_obj_hand_coords is not None:
         coord_info = pre_labelled_obj_hand_coords[curr_orient_idx]
@@ -105,6 +116,7 @@ def determine_obj_hand_pose_difficulty(curr_orient_idx,shape_name,hand_orientati
         coord_info = conduct_grasp_trial(coord_info,curr_orient_idx,shape_name,hand_orientation,with_noise,coords_type,max_num_timesteps,all_saving_dirs)
 
     coord_info.pop("policy_success", None)
+    coord_info.pop("controller_b_success", None)
     coord_info["difficulty"] = get_difficulty_label(coord_info)
 
     return coord_info
@@ -206,6 +218,7 @@ def write_obj_hand_pose_dict_list(saving_dir,filename,labelled_obj_hand_coords):
     """
     Write the object-hand pose dictionary to a csv file
     """
+    print("Writing to: ",saving_dir + "/" + filename)
     dict_file = open(saving_dir + "/" + filename, "w", newline='')
     keys = labelled_obj_hand_coords[0].keys()
     dict_writer = csv.DictWriter(dict_file, keys)
@@ -240,7 +253,8 @@ def read_obj_hand_pose_dict_list(saving_dir,num_coords=None,filename="labelled_o
                 d = json.loads(diff)
                 row["difficulty"] = d["difficulty"]
                 row["naive_success"] = d["naive_success"]
-                row["position-dependent_success"] = d["position-dependent_success"]
+                row["controller_a_success"] = d["controller_a_success"]
+                #row["controller_b_success"] = d["controller_b_success"]
 
             idx += 1
             labelled_obj_hand_coords.append(row)
@@ -274,7 +288,8 @@ def get_difficulty_success_rate(labelled_obj_hand_coords):
         difficulty_success_rate["hard"] = 0
     difficulty_success_rate["all_coords"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["success"] == 'True' or obj_coord["success"] == 'TRUE']) / len(labelled_obj_hand_coords))*50
     difficulty_success_rate["naive"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["naive_success"] == 'True' or obj_coord["naive_success"] == 'TRUE']) / len(labelled_obj_hand_coords)) * 50
-    difficulty_success_rate["position-dependent"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["position-dependent_success"] == 'True' or obj_coord["position-dependent_success"] == 'TRUE']) / len(labelled_obj_hand_coords)) * 50
+    difficulty_success_rate["controller_a"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["controller_a_success"] == 'True' or obj_coord["controller_a_success"] == 'TRUE']) / len(labelled_obj_hand_coords)) * 50
+    #difficulty_success_rate["controller_b"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["controller_b_success"] == 'True' or obj_coord["controller_b_success"] == 'TRUE']) / len(labelled_obj_hand_coords)) * 50
 
     return difficulty_success_rate
 
@@ -283,8 +298,8 @@ def plot_success_rate_by_difficulty(all_policy_coords, eval_points, start_episod
     """
     Plot the success rate over each evaluation point based on the difficulty of the object-hand coordinates
     """
-    line_types = ["all_coords","easy","med","hard","naive","position-dependent"]
-    policy_colors = {"all_coords": "black", "easy": "green","med": "blue", "hard": "red", "naive": "grey", "position-dependent": "grey"}
+    line_types = ["all_coords","easy","med","hard","naive","controller_a","controller_b"]
+    policy_colors = {"all_coords": "black", "easy": "green","med": "blue", "hard": "red", "naive": "grey", "controller_a": "grey","controller_b": "grey"}
     variation_input_policies = {}
 
     for type in line_types:
@@ -319,7 +334,7 @@ def get_variation_input(variation_input_name):
 
 if __name__ == "__main__":
     # TODO: Make into command-line arguments
-    coords_option = "plot_policy_coords"
+    coords_option = "plot_coords"
     start_episode, eval_freq, max_episode = 0, 500, 3500
     with_noise = False
     variation_input_name = "Baseline"
@@ -330,7 +345,7 @@ if __name__ == "__main__":
     all_orientations = ["normal"] #["normal", "top", "rotated"]
     all_coords_types = ["shape","train","eval"]
     # Get labelled coordinates from the file to re-label them by difficulty
-    get_labelled_coords_from_file = True
+    get_labelled_coords_from_file = False
     # Decide if you want to write the coordinates to csv files by difficulty or not
     save_coords_by_difficulty = False
 
@@ -362,11 +377,11 @@ if __name__ == "__main__":
                     if get_labelled_coords_from_file is True:
                         coords_saving_dir = coords_file_directory + "/"
                         pre_labelled_obj_hand_coords, indexes = read_obj_hand_pose_dict_list(coords_saving_dir)
-                        filename = "NEW_labelled_obj_hand_coords.csv"
+                        filename = "RELABELLED_labelled_obj_hand_coords.csv"
                     else:
                         coords_saving_dir = coords_file_directory + "/" + shape_name + "/labelled_coords/"
                         pre_labelled_obj_hand_coords = None
-                        filename = "labelled_obj_hand_coords.csv"
+                        filename = "UPDATED_labelled_obj_hand_coords.csv"
 
                     # Setup the output directories
                     all_saving_dirs = setup_directories(env, saving_dir=coords_saving_dir, expert_replay_file_path=None, agent_replay_file_path=None, pretrain_model_save_path=None, create_dirs=True,mode="eval")

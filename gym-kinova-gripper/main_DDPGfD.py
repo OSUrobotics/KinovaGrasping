@@ -23,12 +23,13 @@ import pickle
 import datetime
 import csv
 import timer
+import math
 from timer import Timer
 from pathlib import Path
 import json # Allows us to read/write dictionaries
 import copy # For copying over coordinates
 import glob # Used for getting saved policy filename
-from expert_data import ExpertPIDController, get_action # Expert controller, used within evaluation
+from expert_data import ExpertPIDController, get_action, plot_controller_metrics # Expert controller, used within evaluation
 
 # Import plotting code from other directory
 plot_path = os.getcwd() + "/plotting_code"
@@ -190,8 +191,8 @@ def evaluate_coords_by_region(policy, all_hand_object_coords, variation_type, al
                                                           requested_orientation=curr_dict["orientation"],
                                                           eval_episodes=1,
                                                           render_imgs=True,
-                                                          start_pos=curr_dict["global_obj_coords"],
-                                                          hand_rotation=curr_dict["hand_orient_variation"],
+                                                          start_pos=curr_dict["obj_coords"],
+                                                          hand_rotation=curr_dict["hov"],
                                                           all_saving_dirs=all_saving_dirs,
                                                           velocities=velocities,
                                                           output_dir=region_dir,
@@ -274,6 +275,24 @@ def test_global_to_local_transformation(local_coords,global_coords,env_global_co
 
     print("Done with test_global_to_local_transformation, (decimal precision: "+str(precision)+", all test cases PASSED! :)")
 
+def check_target_finger_obj_distance(env):
+    # Get the dot product with respect to the palm center and a point along the y-axis
+    obj_dot_prod, obj_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='object')
+    f1_dot_prod, f1_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f1_dist')
+    f2_dot_prod, f2_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f2_dist')
+    f3_dot_prod, f3_vectors = env.get_dot_product_wrt_to_palm_center(geom_name='f3_dist')
+    obj_hand_vectors = {"finger_1": f1_vectors, "finger_2": f2_vectors, "finger_3": f3_vectors, "object": obj_vectors}
+
+    f1_distance = math.sqrt(((f1_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f1_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+    f2_distance = math.sqrt(((f2_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f2_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+    f3_distance = math.sqrt(((f3_vectors["geom_vec_points"]["geom_center_point"][0] - obj_vectors["geom_vec_points"]["geom_center_point"][0]) ** 2) + ((f3_vectors["geom_vec_points"]["geom_center_point"][1] - obj_vectors["geom_vec_points"]["geom_center_point"][1]) ** 2))
+
+    finger_obj_distances = {"finger_1": f1_distance, "finger_2": f2_distance, "finger_3": f3_distance}
+    finger_obj_dist_sum = f1_distance + f2_distance + f3_distance
+
+    return obj_hand_vectors, finger_obj_distances, finger_obj_dist_sum
+
+
 
 def check_grasp(f_dist_old, f_dist_new, total_distal_change):
     """
@@ -310,9 +329,11 @@ def check_grasp(f_dist_old, f_dist_new, total_distal_change):
 
     # If the fingers have only changed a small amount, we assume the object is grasped
     if f_all_change < 0.0001 and total_distal_change > 0.0001:
-        return True, total_distal_change
+        print("**** TRUE f_all_change: ", f_all_change)
+        return True, f_all_change, total_distal_change
     else:
-        return False, total_distal_change
+        #print("FALSE f_all_change: ",f_all_change)
+        return False, f_all_change, total_distal_change
 
 
 def get_hand_object_coords_dict(curr_env):
@@ -384,6 +405,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
     # Reward data over each evaluation episode for boxplot
     all_ep_reward_values = {"total_reward": [], "finger_reward": [], "grasp_reward": [], "lift_reward": []}
     all_action_values = {"controller_actions":[]}
+    controller_output = {} # Controller output finger velocities with the vectors used to determine that action
 
     if output_dir is None:
         output_dir = all_saving_dirs["output_dir"]
@@ -419,6 +441,9 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         # Record the hand-object pose within a dict for plotting and saving
         hand_object_coords = get_hand_object_coords_dict(eval_env)
 
+        # Records output of the controller (action - finger velocities and the vectors used to determine the action)
+        controller_output[str(i)] = {"actions": [], "obj_hand_vectors": [], "controller_pid_metrics": []}
+
         # Cumulative reward over single episode
         ep_finger_reward = 0
         ep_grasp_reward = 0
@@ -431,6 +456,7 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
         ready_for_lift = False # Signals if we are ready for lifting, initially false as we have not moved the hand
         lift_success = 0
         total_distal_change = 0 # Cumulative change in the distal finger tips over the course of the episode
+        f_all_change = 0 # change in the distal finger tips from a single timestep
 
         # Beginning of episode time steps, done is max time steps or lift reward achieved
         timestep = 1
@@ -442,7 +468,10 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
                 finger_action = policy.select_action(np.array(state[0:82])[state_idx_arr])
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
-                finger_action = get_action(obs=np.array(state[0:82])[state_idx_arr], lift_check=ready_for_lift, controller=controller, env=eval_env, velocities=velocities, pid_mode=controller_type, timestep=timestep)
+                finger_action, obj_hand_vectors, controller_pid_metrics = get_action(obs=np.array(state[0:82])[state_idx_arr], controller=controller, env=eval_env, velocities=velocities, pid_mode=controller_type, episode_num=i, timestep=timestep, all_saving_dirs=all_saving_dirs)
+                controller_output[str(i)]["actions"].append(finger_action)
+                controller_output[str(i)]["obj_hand_vectors"].append(obj_hand_vectors)
+                controller_output[str(i)]["controller_pid_metrics"].append(controller_pid_metrics)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action)) # If not ready for lift, wrist should always be 0
@@ -460,22 +489,29 @@ def eval_policy(policy, env_name, seed, requested_shapes, requested_orientation,
             # Used for plotting finger actions
             episode_actions.append(finger_action)
 
-            # Render the performance
-            if render_imgs is True:
-                action_str = "Grasping stage timestep: "+str(timestep)+"\nAction (rad/sec):\nWrist Velocity: {}\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[0], action[1], action[2], action[3])
-                action_str = action_str + "\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(hand_object_coords["local_obj_coords"][0], hand_object_coords["local_obj_coords"][1], hand_object_coords["local_obj_coords"][2], reward)
-                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=timestep,obj_coords=hand_object_coords["local_obj_coords"], saving_dir=output_dir,final_episode_type=None)
-
             # Set the previous state and the current state distal finger tips positions
             f_dist_old = state[9:17]
             f_dist_new = next_state[9:17]
 
             # Check if the movement in the distal finger tips give a grasping position
             if timestep >= n_steps:
-                ready_for_lift, total_distal_change = check_grasp(f_dist_old, f_dist_new, total_distal_change)
+                ready_for_lift, f_all_change, total_distal_change = check_grasp(f_dist_old, f_dist_new, total_distal_change)
+
+            # Render the performance
+            if render_imgs is True:
+                action_str = "Grasping stage timestep: "+str(timestep)+"\nAction (rad/sec):\nWrist Velocity: {}\nFinger 1 Velocity: {:.3f}\nFinger 2 Velocity: {:.3f}\nFinger 3 Velocity: {:.3f}".format(action[0], action[1], action[2], action[3])
+                action_str = action_str + "\nDistal finger tip change: {:3f}\nObject Position (local x,y,z): {:.3f}, {:.3f}, {:.3f}\nReward: {}".format(f_all_change,hand_object_coords["local_obj_coords"][0], hand_object_coords["local_obj_coords"][1], hand_object_coords["local_obj_coords"][2], reward)
+                render_file_dir = eval_env.render_img(text_overlay=action_str, episode_num=i, timestep_num=timestep,obj_coords=hand_object_coords["local_obj_coords"], saving_dir=output_dir,final_episode_type=None)
 
             state = next_state
             timestep = timestep + 1
+
+        #if i <= 10 and controller_type != "policy":
+            # ep_saving_dir = all_saving_dirs["output_dir"] + "/ep_" + str(i)
+            # new_path = Path(ep_saving_dir)
+            # new_path.mkdir(parents=True, exist_ok=True)
+            #    # Plot the controller actions and vectors over the course of the episode
+            #    plot_controller_metrics(controller_output,velocities,all_saving_dirs)
 
         # Lifting stage
         while lift_timestep <= 15 and not done:
@@ -692,6 +728,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
         # Beginning of episode time steps, done is max time steps or lift reward achieved
         timestep = 1
         lift_timestep = 1
+        f_all_change = 0 # change in the distal finger tips from a single timestep
 
         # Grasping Stage
         while timestep <= 30 and not ready_for_lift:
@@ -713,7 +750,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
                 all_action_ouput["action_noise"].append(action_noise)
             else:
                 # Get the action from the controller (controller_type: naive, position-dependent)
-                finger_action = get_action(obs=np.array(state[0:82])[state_idx_arr], lift_check=ready_for_lift, controller=controller, env=env, velocities=velocities, pid_mode=controller_type)
+                finger_action, obj_hand_vectors, controller_pid_metrics = get_action(obs=np.array(state[0:82])[state_idx_arr], controller=controller, env=env, episode_num=episode_num, timestep=timestep, velocities=velocities, pid_mode=controller_type, all_saving_dirs=all_saving_dirs)
 
             wrist_action = np.array([0])
             action = np.concatenate((wrist_action, finger_action))  # Wrist velocity will be 0 until ready for lift
@@ -736,7 +773,7 @@ def conduct_episodes(policy, controller_type, expert_buffers, replay_buffer, num
 
             # Check if the movement in the distal finger tips give a grasping position
             if timestep >= replay_buffer.n_steps:
-                ready_for_lift, total_distal_change = check_grasp(f_dist_old, f_dist_new, total_distal_change)
+                ready_for_lift, f_all_change, total_distal_change = check_grasp(f_dist_old, f_dist_new, total_distal_change)
 
             state = next_state
             timestep = timestep + 1
@@ -944,7 +981,7 @@ def setup_directories(env, saving_dir, expert_replay_file_path, agent_replay_fil
         heatmap_dir = saving_dir + "/output/heatmap/"
         boxplot_dir = saving_dir + "/output/boxplot/"
         results_saving_dir = saving_dir + "/output/results"
-    elif mode == "combined" or mode == "naive" or mode == "position-dependent":
+    elif mode == "combined" or mode == "naive" or mode == "position-dependent" or mode == "controller_a" or mode == "controller_b":
         output_dir = saving_dir + "/output/"
         replay_buffer_dir = saving_dir + "/replay_buffer/"  # Directory to hold replay buffer
         heatmap_dir = output_dir + "heatmap/"
@@ -1526,7 +1563,7 @@ if __name__ == "__main__":
     max_action_trained = env.action_space.high  # a vector of max actions
     n = 5   # n step look ahead for the policy
     max_q_value = 50  # Should match the maximum reward value
-    velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 3, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
+    velocities = {"constant_velocity": 2, "min_velocity": 0, "max_velocity": 3, "min_constant_velocity": 1.5, "finger_lift_velocity": 1, "wrist_lift_velocity": 1}
 
     ''' Set values from command line arguments '''
     requested_shapes = args.shapes                   # Sets list of desired objects for experiment
@@ -1613,7 +1650,7 @@ if __name__ == "__main__":
     if saving_dir is None:
         saving_dir = "%s_%s" % (args.policy_name, args.mode) + datestr
 
-    if args.mode == "naive" or args.mode == "position-dependent" or args.mode == "combined":
+    if args.mode == "naive" or args.mode == "position-dependent" or args.mode == "combined" or args.mode == "controller_a" or args.mode == "controller_b":
         exp_grasp_noise_dir = experiment_mode_dir + noise_str + "/" + with_grasp_str + "/"
         create_paths([exp_grasp_noise_dir])
         saving_dir = exp_grasp_noise_dir + "/{}/".format(str(requested_shapes[0])) + requested_orientation
@@ -1674,7 +1711,7 @@ if __name__ == "__main__":
         param_text += "Policy update after: "+ str(args.update_after) + "\n"
         param_text += "Policy update frequency: "+ str(args.update_freq) + "\n"
         param_text += "Policy update Amount: "+ str(args.update_num) + "\n"
-        if args.mode != "position-dependent" and args.mode != "naive" and args.mode != "combined":
+        if args.mode != "position-dependent" and args.mode != "naive" and args.mode != "combined" and args.mode != "controller_a" and args.mode != "controller_b":
             param_text += "Generating " + str(max_episode) + " episodes!"
         print("\n----------------- SELECTED MODE: ", str(args.mode), "-------------------------")
         print("PARAMETERS: \n")
@@ -1719,7 +1756,7 @@ if __name__ == "__main__":
 
     # Determine replay buffer/policy function calls based on mode (expert, pre-train, train, evaluate)
     # Generate expert data based on Naive controller only
-    if args.mode == "naive" or args.mode == "position-dependent" or args.mode == "combined":
+    if args.mode == "naive" or args.mode == "position-dependent" or args.mode == "combined" or args.mode == "controller_a" or args.mode == "controller_b":
         print("MODE: " + args.mode)
         # Create directories where information will be saved
         all_saving_dirs = setup_directories(env, saving_dir, "None", "None", "None", mode=args.mode, create_dirs=True)
@@ -1907,6 +1944,7 @@ if __name__ == "__main__":
                     policy.load(eval_point_policy_path)
 
             else:
+                eval_point_str = ""
                 ep_num = ""
                 eval_point_saving_dir = saving_dir
                 print("Using controller_type: ", controller_type)
