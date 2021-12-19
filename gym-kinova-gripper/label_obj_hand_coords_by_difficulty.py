@@ -261,20 +261,20 @@ def get_difficulty_success_rate(labelled_obj_hand_coords):
     num_hard = sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "hard"])
 
     if num_easy > 0:
-        difficulty_success_rate["easy"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "easy" and obj_coord["success"] == 'True']) / num_easy)*50
+        difficulty_success_rate["easy"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "easy" and (obj_coord["success"] == 'True' or obj_coord["success"] == 'TRUE')]) / num_easy)*50
     else:
         difficulty_success_rate["easy"] = 0
     if num_med > 0:
-        difficulty_success_rate["med"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "med" and obj_coord["success"] == 'True']) / num_med)*50
+        difficulty_success_rate["med"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "med" and (obj_coord["success"] == 'True' or obj_coord["success"] == 'TRUE')]) / num_med)*50
     else:
         difficulty_success_rate["med"] = 0
     if num_hard > 0:
-        difficulty_success_rate["hard"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "hard" and obj_coord["success"] == 'True']) / num_hard)*50
+        difficulty_success_rate["hard"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["difficulty"] == "hard" and (obj_coord["success"] == 'True' or obj_coord["success"] == 'TRUE')]) / num_hard)*50
     else:
         difficulty_success_rate["hard"] = 0
-    difficulty_success_rate["all_coords"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["success"] == 'True']) / len(labelled_obj_hand_coords))*50
-    difficulty_success_rate["naive"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["naive_success"] == 'True']) / len(labelled_obj_hand_coords)) * 50
-    difficulty_success_rate["position-dependent"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["position-dependent_success"] == 'True']) / len(labelled_obj_hand_coords)) * 50
+    difficulty_success_rate["all_coords"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["success"] == 'True' or obj_coord["success"] == 'TRUE']) / len(labelled_obj_hand_coords))*50
+    difficulty_success_rate["naive"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["naive_success"] == 'True' or obj_coord["naive_success"] == 'TRUE']) / len(labelled_obj_hand_coords)) * 50
+    difficulty_success_rate["position-dependent"] = (sum([1 for obj_coord in labelled_obj_hand_coords if obj_coord["position-dependent_success"] == 'True' or obj_coord["position-dependent_success"] == 'TRUE']) / len(labelled_obj_hand_coords)) * 50
 
     return difficulty_success_rate
 
@@ -290,6 +290,7 @@ def plot_success_rate_by_difficulty(all_policy_coords, eval_points, start_episod
     for type in line_types:
         variation_input_policies[type] = [{"rewards": [policy_coords["difficulty"][type] for policy_coords in all_policy_coords.values()],"orientation_shape":[orientation,shape_name]}]
 
+    max_episode = 10000
     reward_plot(eval_points, variation_input_policies, variation_input_name, policy_colors, start_episode, eval_freq, max_episode, shape_name, orientation, saving_dir)
 
 
@@ -318,18 +319,18 @@ def get_variation_input(variation_input_name):
 
 if __name__ == "__main__":
     # TODO: Make into command-line arguments
-    coords_option = "plot_coords"
-    start_episode, eval_freq, max_episode = 0, 200, 10000
+    coords_option = "plot_policy_coords"
+    start_episode, eval_freq, max_episode = 0, 500, 3500
     with_noise = False
     variation_input_name = "Baseline"
-    policy_filepath = "./experiments/pre-train/Pre-train_Baseline/" + variation_input_name
+    policy_filepath = "./experiments/pre-train/Pre-train_Baseline/output/results/"
     variation_input_dict = get_variation_input(variation_input_name)
 
-    all_shapes = ["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
-    all_orientations = ["normal", "top", "rotated"]
+    all_shapes = ["CubeM"] #["CubeS", "CubeM", "CubeB", "CylinderM", "Vase1M"]
+    all_orientations = ["normal"] #["normal", "top", "rotated"]
     all_coords_types = ["shape","train","eval"]
     # Get labelled coordinates from the file to re-label them by difficulty
-    get_labelled_coords_from_file = False
+    get_labelled_coords_from_file = True
     # Decide if you want to write the coordinates to csv files by difficulty or not
     save_coords_by_difficulty = False
 
@@ -409,7 +410,7 @@ if __name__ == "__main__":
                 eval_point_filepath = policy_filepath + "/policy_" + str(eval_point) + "/output/"
 
                 # Read in pre-labelled coordinate dictionaries from a file
-                labelled_obj_hand_coords, _ = read_obj_hand_pose_dict_list(eval_point_filepath,num_coords=100,filename="all_hand_object_coords.csv")
+                labelled_obj_hand_coords, _ = read_obj_hand_pose_dict_list(eval_point_filepath,num_coords=140,filename="eval_all_hand_object_coords.csv")
 
                 difficulty_success_rate = get_difficulty_success_rate(labelled_obj_hand_coords)
 

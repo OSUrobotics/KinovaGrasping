@@ -232,7 +232,7 @@ def plot_coords_for_each_shape(shape_keys,with_noise,hand_orientation):
         plot_coords(coords_filename, fig_name, coords_dir, plot_title=fig_name)
 
 
-def create_hand_object_plots(all_hand_object_coords, shape, coord_type, saving_dir):
+def create_hand_object_plots(coords, shape, coord_type, saving_dir, use_text_file_coords=False):
         """
         Generate plots displaying the actual coordinate location of each object-hand position
         """
@@ -242,16 +242,27 @@ def create_hand_object_plots(all_hand_object_coords, shape, coord_type, saving_d
         y_min = -0.11
         y_max = 0.11
 
-        for frame in ["local_",""]:
-            x_vals = [d[frame + "obj_coords"][0] for d in all_hand_object_coords]
-            y_vals = [d[frame + "obj_coords"][1] for d in all_hand_object_coords]
-            plot_title = frame + " frame: " + coord_type +" "+ actual_plot_title
-            fig_filename = shape + "_" + coord_type + "_coords_"+frame+"_actual_heatmap.png"
-            heatmap_actual_coords(total_x=x_vals, total_y=y_vals,
-                                  plot_title=plot_title,
-                                  fig_filename=fig_filename,
-                                  saving_dir=saving_dir, hand_lines=None, state_rep=frame, x_min=x_min,
-                                  x_max=x_max, y_min=y_min, y_max=y_max)
+        if use_text_file_coords is False:
+            for frame in ["local_",""]:
+                x_vals = [d[frame + "obj_coords"][0] for d in coords]
+                y_vals = [d[frame + "obj_coords"][1] for d in coords]
+                plot_title = frame + " frame: " + coord_type +" "+ actual_plot_title
+                fig_filename = shape + "_" + coord_type + "_coords_"+frame+"_actual_heatmap.png"
+                heatmap_actual_coords(total_x=x_vals, total_y=y_vals,
+                                      plot_title=plot_title,
+                                      fig_filename=fig_filename,
+                                      saving_dir=saving_dir, hand_lines=None, state_rep=frame, x_min=x_min,
+                                      x_max=x_max, y_min=y_min, y_max=y_max)
+            else:
+                x_vals = [d[0] for d in coords]
+                y_vals = [d[1] for d in coords]
+                plot_title = coord_type +" "+ actual_plot_title
+                fig_filename = shape + "_" + coord_type + "_coords_"+frame+"_actual_heatmap.png"
+                heatmap_actual_coords(total_x=x_vals, total_y=y_vals,
+                                      plot_title=plot_title,
+                                      fig_filename=fig_filename,
+                                      saving_dir=saving_dir, hand_lines=None, state_rep=frame, x_min=x_min,
+                                      x_max=x_max, y_min=y_min, y_max=y_max)
 
 
 def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adjust_coords=None, orient_idx=None, coord_difficulty=None):
@@ -392,18 +403,88 @@ def coord_check_loop(shape_keys, with_noise, hand_orientation, render_coord, adj
         create_hand_object_plots(all_hand_object_coords, shape_name, "all", valid_shape_coords_filepath + "/")
 
 
+def read_text_file_coords(with_noise,coords_file):
+    """
+    Read coordinates from the text file
+    """
+    data = []
+    with open(coords_file) as csvfile:
+        checker = csvfile.readline()
+        if ',' in checker:
+            delim = ','
+        else:
+            delim = ' '
+    # Go back to the top of the file after checking for the delimiter
+    with open(coords_file) as csvfile:
+        reader = csv.reader(csvfile, delimiter=delim)
+        for i in reader:
+            if with_noise is True:
+                # Object x, y, z coordinates, followed by corresponding hand orientation x, y, z coords
+                data.append([float(i[0]), float(i[1]), float(i[2]), float(i[3]), float(i[4]), float(i[5])])
+            else:
+                # Hand orientation is set to (0, 0, 0) if no orientation is selected
+                data.append([float(i[0]), float(i[1]), float(i[2]), 0, 0, 0])
+
+    return data
+
+def remove_coord_outliers(x_min,x_max,y_min,y_max,with_noise,coords_dir,filename):
+    """
+    After coordinates have been checked for collision, remove any coordinates that lie outside of a specific range
+    """
+    # Read coordinates from the text file and csv file
+    all_coords = read_text_file_coords(with_noise, coords_dir+filename)
+
+    # Check if coordinates are within range
+    valid_coords = []
+    bad_coords = []
+    orient_indexes = []
+    bad_indexes = []
+    for i in range(len(all_coords)):
+        if x_min <= all_coords[i][0] <= x_max and y_min <= all_coords[i][1] <= y_max:
+            valid_coords.append(all_coords[i])
+            orient_indexes.append(i)
+        else:
+            bad_coords.append(all_coords[i])
+            bad_indexes.append(i)
+
+    create_hand_object_plots(valid_hand_object_coords, shape_name, "valid", coords_dir)
+    print("done")
+    # Write coordinates that are within range
+
+    # Plot newly-filtered coordinates
+    #create_hand_object_plots(valid_hand_object_coords, shape_name, "valid", valid_shape_coords_filepath + "/")
+
 if __name__ == "__main__":
-    all_shapes = ["CubeS","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
+    all_shapes = ["CubeB","CubeM","CubeB","CylinderM","Vase1M"] # ["CylinderB","Cube45S","Cube45B","Cone1S","Cone1B","Cone2S","Cone2B","Vase1S","Vase1B","Vase2S","Vase2B"]
 
     adjust_coords = {}
     adjust_coords["obj_coords_change"] = [0,0,0]
     adjust_coords["hand_rotation_angle_change"] = [0,0,0]#[-0.15,0,0] #[-0.0872665,0,0]
     difficulty = None
+    filtering_type = "remove_outliers"
 
-    for shape in all_shapes:
-        shape_keys = [shape]
-        print("*** Filtering ",shape_keys)
-        coord_check_loop(shape_keys=shape_keys, with_noise=True, orient_idx=None, hand_orientation="normal", adjust_coords=adjust_coords, render_coord=False, coord_difficulty=difficulty)
+    if filtering_type == "collision":
+        for shape in all_shapes:
+            shape_keys = [shape]
+            print("*** Filtering ",shape_keys)
+            coord_check_loop(shape_keys=shape_keys, with_noise=True, orient_idx=None, hand_orientation="normal", adjust_coords=adjust_coords, render_coord=False, coord_difficulty=difficulty)
+    elif filtering_type == "remove_outliers":
+        x_min = -0.09
+        x_max = 0.09
+        y_min = -0.06
+        y_max = 0.02
+        with_noise = True
+        orientation = "rotated"
+        shapes = []
+
+        if with_noise is True:
+            noise_str = "with_noise/"
+        else:
+            noise_str = "no_noise/"
+
+        for shape in all_shapes:
+            coords_dir = "gym_kinova_gripper/envs/kinova_description/valid_obj_hand_coords/" + noise_str + "shape_coords/" + orientation + "/"
+            remove_coord_outliers(x_min,x_max,y_min,y_max,with_noise,coords_dir,filename=shape+".txt")
 
     #print("Done looping through coords - Quitting")
     #plot_coords_for_each_shape(shape_keys,with_noise=True,hand_orientation="normal")
