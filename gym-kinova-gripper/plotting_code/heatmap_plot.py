@@ -8,7 +8,7 @@ import os
 import argparse
 from pathlib import Path
 
-def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,x_min=-0.11,x_max=0.11,y_min=-0.11,y_max=0.11):
+def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,vector_lines=None,plot_str=None,x_min=-0.11,x_max=0.11,y_min=0,y_max=0.11):
     """ Create heatmap displaying the actual locations of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -37,7 +37,7 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
         loc = 'upper left'
 
     fig = plt.figure()
-    fig.set_size_inches(11,8)   # Figure size
+    fig.set_size_inches(13,8)   # Figure size
     fig.set_dpi(100)           # Pixel amount
     ax = fig.add_subplot(111)
     ax.set_xlim([x_min, x_max])
@@ -49,6 +49,27 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
         plt.plot(hand_lines["finger1"][0],hand_lines["finger1"][1], label="Finger 1")
         plt.plot(hand_lines["finger2"][0],hand_lines["finger2"][1], label="Finger 2")
         plt.plot(hand_lines["finger3"][0],hand_lines["finger3"][1], label="Finger 3")
+
+    if vector_lines is not None:
+        obj_x = vector_lines["object"]["vectors"]["geom_vec_points"]["geom_center_point"][0]
+        obj_y = vector_lines["object"]["vectors"]["geom_vec_points"]["geom_center_point"][1]
+
+        finger_keys = ["finger_1","finger_2","finger_3"]
+        for key in finger_keys:
+            # Plot the finger-palm vectors
+            #plt.plot([vector_lines[key]["vectors"]["geom_vec_points"][0][0], vector_lines[key]["vectors"]["geom_vec_points"][1][0]],
+            #         [vector_lines[key]["vectors"]["geom_vec_points"][0][1], vector_lines[key]["vectors"]["geom_vec_points"][1][1]],
+            #         label=key+"-Palm vector")
+            # Plot the finger-object distances
+            # [palm_center, geom_center_point]
+            finger_x = vector_lines[key]["vectors"]["geom_vec_points"]["geom_center_point"][0]
+            finger_y = vector_lines[key]["vectors"]["geom_vec_points"]["geom_center_point"][1]
+            plt.plot([finger_x,obj_x],[finger_y,obj_y],label=key+"-object distance")
+
+        plt.plot([vector_lines[key]["vectors"]["palm_vec_points"]["palm_center"][0],vector_lines[key]["vectors"]["palm_vec_points"]["point_along_palm_center"][0]],[vector_lines[key]["vectors"]["palm_vec_points"]["palm_center"][1],vector_lines[key]["vectors"]["palm_vec_points"]["point_along_palm_center"][1]], label="Palm vector")
+        for idx in range(len(plot_str)):
+            # Plot each string and space them out
+            plt.text(-0.11+(0.038*idx), 0.13, s=plot_str[idx], fontsize=10, va='top', ha='left')
 
     ax.set_aspect('equal', adjustable='box')
     ax.xaxis.set_major_locator(MultipleLocator(0.01))   # Set axis tick locations
@@ -70,7 +91,7 @@ def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_fi
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples,x_min=-0.11,x_max=0.11,y_min=-0.11,y_max=0.11):
+def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,color_map=plt.cm.Purples,x_min=-0.11,x_max=0.11,y_min=0,y_max=0.11):
     """ Create heatmap displaying frequency of object initial starting position coordinates
     total_x: Total initial object position x-coordinates
     total_y: Total initial object position y-coordinates
@@ -123,7 +144,7 @@ def heatmap_freq(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,sa
         plt.savefig(saving_dir+fig_filename)
         plt.close(fig)
 
-def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success,x_min=-0.11,x_max=0.11,y_min=-0.11,y_max=0.11):
+def heatmap_plot(success_x,success_y,fail_x,fail_y,total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,plot_success,x_min=-0.11,x_max=0.11,y_min=0,y_max=0.11):
     """ Create heatmap displaying success rate of object initial position coordinates """
     cb_label = 'Grasp Trial Success Rate %'
 

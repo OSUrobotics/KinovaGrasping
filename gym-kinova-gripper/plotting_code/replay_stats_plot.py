@@ -16,13 +16,16 @@ def get_stats(metric_arr):
 
     return min_value, max_value, range_value, mean_value
 
-def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, axes_limits=None, saving_dir=None):
+def actual_values_plot(metrics_arr, episode_idx, label_name, metric_name, y_metric_name="Velocity", y_axis_metrics=None, axes_limits=None, saving_dir=None):
     """ Create a simple plot with the actual metric values """
     fig = plt.figure()
-    plt.plot(metrics_arr[episode_idx],label=label_name)
-    plt.title("Actual Values of "+ str(metric_name) + " over episode" + str(episode_idx+1))
-    plt.xlabel("Time step")
-    plt.ylabel(str(metric_name))
+    if y_axis_metrics is None:
+        plt.plot(metrics_arr[episode_idx],label=label_name)
+    else:
+        plt.plot(metrics_arr[episode_idx],y_axis_metrics, label=label_name)
+    plt.title(str(y_metric_name) + " over episode " + str(episode_idx+1))
+    plt.xlabel(metric_name)
+    plt.ylabel(y_metric_name)
     plt.legend(loc='best')
 
     if axes_limits is None:

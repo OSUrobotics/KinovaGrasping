@@ -14,7 +14,7 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     """ Plot the reward values from evaluation """
     reward_fig, axs = pyplt.subplots(1)
     reward_fig.set_size_inches(11, 8)
-    reward_fig.suptitle("Variation Input: {}\nSuccess rate over 400 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation with a {} shape and {} hand orientation".format(variation_input_name,eval_freq,shape_name,orientation),fontsize=14)
+    reward_fig.suptitle("Success rate over 140 Grasp Trials per evaluation point (Every {} episodes)\nEvaluation with a {} shape and {} hand orientation".format(eval_freq,shape_name,orientation),fontsize=14)
 
     shape_marker_types = {"CubeM":'.', "CubeS":'d', "CubeB": 'D', "CylinderM": 'o', "Vase1M": 'v'}
 
