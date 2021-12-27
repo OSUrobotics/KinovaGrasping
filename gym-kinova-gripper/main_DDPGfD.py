@@ -1778,11 +1778,15 @@ if __name__ == "__main__":
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
         print("Expert replay Buffer: ", expert_replay_file_path)
-        agent_replay_file_path = None
-        print("Agent replay Buffer: ", agent_replay_file_path)
 
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
-        replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
+        if agent_replay_file_path is not None:
+            replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
+            replay_buffer = replay_buffer.store_saved_data_into_replay(agent_replay_file_path)
+            print("Agent replay buffer is: ",agent_replay_file_path)
+        else:
+            replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
+            print("Agent replay buffer is NONE")
 
         # Determine the expert replay buffer(s) to be used based on the requested shapes
         if expert_replay_file_path is None:
