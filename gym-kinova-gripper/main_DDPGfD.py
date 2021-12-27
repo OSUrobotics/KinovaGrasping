@@ -1788,6 +1788,13 @@ if __name__ == "__main__":
         else:
             print("Using an empty agent replay buffer!!")
 
+        if pretrain_model_save_path is None:
+            print("pretrain_model_save_path is None!! Using random init policy...")
+            pretrain_model_save_path = "None (Using random init policy)"
+        else:
+            print("Loading the policy: ",pretrain_model_save_path)
+            policy.load(pretrain_model_save_path)
+
         # Determine the expert replay buffer(s) to be used based on the requested shapes
         if expert_replay_file_path is None:
             expert_buffers = None
