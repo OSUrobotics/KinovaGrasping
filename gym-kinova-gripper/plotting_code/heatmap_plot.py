@@ -6,6 +6,7 @@ from matplotlib.ticker import (MultipleLocator, FormatStrFormatter, AutoMinorLoc
 from PIL import Image
 import os
 import argparse
+import csv
 from pathlib import Path
 
 def heatmap_actual_coords(total_x,total_y,hand_lines,state_rep,plot_title,fig_filename,saving_dir,vector_lines=None,plot_str=None,x_min=-0.11,x_max=0.11,y_min=0,y_max=0.11):
@@ -434,13 +435,22 @@ def generate_heatmaps(plot_type, shapes_list, orientation, data_dir, saving_dir,
 
     # FOR EVAL
     if plot_type == "eval":
+        rewards = []
         for ep_num in np.linspace(start=0, stop=max_episodes, num=int(max_episodes / saving_freq)+1, dtype=int):
             print("EVAL EP NUM: ",ep_num)
             # Get coordinate data as numpy arrays
             success_x, success_y, fail_x, fail_y, total_x, total_y = get_heatmap_coord_data(data_dir, "_"+str(ep_num))
+            rewards.append({"Episode":ep_num,"Num_Success": len(success_x),"Num_Total": len(total_x)})
 
             # Plot coordinate data to frequency and success rate heatmaps
             create_heatmaps(success_x, success_y, fail_x, fail_y, total_x, total_y, str(shapes_list), orientation, state_rep, saving_dir, ep_num=ep_num, title_str="")
+
+        dict_file = open(saving_dir + "/eval_rewards.csv", "w", newline='')
+        keys = rewards[0].keys()
+        dict_writer = csv.DictWriter(dict_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows(rewards)
+        dict_file.close()
     else:
         # FOR TRAIN
         # Get coordinate data as numpy arrays
@@ -456,11 +466,12 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--data_dir", type=str, action='store', default="./")
     parser.add_argument("--saving_dir", type=str, action='store', default=None)
-    parser.add_argument("--plot_type", type=str, action='store', default="train")
+    parser.add_argument("--plot_type", type=str, action='store', default="eval")
     parser.add_argument("--orientation", type=str, action='store', default="normal")
-    parser.add_argument("--saving_freq", default=200, type=int) # Frequency at which the files were saved at (Determines the filename ex: success_x_1000.npy)
-    parser.add_argument("--max_episodes", default=4000, type=int) # Maximum number of episodes to be plotted
+    parser.add_argument("--saving_freq", default=500, type=int) # Frequency at which the files were saved at (Determines the filename ex: success_x_1000.npy)
+    parser.add_argument("--max_episodes", default=7000, type=int) # Maximum number of episodes to be plotted
     parser.add_argument("--state_rep", type=str, action='store', default="local") # Plots the positions of the fingers based on either the local or global coordinate frame
+    parser.add_argument("--shapes_list", type=list, action='store', default=[""]) # Shapes currently being plotted
     args = parser.parse_args()
 
     data_dir = args.data_dir       # Directory to Get input data from
@@ -476,5 +487,6 @@ if __name__ == "__main__":
     saving_freq = args.saving_freq
     max_episodes = args.max_episodes
     state_rep = args.state_rep
+    shapes_list = "CylinderM" #args.shapes_list
 
-    generate_heatmaps(plot_type, orientation, data_dir, saving_dir, saving_freq, max_episodes, state_rep)
+    generate_heatmaps(plot_type=plot_type, shapes_list=shapes_list, orientation=orientation, data_dir=data_dir, saving_dir=saving_dir, saving_freq=saving_freq, max_episodes=max_episodes, state_rep=state_rep)

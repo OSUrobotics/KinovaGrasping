@@ -1900,7 +1900,7 @@ if __name__ == "__main__":
         Baseline = {"variation_name": "Baseline", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": False}
         Baseline_HOV = {"variation_name": "Baseline_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "normal", "with_orientation_noise": True}
         Sizes_HOV = {"variation_name": "Sizes_HOV", "requested_shapes": ["CubeS","CubeM","CubeB"], "requested_orientation": "normal", "with_orientation_noise": True}
-        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeM", "CylinderM", "Vase1M"], "requested_orientation": "normal", "with_orientation_noise": True}
+        Shapes_HOV = {"variation_name": "Shapes_HOV", "requested_shapes": ["CubeM", "CylinderM", "Cone2M", "HourM"], "requested_orientation": "normal", "with_orientation_noise": True}
         Orientations_HOV = {"variation_name": "Orientations_HOV", "requested_shapes": ["CubeM"], "requested_orientation": "random", "with_orientation_noise": True}
 
         # Contains all input variation types
