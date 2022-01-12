@@ -399,7 +399,7 @@ class PID(object):
         finger3_coord = f3_vectors["geom_vec_points"]["geom_center_point"]
 
         # Object widths in meters
-        object_widths = {"CubeS": 0.034, "CubeM": 0.041, "CubeB": 0.048, "CylinderM": 0.042,"Vase1M": 0.042, "Cone2M": 0.063}
+        object_widths = {"CubeS": 0.034, "CubeM": 0.041, "CubeB": 0.048, "CylinderM": 0.042,"Vase1M": 0.042, "Cone2M": 0.063, "HourM": 0.036} # HourM = 0.085*0.85 / 2
 
         # AlphaOBJ angle between object and palm
         AlphaOBJ = self.get_angle_between_two_vectors(point1_start=palm_center_coord, point1_end=obj_coord, point2_start=palm_center_coord, point2_end=point_along_palm_coord)
