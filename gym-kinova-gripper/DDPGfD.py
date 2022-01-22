@@ -252,23 +252,25 @@ class DDPGfD(object):
 		return actor_loss.item(), critic_loss.item(), critic_L1loss.item(), critic_LNloss.item()
 
 
-	def train_batch(self, max_episode_num, episode_num, update_count, expert_replay_buffer, replay_buffer, mod_state_idx=np.arange(82)):
+	def train_batch(self, max_episode_num, episode_num, update_count, expert_replay_buffers, replay_buffer, mod_state_idx=np.arange(82)):
 		""" Update policy networks based on batch_size of episodes using n-step returns """
 		self.total_it += 1
 		agent_batch_size = 0
 		expert_batch_size = 0
 
 		# Sample replay buffer
-		if replay_buffer is not None and expert_replay_buffer is None: # Only use agent replay
+		if replay_buffer is not None and expert_replay_buffers is None: # Only use agent replay
 			#print("AGENT")
 			expert_or_random = "agent"
 			agent_batch_size = self.batch_size
 			state, action, next_state, reward, not_done = replay_buffer.sample_batch_nstep(self.batch_size)
-		elif replay_buffer is None and expert_replay_buffer is not None: # Only use expert replay
+		elif replay_buffer is None and expert_replay_buffers is not None: # Only use expert replay
 			#print("EXPERT")
 			expert_or_random = "expert"
 			expert_batch_size = self.batch_size
-			state, action, next_state, reward, not_done = expert_replay_buffer.sample_batch_nstep(self.batch_size)
+			expert_buffer_name, expert_buffer = expert_replay_buffers.items()
+			print("Sampling ", self.batch_size, " episodes from ", expert_buffer_name)
+			state, action, next_state, reward, not_done = expert_buffer.sample_batch_nstep(self.batch_size)
 		else:
 			#print("MIX OF AGENT AND EXPERT")
 
@@ -285,7 +287,34 @@ class DDPGfD(object):
 			#print("SAMPLING FROM AGENT...agent_batch_size: ",agent_batch_size)
 			agent_state, agent_action, agent_next_state, agent_reward, agent_not_done = replay_buffer.sample_batch_nstep(agent_batch_size)
 			#print("SAMPLING FROM EXPERT...expert_batch_size: ",expert_batch_size)
-			expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_replay_buffer.sample_batch_nstep(expert_batch_size)
+
+			num_expert_buffers = len(expert_replay_buffers)
+			expert_batch_size_per_controller = int(expert_batch_size / num_expert_buffers)
+			if num_expert_buffers == 1:
+				expert_buffer_name, expert_buffer = expert_replay_buffers.items()
+				#print("Sampling ",expert_batch_size_per_controller," episodes from ",expert_buffer_name)
+				expert_state, expert_action, expert_next_state, expert_reward, expert_not_done = expert_buffer.sample_batch_nstep(
+					expert_batch_size_per_controller)
+			else:
+				num_expert_loops = 0
+				for expert_buffer_name, expert_buffer in expert_replay_buffers.items():
+					#print("Sampling ", expert_batch_size_per_controller, " episodes from ", expert_buffer_name)
+					temp_exp_state, temp_exp_action, temp_exp_next_state, temp_exp_reward, temp_exp_not_done = expert_buffer.sample_batch_nstep(expert_batch_size_per_controller)
+					if num_expert_loops == 0:
+						expert_state = temp_exp_state
+						expert_action = temp_exp_action
+						expert_next_state = temp_exp_next_state
+						expert_reward = temp_exp_reward
+						expert_not_done = temp_exp_not_done
+
+					if num_expert_loops > 0:
+						expert_state = torch.cat((torch.squeeze(expert_state), torch.squeeze(temp_exp_state)), 0)
+						expert_action = torch.cat((torch.squeeze(expert_action), torch.squeeze(temp_exp_action)), 0)
+						expert_next_state = torch.cat((torch.squeeze(expert_next_state), torch.squeeze(temp_exp_next_state)), 0)
+						expert_reward = torch.cat((torch.squeeze(expert_reward), torch.squeeze(temp_exp_reward)), 0)
+						expert_not_done = torch.cat((torch.squeeze(expert_not_done), torch.squeeze(temp_exp_not_done)), 0)
+
+					num_expert_loops += 1
 
 			# Concatenate batches of agent and expert experience to get batch_size tensors of experience
 			state = torch.cat((torch.squeeze(agent_state), torch.squeeze(expert_state)), 0)
@@ -293,6 +322,7 @@ class DDPGfD(object):
 			next_state = torch.cat((torch.squeeze(agent_next_state), torch.squeeze(expert_next_state)), 0)
 			reward = torch.cat((torch.squeeze(agent_reward), torch.squeeze(expert_reward)), 0)
 			not_done = torch.cat((torch.squeeze(agent_not_done), torch.squeeze(expert_not_done)), 0)
+
 			if self.batch_size == 1:
 				state = state.unsqueeze(0)
 				action = action.unsqueeze(0)
@@ -421,6 +451,7 @@ class DDPGfD(object):
 		critic_loss.backward()
 		self.critic_optimizer.step()
 
+		"""
 		# Compute Behavior Cloning loss - state and action are from the expert
 		Lbc = 0
 		# If we are decaying the amount of expert experience, then decay the BC loss as well
@@ -430,10 +461,10 @@ class DDPGfD(object):
 		if expert_batch_size > 0:
 			# Expert state and expert action are sampled from the expert demonstrations (expert replay buffer)
 			Lbc = F.mse_loss(self.actor(expert_state), expert_action)
-		#print("self.lambda_Lbc: ", self.lambda_Lbc)
+		"""
 
 		# Compute actor loss
-		actor_loss = -self.critic(state, self.actor(state)).mean() + self.lambda_Lbc * Lbc
+		actor_loss = -self.critic(state, self.actor(state)).mean() #+ self.lambda_Lbc * Lbc
 		#print("Actor loss: ")
 		#print(actor_loss.shape)
 		#print("actor_loss: ",actor_loss)

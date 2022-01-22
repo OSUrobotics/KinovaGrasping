@@ -50,8 +50,8 @@ def create_std_dev_bar_plot(x,y,deviation,labels,saving_dir,filename):
 
     plt.locator_params(axis='x', nbins=len(labels["freq_vals"]))
     locs, labl = plt.xticks()
-    plt.xticks(locs, labels["freq_vals"])
-    plt.title(labels["title"])
+    # plt.xticks(locs, labels["freq_vals"])
+    # plt.title(labels["title"])
 
     if saving_dir is None:
         print("Showing standard deviation bar plot...")

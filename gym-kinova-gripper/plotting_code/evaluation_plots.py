@@ -2,6 +2,7 @@ import matplotlib.pyplot as pyplt # Used for evaluation plotting
 from heatmap_plot import create_heatmaps, overlap_images
 import numpy as np
 from pathlib import Path
+import csv
 
 def create_paths(dir_list):
     """ Create directories if they do not exist already, given path """
@@ -31,7 +32,7 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
 
             if "naive" in policy_name:
                 line_style = "dotted"
-            elif "position-dependent" in policy_name:
+            elif "controller_a" in policy_name:
                 line_style = '-.'
             else:
                 line_style = '-'
@@ -51,7 +52,17 @@ def reward_plot(eval_points, variation_input_policies, variation_input_name, pol
     if saving_dir is None:
         reward_fig.show()
     else:
-        reward_fig.savefig(saving_dir + "/"+variation_input_name+"_"+shape_name+"_"+orientation+"_Reward_Evaluation_Plot.png")
+        reward_filepath = saving_dir + "/"+variation_input_name+"_"+shape_name+"_"+orientation
+
+        print("*** Writing reward plot and values to: ",reward_filepath)
+        dict_file = open(reward_filepath + "reward_plot_policy_rewards.csv", "w", newline='')
+        keys = variation_input_policies.keys()
+        dict_writer = csv.DictWriter(dict_file, keys)
+        dict_writer.writeheader()
+        dict_writer.writerows([variation_input_policies])
+        dict_file.close()
+
+        reward_fig.savefig(reward_filepath+"_Reward_Evaluation_Plot.png")
         pyplt.close()
 
 

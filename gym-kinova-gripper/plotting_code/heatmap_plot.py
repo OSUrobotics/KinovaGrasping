@@ -469,7 +469,7 @@ if __name__ == "__main__":
     parser.add_argument("--plot_type", type=str, action='store', default="eval")
     parser.add_argument("--orientation", type=str, action='store', default="normal")
     parser.add_argument("--saving_freq", default=500, type=int) # Frequency at which the files were saved at (Determines the filename ex: success_x_1000.npy)
-    parser.add_argument("--max_episodes", default=7000, type=int) # Maximum number of episodes to be plotted
+    parser.add_argument("--max_episodes", default=5000, type=int) # Maximum number of episodes to be plotted
     parser.add_argument("--state_rep", type=str, action='store', default="local") # Plots the positions of the fingers based on either the local or global coordinate frame
     parser.add_argument("--shapes_list", type=list, action='store', default=[""]) # Shapes currently being plotted
     args = parser.parse_args()
@@ -487,6 +487,6 @@ if __name__ == "__main__":
     saving_freq = args.saving_freq
     max_episodes = args.max_episodes
     state_rep = args.state_rep
-    shapes_list = "CylinderM" #args.shapes_list
+    shapes_list = "" #args.shapes_list
 
     generate_heatmaps(plot_type=plot_type, shapes_list=shapes_list, orientation=orientation, data_dir=data_dir, saving_dir=saving_dir, saving_freq=saving_freq, max_episodes=max_episodes, state_rep=state_rep)
