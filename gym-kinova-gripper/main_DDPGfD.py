@@ -1787,7 +1787,10 @@ if __name__ == "__main__":
     # Pre-train policy using expert data, save pre-trained policy for use in training
     elif args.mode == "pre-train":
         print("MODE: Pre-train")
-        print("Expert replay Buffer: ", expert_replay_file_paths.items())
+        if expert_replay_file_paths is None:
+            print("Expert replay Buffers: NONE")
+        else:
+            print("Expert replay Buffers: ", expert_replay_file_paths.items())
 
         # Initialize Queue Replay Buffer: replay buffer manages its size like a queue, popping off the oldest episodes
         replay_buffer = utils.ReplayBuffer_Queue(state_dim, action_dim, agent_replay_size)
@@ -1846,7 +1849,10 @@ if __name__ == "__main__":
     # Train policy starting with pre-trained policy and sampling from experience
     elif args.mode == "train":
         print("MODE: Train (w/ pre-trained policy")
-        print("Expert replay Buffer: ", expert_replay_file_paths.items())
+        if expert_replay_file_paths is None:
+            print("Expert replay Buffers: NONE")
+        else:
+            print("Expert replay Buffers: ", expert_replay_file_paths.items())
         print("Agent replay Buffer: ", agent_replay_file_path)
         print("Pre-trained Policy: ", pretrain_model_save_path)
 
